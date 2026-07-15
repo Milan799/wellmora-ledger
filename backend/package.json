@@ -1,0 +1,23 @@
+{
+  "name": "business-expense-tracker-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Business Expense & Ledger Tracking system",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "seed": "node seed.js",
+    "backup": "node backupManager.js --backup",
+    "restore": "node backupManager.js --restore"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "mongoose": "^8.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
