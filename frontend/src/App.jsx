@@ -17,7 +17,7 @@ import DeleteConfirmation from './components/DeleteConfirmation';
 import Notification from './components/Notification';
 import ExportDropdown from './components/ExportDropdown';
 
-const API_BASE_URL = 'https://wellmora-ledger.onrender.com/api';
+const API_BASE_URL = 'https://wellmora-ledger-1.onrender.com/api';
 
 export default function App() {
   const [activePage, setActivePage] = useState(() => {
