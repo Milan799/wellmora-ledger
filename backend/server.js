@@ -6,6 +6,9 @@ import transactionRouter from './routes/transactions.js';
 import bankTransactionRouter from './routes/bankTransactions.js';
 import partnerFlowRouter from './routes/partnerFlows.js';
 import { createBackup } from './backupManager.js';
+import Transaction from './models/Transaction.js';
+import BankTransaction from './models/BankTransaction.js';
+import PartnerFlow from './models/PartnerFlow.js';
 
 dotenv.config();
 
@@ -25,6 +28,26 @@ app.use('/api/partner-flows', partnerFlowRouter);
 // Root Endpoint
 app.get('/', (req, res) => {
   res.send('Business Expense & Ledger Tracking System API is running...');
+});
+
+// Global error handlers for production stability
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⚠️ Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ Uncaught Exception thrown:', err);
+});
+
+// Register index error event handlers on models to prevent startup crashes
+Transaction.on('index', err => {
+  if (err) console.error('⚠️ Transaction model auto-indexing failed:', err.message);
+});
+BankTransaction.on('index', err => {
+  if (err) console.error('⚠️ BankTransaction model auto-indexing failed:', err.message);
+});
+PartnerFlow.on('index', err => {
+  if (err) console.error('⚠️ PartnerFlow model auto-indexing failed:', err.message);
 });
 
 // Connect to MongoDB
