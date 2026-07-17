@@ -21,6 +21,22 @@ import ExportDropdown from './components/ExportDropdown';
 
 const API_BASE_URL = 'https://wellmora-ledger-1.onrender.com/api';
 
+const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+};
+
 export default function App() {
   const [activePage, setActivePage] = useState(() => {
     return localStorage.getItem('activePage') || 'ledger';
@@ -33,8 +49,12 @@ export default function App() {
 
   // 1. Ledger State
   const [transactions, setTransactions] = useState(() => {
-    const cached = localStorage.getItem('cached_transactions');
-    return cached ? JSON.parse(cached) : [];
+    try {
+      const cached = localStorage.getItem('cached_transactions');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
   });
   const [loadingLedger, setLoadingLedger] = useState(() => {
     return !localStorage.getItem('cached_transactions');
@@ -43,8 +63,12 @@ export default function App() {
 
   // 2. Bank State
   const [bankTransactions, setBankTransactions] = useState(() => {
-    const cached = localStorage.getItem('cached_bankTransactions');
-    return cached ? JSON.parse(cached) : [];
+    try {
+      const cached = localStorage.getItem('cached_bankTransactions');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
   });
   const [loadingBank, setLoadingBank] = useState(() => {
     return !localStorage.getItem('cached_bankTransactions');
@@ -52,8 +76,12 @@ export default function App() {
 
   // 3. Partner State
   const [partnerTransactions, setPartnerTransactions] = useState(() => {
-    const cached = localStorage.getItem('cached_partnerTransactions');
-    return cached ? JSON.parse(cached) : [];
+    try {
+      const cached = localStorage.getItem('cached_partnerTransactions');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
   });
   const [loadingPartner, setLoadingPartner] = useState(() => {
     return !localStorage.getItem('cached_partnerTransactions');
@@ -193,7 +221,7 @@ export default function App() {
     }
     setErrorLedger(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/transactions`);
+      const response = await fetchWithTimeout(`${API_BASE_URL}/transactions`);
       if (!response.ok) throw new Error('Failed to fetch transactions');
       const data = await response.json();
       setTransactions(data);
@@ -374,7 +402,7 @@ export default function App() {
     }
     setErrorBank(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/bank-transactions`);
+      const response = await fetchWithTimeout(`${API_BASE_URL}/bank-transactions`);
       if (!response.ok) throw new Error('Failed to fetch bank transactions');
       const data = await response.json();
       setBankTransactions(data);
@@ -463,7 +491,7 @@ export default function App() {
     }
     setErrorPartner(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/partner-flows`);
+      const response = await fetchWithTimeout(`${API_BASE_URL}/partner-flows`);
       if (!response.ok) throw new Error('Failed to fetch partner transactions');
       const data = await response.json();
       setPartnerTransactions(data);
