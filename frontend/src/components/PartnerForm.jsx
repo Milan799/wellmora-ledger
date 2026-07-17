@@ -10,6 +10,14 @@ export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = n
     description: ''
   });
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const partnerOptions = [
+    'Milan Javiya',
+    'Krushang Prajapati',
+    'Umang Prajapati',
+    'Moksh Shah'
+  ];
 
   useEffect(() => {
     if (transaction) {
@@ -55,10 +63,18 @@ export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = n
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
-    onSubmit({ ...formData, amount: Number(formData.amount) });
+    if (!validateForm() || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    try {
+      await onSubmit({ ...formData, amount: Number(formData.amount) });
+    } catch (err) {
+      console.error('Error submitting partner flow:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const types = ['Capital Contribution', 'Profit Withdrawal', 'Share Distribution'];
@@ -101,16 +117,24 @@ export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = n
               <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${styles.icon}`}>
                 <User size={14} />
               </div>
-              <input
-                type="text"
+              <select
                 name="partnerName"
                 value={formData.partnerName}
                 onChange={handleChange}
-                placeholder="e.g. Milan Javiya"
-                className={`block w-full pl-9 pr-3 py-2.5 border rounded-xl text-sm focus:ring-2 ${styles.input} ${
+                className={`block w-full pl-9 pr-10 py-2.5 border rounded-xl text-sm focus:ring-2 appearance-none cursor-pointer ${styles.input} ${
                   errors.partnerName ? 'border-red-500/40 focus:ring-red-500/10' : ''
                 }`}
-              />
+              >
+                <option value="" className="bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500">Select Partner Name</option>
+                {partnerOptions.map(partner => (
+                  <option key={partner} value={partner} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                    {partner}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400 dark:text-slate-500">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+              </div>
             </div>
             {errors.partnerName && <p className="text-red-500 dark:text-red-455 text-xs mt-1.5 font-medium">{errors.partnerName}</p>}
           </div>
@@ -210,15 +234,21 @@ export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = n
             <button
               type="button"
               onClick={onClose}
-              className={`px-5 py-2.5 text-sm font-semibold rounded-xl border border-transparent cursor-pointer transition-all duration-200 ${styles.cancelBtn}`}
+              disabled={isSubmitting}
+              className={`px-5 py-2.5 text-sm font-semibold rounded-xl border border-transparent cursor-pointer transition-all duration-200 ${styles.cancelBtn} ${
+                isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className={`px-5 py-2.5 text-sm font-bold text-white active:scale-95 rounded-xl border transition-all duration-200 cursor-pointer ${styles.submitBtn}`}
+              disabled={isSubmitting}
+              className={`px-5 py-2.5 text-sm font-bold text-white active:scale-95 rounded-xl border transition-all duration-200 ${
+                isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              } ${styles.submitBtn}`}
             >
-              {isEdit ? 'Save Changes' : 'Add Entry'}
+              {isSubmitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Entry'}
             </button>
           </div>
         </form>

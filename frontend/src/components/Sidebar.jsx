@@ -1,11 +1,13 @@
 import React from 'react';
-import { BookOpen, Building2, Users2, Landmark, X } from 'lucide-react';
+import { BookOpen, Building2, Users2, X, BarChart3 } from 'lucide-react';
+import Logo from './Logo';
 
 export default function Sidebar({ activePage, setActivePage, isOpen, onClose }) {
   const menuItems = [
     { id: 'ledger', label: 'Ledger & Expenses', icon: BookOpen },
     { id: 'bank', label: 'Bank Transactions', icon: Building2 },
-    { id: 'partner', label: 'Partner Money Flow', icon: Users2 }
+    { id: 'partner', label: 'Partner Money Flow', icon: Users2 },
+    { id: 'summary', label: 'Financial Summary', icon: BarChart3 }
   ];
 
   return (
@@ -24,8 +26,8 @@ export default function Sidebar({ activePage, setActivePage, isOpen, onClose }) 
         <div className="flex items-center justify-between">
           {/* Logo / Header */}
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-violet-500/10 rounded-xl text-violet-600 dark:text-violet-400">
-              <Landmark size={18} />
+            <div className="p-1.5 bg-violet-500/10 rounded-xl">
+              <Logo size={20} />
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider">Wellmora</span>

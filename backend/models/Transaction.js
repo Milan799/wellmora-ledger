@@ -30,10 +30,16 @@ const transactionSchema = new mongoose.Schema({
   date: {
     type: Date,
     default: Date.now
+  },
+  isHandCash: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true
 });
+
+transactionSchema.index({ date: -1, createdAt: -1 });
 
 const Transaction = mongoose.model('Transaction', transactionSchema);
 

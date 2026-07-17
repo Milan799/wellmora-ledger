@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
 // POST a new transaction
 router.post('/', async (req, res) => {
   try {
-    const { date, description, category, type, amount } = req.body;
+    const { date, description, category, type, amount, isHandCash } = req.body;
     
     // Server-side validation
     if (!description || description.trim() === '') {
@@ -31,7 +31,8 @@ router.post('/', async (req, res) => {
       description,
       category,
       type,
-      amount
+      amount,
+      isHandCash: !!isHandCash
     });
     
     const savedTransaction = await newTransaction.save();
@@ -45,7 +46,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { date, description, category, type, amount } = req.body;
+    const { date, description, category, type, amount, isHandCash } = req.body;
 
     // Server-side validation
     if (description !== undefined && description.trim() === '') {
@@ -57,7 +58,7 @@ router.put('/:id', async (req, res) => {
 
     const updatedTransaction = await Transaction.findByIdAndUpdate(
       id,
-      { date, description, category, type, amount },
+      { date, description, category, type, amount, isHandCash },
       { new: true, runValidators: true }
     );
 

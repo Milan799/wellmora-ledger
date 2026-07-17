@@ -7,9 +7,11 @@ export default function TransactionForm({ isOpen, onClose, onSubmit, transaction
     description: '',
     category: 'Sales',
     type: 'Credit',
-    amount: ''
+    amount: '',
+    isHandCash: false
   });
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (transaction) {
@@ -21,7 +23,8 @@ export default function TransactionForm({ isOpen, onClose, onSubmit, transaction
         description: transaction.description || '',
         category: transaction.category || 'Sales',
         type: transaction.type || 'Credit',
-        amount: transaction.amount || ''
+        amount: transaction.amount || '',
+        isHandCash: transaction.isHandCash || false
       });
       setErrors({});
     } else {
@@ -30,7 +33,8 @@ export default function TransactionForm({ isOpen, onClose, onSubmit, transaction
         description: '',
         category: 'Sales',
         type: 'Credit',
-        amount: ''
+        amount: '',
+        isHandCash: false
       });
       setErrors({});
     }
@@ -56,6 +60,13 @@ export default function TransactionForm({ isOpen, onClose, onSubmit, transaction
     }));
   };
 
+  const handleToggleHandCash = () => {
+    setFormData(prev => ({
+      ...prev,
+      isHandCash: !prev.isHandCash
+    }));
+  };
+
   const validateForm = () => {
     const newErrors = {};
     if (!formData.description.trim()) {
@@ -68,14 +79,21 @@ export default function TransactionForm({ isOpen, onClose, onSubmit, transaction
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm() || isSubmitting) return;
     
-    onSubmit({
-      ...formData,
-      amount: Number(formData.amount)
-    });
+    setIsSubmitting(true);
+    try {
+      await onSubmit({
+        ...formData,
+        amount: Number(formData.amount)
+      });
+    } catch (err) {
+      console.error('Error submitting form:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const categories = ['Sales', 'Purchase', 'Logistics', 'Marketing', 'Office Expense', 'Others'];
@@ -238,20 +256,47 @@ export default function TransactionForm({ isOpen, onClose, onSubmit, transaction
             </div>
           </div>
 
+          {/* In Hand Cash Toggle */}
+          <div className="flex items-center justify-between p-3.5 border rounded-xl bg-slate-50 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs font-bold text-slate-850 dark:text-slate-200">💵 Save as In Hand Cash</span>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Record this transaction in physical cash-in-hand</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleToggleHandCash}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                formData.isHandCash ? 'bg-violet-600' : 'bg-slate-200 dark:bg-slate-800'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  formData.isHandCash ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
           {/* Footer Actions */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className={`px-5 py-2.5 text-sm font-semibold rounded-xl border border-transparent cursor-pointer transition-all duration-200 ${styles.cancelBtn}`}
+              disabled={isSubmitting}
+              className={`px-5 py-2.5 text-sm font-semibold rounded-xl border border-transparent cursor-pointer transition-all duration-200 ${styles.cancelBtn} ${
+                isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className={`px-5 py-2.5 text-sm font-bold text-white active:scale-95 rounded-xl border transition-all duration-200 cursor-pointer ${styles.submitBtn}`}
+              disabled={isSubmitting}
+              className={`px-5 py-2.5 text-sm font-bold text-white active:scale-95 rounded-xl border transition-all duration-200 ${
+                isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              } ${styles.submitBtn}`}
             >
-              {isEdit ? 'Save Changes' : 'Add Entry'}
+              {isSubmitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Entry'}
             </button>
           </div>
         </form>

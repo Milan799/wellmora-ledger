@@ -45,6 +45,8 @@ const bankTransactionSchema = new mongoose.Schema({
   timestamps: true
 });
 
+bankTransactionSchema.index({ date: -1, createdAt: -1 });
+
 const BankTransaction = mongoose.model('BankTransaction', bankTransactionSchema);
 
 export default BankTransaction;

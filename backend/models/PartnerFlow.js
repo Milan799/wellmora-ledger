@@ -32,6 +32,8 @@ const partnerFlowSchema = new mongoose.Schema({
   timestamps: true
 });
 
+partnerFlowSchema.index({ date: -1, createdAt: -1 });
+
 const PartnerFlow = mongoose.model('PartnerFlow', partnerFlowSchema);
 
 export default PartnerFlow;

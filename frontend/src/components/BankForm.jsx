@@ -12,6 +12,7 @@ export default function BankForm({ isOpen, onClose, onSubmit, transaction = null
     description: ''
   });
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (transaction) {
@@ -65,10 +66,18 @@ export default function BankForm({ isOpen, onClose, onSubmit, transaction = null
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
-    onSubmit({ ...formData, amount: Number(formData.amount) });
+    if (!validateForm() || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    try {
+      await onSubmit({ ...formData, amount: Number(formData.amount) });
+    } catch (err) {
+      console.error('Error submitting bank flow:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isEdit = !!transaction;
@@ -267,15 +276,21 @@ export default function BankForm({ isOpen, onClose, onSubmit, transaction = null
             <button
               type="button"
               onClick={onClose}
-              className={`px-5 py-2.5 text-sm font-semibold rounded-xl border border-transparent cursor-pointer transition-all duration-200 ${styles.cancelBtn}`}
+              disabled={isSubmitting}
+              className={`px-5 py-2.5 text-sm font-semibold rounded-xl border border-transparent cursor-pointer transition-all duration-200 ${styles.cancelBtn} ${
+                isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className={`px-5 py-2.5 text-sm font-bold text-white active:scale-95 rounded-xl border transition-all duration-200 cursor-pointer ${styles.submitBtn}`}
+              disabled={isSubmitting}
+              className={`px-5 py-2.5 text-sm font-bold text-white active:scale-95 rounded-xl border transition-all duration-200 ${
+                isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              } ${styles.submitBtn}`}
             >
-              {isEdit ? 'Save Changes' : 'Add Entry'}
+              {isSubmitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Entry'}
             </button>
           </div>
         </form>

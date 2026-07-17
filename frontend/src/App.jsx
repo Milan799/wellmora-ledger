@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Landmark, AlertCircle, RefreshCw, Menu } from 'lucide-react';
+import { AlertCircle, RefreshCw, Menu } from 'lucide-react';
 
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Filters from './components/Filters';
 import TransactionTable from './components/TransactionTable';
 import TransactionForm from './components/TransactionForm';
+import Logo from './components/Logo';
 
 import BankLedger from './components/BankLedger';
 import BankForm from './components/BankForm';
 
 import PartnerLedger from './components/PartnerLedger';
 import PartnerForm from './components/PartnerForm';
+import FinancialSummary from './components/FinancialSummary';
 
 import DeleteConfirmation from './components/DeleteConfirmation';
 import Notification from './components/Notification';
@@ -30,19 +32,32 @@ export default function App() {
   }, [activePage]);
 
   // 1. Ledger State
-  const [transactions, setTransactions] = useState([]);
-  const [loadingLedger, setLoadingLedger] = useState(true);
+  const [transactions, setTransactions] = useState(() => {
+    const cached = localStorage.getItem('cached_transactions');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [loadingLedger, setLoadingLedger] = useState(() => {
+    return !localStorage.getItem('cached_transactions');
+  });
   const [errorLedger, setErrorLedger] = useState(null);
 
   // 2. Bank State
-  const [bankTransactions, setBankTransactions] = useState([]);
-  const [loadingBank, setLoadingBank] = useState(true);
-  const [errorBank, setErrorBank] = useState(null);
+  const [bankTransactions, setBankTransactions] = useState(() => {
+    const cached = localStorage.getItem('cached_bankTransactions');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [loadingBank, setLoadingBank] = useState(() => {
+    return !localStorage.getItem('cached_bankTransactions');
+  });
 
   // 3. Partner State
-  const [partnerTransactions, setPartnerTransactions] = useState([]);
-  const [loadingPartner, setLoadingPartner] = useState(true);
-  const [errorPartner, setErrorPartner] = useState(null);
+  const [partnerTransactions, setPartnerTransactions] = useState(() => {
+    const cached = localStorage.getItem('cached_partnerTransactions');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [loadingPartner, setLoadingPartner] = useState(() => {
+    return !localStorage.getItem('cached_partnerTransactions');
+  });
 
   // General Search / Filter for main ledger
   const [search, setSearch] = useState('');
@@ -65,6 +80,7 @@ export default function App() {
 
   // Notifications
   const [notification, setNotification] = useState(null);
+  const [ledgerSubTab, setLedgerSubTab] = useState('all'); // 'all' | 'cash'
 
   // Fetch all categories on mount
   useEffect(() => {
@@ -106,7 +122,7 @@ export default function App() {
             body: JSON.stringify(cleanData)
           });
           if (!response.ok) throw new Error();
-          
+
           const savedItem = await response.json();
           if (op.type === 'ledger') {
             setTransactions(prev => prev.map(t => t._id === op.data._id ? savedItem : t));
@@ -172,7 +188,9 @@ export default function App() {
   // API Operations: Standard Ledger
   // ==========================================
   const fetchTransactions = async () => {
-    setLoadingLedger(true);
+    if (!localStorage.getItem('cached_transactions')) {
+      setLoadingLedger(true);
+    }
     setErrorLedger(null);
     try {
       const response = await fetch(`${API_BASE_URL}/transactions`);
@@ -308,7 +326,7 @@ export default function App() {
   const handleLedgerExport = (range, startDate, endDate) => {
     let toExport = [...filteredLedger];
     const now = new Date();
-    
+
     if (range === 'monthly') {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       toExport = filteredLedger.filter(t => new Date(t.date) >= startOfMonth);
@@ -351,7 +369,9 @@ export default function App() {
   // API Operations: Bank Ledger
   // ==========================================
   const fetchBankTransactions = async () => {
-    setLoadingBank(true);
+    if (!localStorage.getItem('cached_bankTransactions')) {
+      setLoadingBank(true);
+    }
     setErrorBank(null);
     try {
       const response = await fetch(`${API_BASE_URL}/bank-transactions`);
@@ -438,7 +458,9 @@ export default function App() {
   // API Operations: Partner Flow
   // ==========================================
   const fetchPartnerTransactions = async () => {
-    setLoadingPartner(true);
+    if (!localStorage.getItem('cached_partnerTransactions')) {
+      setLoadingPartner(true);
+    }
     setErrorPartner(null);
     try {
       const response = await fetch(`${API_BASE_URL}/partner-flows`);
@@ -531,11 +553,11 @@ export default function App() {
 
   const handleDeleteConfirm = async () => {
     if (!deletingTransaction) return;
-    const urlSegment = deletingType === 'ledger' 
-      ? 'transactions' 
-      : deletingType === 'bank' 
-      ? 'bank-transactions' 
-      : 'partner-flows';
+    const urlSegment = deletingType === 'ledger'
+      ? 'transactions'
+      : deletingType === 'bank'
+        ? 'bank-transactions'
+        : 'partner-flows';
 
     try {
       try {
@@ -543,7 +565,7 @@ export default function App() {
           method: 'DELETE'
         });
         if (!response.ok) throw new Error('Failed to remove entry');
-        
+
         if (deletingType === 'ledger') {
           setTransactions(prev => {
             const newL = prev.filter(t => t._id !== deletingTransaction._id);
@@ -595,9 +617,13 @@ export default function App() {
     }
   };
 
-  // Filter main ledger locally
-  const filteredLedger = transactions.filter(t => {
-    const matchesSearch = t.description.toLowerCase().includes(search.toLowerCase());
+  // Filter main ledger locally by sub-tab (all vs hand cash)
+  const ledgerTransactionsToDisplay = ledgerSubTab === 'cash'
+    ? transactions.filter(t => t.isHandCash)
+    : transactions;
+
+  const filteredLedger = ledgerTransactionsToDisplay.filter(t => {
+    const matchesSearch = (t.description || '').toLowerCase().includes(search.toLowerCase());
     const matchesType = filterType === 'All' || t.type === filterType;
     const matchesCategory = filterCategory === 'All' || t.category === filterCategory;
     return matchesSearch && matchesType && matchesCategory;
@@ -607,24 +633,25 @@ export default function App() {
 
   return (
     <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100">
-      
+
       {/* 1. Mobile Top Navigation Bar */}
       <div className="md:hidden flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 z-20 shrink-0">
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={() => setIsSidebarOpen(true)}
             className="p-1.5 text-slate-650 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors"
           >
             <Menu size={18} />
           </button>
           <div className="flex items-center gap-1.5">
+            <Logo size={14} />
             <span className="font-extrabold text-xs text-slate-900 dark:text-slate-100 uppercase tracking-wider">Wellmora</span>
             <span className="px-1.5 py-0.5 bg-violet-500/10 dark:bg-violet-950/45 text-[9px] font-bold text-violet-600 dark:text-violet-400 rounded tracking-wide uppercase">
               Enterprise
             </span>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 rounded-xl" title={isOnline ? "Server Connected" : "Connection Offline"}>
           <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse-subtle' : 'bg-rose-500'}`} />
           <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{isOnline ? 'Online' : 'Offline'}</span>
@@ -632,16 +659,16 @@ export default function App() {
       </div>
 
       {/* 2. Responsive Sidebar Panel */}
-      <Sidebar 
-        activePage={activePage} 
-        setActivePage={setActivePage} 
+      <Sidebar
+        activePage={activePage}
+        setActivePage={setActivePage}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />
 
       {/* 3. Main Content Scrollable Pane */}
       <main className="flex-1 h-full overflow-y-auto p-4 sm:p-6 lg:p-8">
-        
+
         {/* Render PAGE 1: LEDGER */}
         {activePage === 'ledger' && (
           <div className="space-y-5 animate-slide-up">
@@ -691,8 +718,32 @@ export default function App() {
               </div>
             )}
 
+            {/* Sub Tabs */}
+            <div className="flex border-b border-slate-200 dark:border-slate-800 mb-2">
+              <button
+                onClick={() => setLedgerSubTab('all')}
+                className={`py-2 px-4 font-bold text-xs border-b-2 transition-all cursor-pointer ${
+                  ledgerSubTab === 'all'
+                    ? 'border-violet-600 text-violet-700 dark:text-violet-400'
+                    : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                }`}
+              >
+                All Transactions
+              </button>
+              <button
+                onClick={() => setLedgerSubTab('cash')}
+                className={`py-2 px-4 font-bold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                  ledgerSubTab === 'cash'
+                    ? 'border-violet-600 text-violet-700 dark:text-violet-400'
+                    : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                }`}
+              >
+                <span>💵</span> In Hand Cash Only
+              </button>
+            </div>
+
             {/* Metrics cards */}
-            <Dashboard transactions={transactions} />
+            <Dashboard transactions={ledgerTransactionsToDisplay} />
 
             {/* Filter toolbar */}
             <Filters
@@ -744,6 +795,17 @@ export default function App() {
               onAddClick={() => { setEditingPartnerTransaction(null); setIsPartnerFormOpen(true); }}
               onEdit={(t) => { setEditingPartnerTransaction(t); setIsPartnerFormOpen(true); }}
               onDelete={(t) => handleDeleteTrigger(t, 'partner')}
+            />
+          </div>
+        )}
+
+        {/* Render PAGE 4: SUMMARY */}
+        {activePage === 'summary' && (
+          <div className="animate-slide-up">
+            <FinancialSummary
+              transactions={transactions}
+              bankTransactions={bankTransactions}
+              partnerTransactions={partnerTransactions}
             />
           </div>
         )}

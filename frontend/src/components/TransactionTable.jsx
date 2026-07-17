@@ -85,9 +85,16 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
                 
                 {/* Category */}
                 <td className="px-4 py-3.5 whitespace-nowrap">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${getCategoryBadgeClass(t.category)}`}>
-                    {t.category}
-                  </span>
+                  <div className="flex flex-col gap-1 items-start">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${getCategoryBadgeClass(t.category)}`}>
+                      {t.category}
+                    </span>
+                    {t.isHandCash && (
+                      <span className="inline-flex items-center px-1.5 py-0.2 rounded-md text-[8px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-450 border border-amber-500/20">
+                        In Hand Cash
+                      </span>
+                    )}
+                  </div>
                 </td>
                 
                 {/* Type Badge */}
