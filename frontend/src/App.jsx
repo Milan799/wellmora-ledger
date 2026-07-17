@@ -73,6 +73,7 @@ export default function App() {
   const [loadingBank, setLoadingBank] = useState(() => {
     return !localStorage.getItem('cached_bankTransactions');
   });
+  const [errorBank, setErrorBank] = useState(null);
 
   // 3. Partner State
   const [partnerTransactions, setPartnerTransactions] = useState(() => {
@@ -86,6 +87,7 @@ export default function App() {
   const [loadingPartner, setLoadingPartner] = useState(() => {
     return !localStorage.getItem('cached_partnerTransactions');
   });
+  const [errorPartner, setErrorPartner] = useState(null);
 
   // General Search / Filter for main ledger
   const [search, setSearch] = useState('');
