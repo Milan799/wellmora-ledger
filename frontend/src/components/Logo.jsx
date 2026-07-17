@@ -10,20 +10,15 @@ export default function Logo({ size = 20, className = "" }) {
       height={size} 
       className={className}
     >
-      <defs>
-        <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#6366f1" />
-          <stop offset="60%" stopColor="#8b5cf6" />
-          <stop offset="100%" stopColor="#10b981" />
-        </linearGradient>
-      </defs>
+      {/* Main ribbon body - solid indigo */}
       <path 
         d="M22 38 L37 72 L52 48 L67 72 L82 28" 
-        stroke="url(#logo-grad)" 
+        stroke="#6366f1" 
         strokeWidth="10" 
         strokeLinecap="round" 
         strokeLinejoin="round" 
       />
+      {/* Arrow head - solid emerald */}
       <path 
         d="M70 28 H82 V40" 
         stroke="#10b981" 
@@ -31,9 +26,10 @@ export default function Logo({ size = 20, className = "" }) {
         strokeLinecap="round" 
         strokeLinejoin="round" 
       />
-      <circle cx="37" cy="72" r="3.5" fill="#ffffff" stroke="#8b5cf6" strokeWidth="2" />
-      <circle cx="52" cy="48" r="3.5" fill="#ffffff" stroke="#8b5cf6" strokeWidth="2" />
-      <circle cx="67" cy="72" r="3.5" fill="#ffffff" stroke="#8b5cf6" strokeWidth="2" />
+      {/* Ledger nodes - solid colored dots */}
+      <circle cx="37" cy="72" r="4.5" fill="#10b981" />
+      <circle cx="52" cy="48" r="4.5" fill="#6366f1" />
+      <circle cx="67" cy="72" r="4.5" fill="#10b981" />
     </svg>
   );
 }
