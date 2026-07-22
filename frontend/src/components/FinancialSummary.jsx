@@ -7,6 +7,7 @@ import {
   Wallet, 
   BarChart3
 } from 'lucide-react';
+import InteractiveDonutChart from './InteractiveDonutChart';
 
 export default function FinancialSummary({ transactions = [], bankTransactions = [], partnerTransactions = [] }) {
   
@@ -113,6 +114,41 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
     amount: categoryTotals[cat],
     percentage: totalExpense > 0 ? (categoryTotals[cat] / totalExpense) * 100 : 0
   })).sort((a, b) => b.amount - a.amount);
+
+  const getCategoryColor = (category) => {
+    switch (category) {
+      case 'Sales': return '#10b981'; // emerald-500
+      case 'Purchase': return '#f59e0b'; // amber-500
+      case 'Logistics': return '#6366f1'; // indigo-500
+      case 'Marketing': return '#f43f5e'; // rose-500
+      case 'Office Expense': return '#0ea5e9'; // sky-500
+      default: return '#64748b'; // slate-500
+    }
+  };
+
+  const categoryChartData = categoriesList.map(item => ({
+    label: item.category,
+    value: item.amount,
+    color: getCategoryColor(item.category)
+  }));
+
+  const getPartnerColor = (name) => {
+    switch (name) {
+      case 'Milan Javiya': return '#6366f1'; // Indigo
+      case 'Krushang Prajapati': return '#10b981'; // Emerald
+      case 'Umang Prajapati': return '#f59e0b'; // Amber
+      case 'Moksh Shah': return '#a855f7'; // Purple
+      default: return '#64748b';
+    }
+  };
+
+  const partnerChartData = partnerBreakdown
+    .map(row => ({
+      label: row.name,
+      value: Math.max(0, row.net),
+      color: getPartnerColor(row.name)
+    }))
+    .filter(item => item.value > 0);
 
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-IN', {
@@ -226,17 +262,17 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Partner Balances Sheet */}
-        <div className="glass-panel rounded-2xl p-5 border border-slate-200 dark:border-slate-800">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200/60 dark:border-slate-800/60">
-            <h3 className="text-xs font-black uppercase text-slate-900 dark:text-slate-100 tracking-wider flex items-center gap-1.5">
-              <Users2 size={15} className="text-violet-600 dark:text-violet-400" />
-              Partner Capital Accounts
-            </h3>
-            <span className="text-[9px] font-bold bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2 py-0.5 rounded border border-violet-500/10">Equity</span>
-          </div>
-          <div className="overflow-x-auto">
+      {/* 1. Partner Balances & Equity Share Sheet */}
+      <div className="glass-panel rounded-2xl p-5 border border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200/60 dark:border-slate-800/60">
+          <h3 className="text-xs font-black uppercase text-slate-900 dark:text-slate-100 tracking-wider flex items-center gap-1.5">
+            <Users2 size={15} className="text-violet-600 dark:text-violet-400" />
+            Partner Equity & Capital Accounts
+          </h3>
+          <span className="text-[9px] font-bold bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2 py-0.5 rounded border border-violet-500/10">Equity Split</span>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-center">
+          <div className="lg:col-span-3 overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="text-slate-400 dark:text-slate-500 font-bold text-[9px] uppercase tracking-wider border-b border-slate-200/50 dark:border-slate-800/50 pb-2">
@@ -260,8 +296,16 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
               </tbody>
             </table>
           </div>
+          <div className="lg:col-span-2">
+            <InteractiveDonutChart 
+              data={partnerChartData} 
+              centerLabel="Net Equity" 
+            />
+          </div>
         </div>
+      </div>
 
+      <div className="grid grid-cols-1 gap-6">
         {/* Bank Accounts Balance Sheet */}
         <div className="glass-panel rounded-2xl p-5 border border-slate-200 dark:border-slate-800">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200/60 dark:border-slate-800/60">
@@ -309,28 +353,36 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
             <BarChart3 size={15} className="text-emerald-600 dark:text-emerald-400" />
             Operating Expense Categories Distribution
           </h3>
-          <span className="text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/10">Expenses</span>
+          <span className="text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/10">Expenses Breakdown</span>
         </div>
         {categoriesList.length === 0 ? (
           <div className="py-8 text-center text-slate-400 dark:text-slate-500 font-semibold italic">No debit/expense items recorded in the ledger.</div>
         ) : (
-          <div className="space-y-4">
-            {categoriesList.map((item) => (
-              <div key={item.category} className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-slate-800 dark:text-slate-200">{item.category}</span>
-                  <span className="font-semibold text-slate-500 dark:text-slate-400">
-                    {formatCurrency(item.amount)} ({item.percentage.toFixed(1)}%)
-                  </span>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-center">
+            <div className="lg:col-span-2">
+              <InteractiveDonutChart 
+                data={categoryChartData} 
+                centerLabel="Expenses" 
+              />
+            </div>
+            <div className="lg:col-span-3 space-y-4">
+              {categoriesList.map((item) => (
+                <div key={item.category} className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{item.category}</span>
+                    <span className="font-semibold text-slate-500 dark:text-slate-400">
+                      {formatCurrency(item.amount)} ({item.percentage.toFixed(1)}%)
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-150 dark:bg-slate-900 rounded-full overflow-hidden">
+                    <div 
+                      style={{ width: `${item.percentage}%` }} 
+                      className="h-full bg-gradient-to-r from-violet-650 to-indigo-500 rounded-full transition-all duration-1000 ease-out" 
+                    />
+                  </div>
                 </div>
-                <div className="w-full h-2 bg-slate-150 dark:bg-slate-900 rounded-full overflow-hidden">
-                  <div 
-                    style={{ width: `${item.percentage}%` }} 
-                    className="h-full bg-gradient-to-r from-violet-650 to-indigo-500 rounded-full transition-all duration-1000 ease-out" 
-                  />
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </div>
