@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, RefreshCw, Menu } from 'lucide-react';
+import { flushSync } from 'react-dom';
+import { AlertCircle, RefreshCw, Menu, Sun, Moon } from 'lucide-react';
 
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -42,6 +43,68 @@ export default function App() {
     return localStorage.getItem('activePage') || 'ledger';
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile drawer state
+
+  // Theme State
+  const [theme, setTheme] = useState(() => {
+    const storedTheme = localStorage.getItem('theme');
+    if (storedTheme) return storedTheme;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  // Smooth, lag-free theme toggle using View Transitions API
+  const toggleTheme = (event) => {
+    // Check if transition support is available or if user prefers reduced motion
+    if (
+      !document.startViewTransition ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+      return;
+    }
+
+    const x = event.clientX ?? window.innerWidth / 2;
+    const y = event.clientY ?? window.innerHeight / 2;
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y)
+    );
+
+    // Set custom coordinates for clipPath keyframes
+    const root = document.documentElement;
+    root.style.setProperty('--ripple-x', `${x}px`);
+    root.style.setProperty('--ripple-y', `${y}px`);
+    root.style.setProperty('--ripple-r', `${endRadius}px`);
+
+    // Add temporary class to disable other CSS transitions during capturing
+    root.classList.add('no-transitions');
+
+    const transition = document.startViewTransition(() => {
+      flushSync(() => {
+        const nextTheme = theme === 'light' ? 'dark' : 'light';
+        setTheme(nextTheme);
+        if (nextTheme === 'dark') {
+          root.classList.add('dark');
+        } else {
+          root.classList.remove('dark');
+        }
+      });
+    });
+
+    transition.ready.then(() => {
+      // Remove temporary class so transitions are re-enabled
+      root.classList.remove('no-transitions');
+    });
+  };
 
   useEffect(() => {
     localStorage.setItem('activePage', activePage);
@@ -682,9 +745,19 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 rounded-xl" title={isOnline ? "Server Connected" : "Connection Offline"}>
-          <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse-subtle' : 'bg-rose-500'}`} />
-          <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{isOnline ? 'Online' : 'Offline'}</span>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={toggleTheme}
+            className="p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors"
+            title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {theme === 'dark' ? <Sun size={15} className="text-amber-500" /> : <Moon size={15} className="text-slate-650" />}
+          </button>
+
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 rounded-xl" title={isOnline ? "Server Connected" : "Connection Offline"}>
+            <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse-subtle' : 'bg-rose-500'}`} />
+            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{isOnline ? 'Online' : 'Offline'}</span>
+          </div>
         </div>
       </div>
 
@@ -694,6 +767,8 @@ export default function App() {
         setActivePage={setActivePage}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        theme={theme}
+        toggleTheme={toggleTheme}
       />
 
       {/* 3. Main Content Scrollable Pane */}

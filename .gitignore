@@ -12,6 +12,9 @@ node_modules/
 dist/
 build/
 
+# Backups
+/backend/backups/*.json
+
 # IDE files and OS files
 .idea/
 .vscode/

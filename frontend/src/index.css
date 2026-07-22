@@ -2,6 +2,8 @@
 
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   color-scheme: light dark;
@@ -65,46 +67,89 @@ body {
 }
 
 /* Dark Mode Overrides (Obsidian Theme) */
-@media (prefers-color-scheme: dark) {
-  body {
-    background-color: #090d16; /* Deep obsidian background */
-    color: #f1f5f9; /* Slate 100 */
-  }
+.dark {
+  color-scheme: dark;
+}
 
-  ::-webkit-scrollbar-track {
-    background: #0f172a;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: #1e293b;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #334155;
-  }
+.dark body {
+  background-color: #090d16; /* Deep obsidian background */
+  color: #f1f5f9; /* Slate 100 */
+}
 
-  .glass-panel {
-    background: rgba(15, 23, 42, 0.6); /* Translucent dark slate */
-    border: 1px solid rgba(139, 92, 246, 0.12); /* Low-opacity violet border */
-    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
-  }
+.dark ::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #1e293b;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
 
-  .glass-panel-hover:hover {
-    background: rgba(15, 23, 42, 0.75);
-    border-color: rgba(139, 92, 246, 0.25);
-    box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.5);
-  }
+.dark .glass-panel {
+  background: rgba(15, 23, 42, 0.6); /* Translucent dark slate */
+  border: 1px solid rgba(139, 92, 246, 0.12); /* Low-opacity violet border */
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
+}
 
-  /* Glow effects for dark mode */
-  .glow-green {
-    box-shadow: 0 0 30px -5px rgba(52, 211, 153, 0.18);
+.dark .glass-panel-hover:hover {
+  background: rgba(15, 23, 42, 0.75);
+  border-color: rgba(139, 92, 246, 0.25);
+  box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.5);
+}
+
+/* Glow effects for dark mode */
+.dark .glow-green {
+  box-shadow: 0 0 30px -5px rgba(52, 211, 153, 0.18);
+}
+.dark .glow-rose {
+  box-shadow: 0 0 30px -5px rgba(251, 113, 133, 0.18);
+}
+.dark .glow-violet {
+  box-shadow: 0 0 30px -5px rgba(167, 139, 250, 0.18);
+}
+.dark .glow-indigo {
+  box-shadow: 0 0 30px -5px rgba(129, 140, 248, 0.18);
+}
+
+/* Temporary transitions disable selector to prevent stutters during View Transition capturing */
+.no-transitions *,
+.no-transitions *::before,
+.no-transitions *::after {
+  transition: none !important;
+  animation-duration: 0s !important;
+}
+
+/* View Transitions API styles for theme toggle */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+  animation: reveal 350ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dark::view-transition-old(root) {
+  z-index: 9999;
+}
+
+.dark::view-transition-new(root) {
+  z-index: 1;
+}
+
+@keyframes reveal {
+  from {
+    clip-path: circle(0px at var(--ripple-x, 0px) var(--ripple-y, 0px));
   }
-  .glow-rose {
-    box-shadow: 0 0 30px -5px rgba(251, 113, 133, 0.18);
-  }
-  .glow-violet {
-    box-shadow: 0 0 30px -5px rgba(167, 139, 250, 0.18);
-  }
-  .glow-indigo {
-    box-shadow: 0 0 30px -5px rgba(129, 140, 248, 0.18);
+  to {
+    clip-path: circle(var(--ripple-r, 100%) at var(--ripple-x, 0px) var(--ripple-y, 0px));
   }
 }
 

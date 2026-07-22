@@ -1,8 +1,8 @@
 import React from 'react';
-import { BookOpen, Building2, Users2, X, BarChart3 } from 'lucide-react';
+import { BookOpen, Building2, Users2, X, BarChart3, Sun, Moon } from 'lucide-react';
 import Logo from './Logo';
 
-export default function Sidebar({ activePage, setActivePage, isOpen, onClose }) {
+export default function Sidebar({ activePage, setActivePage, isOpen, onClose, theme, toggleTheme }) {
   const menuItems = [
     { id: 'ledger', label: 'Ledger & Expenses', icon: BookOpen },
     { id: 'bank', label: 'Bank Transactions', icon: Building2 },
@@ -70,6 +70,40 @@ export default function Sidebar({ activePage, setActivePage, isOpen, onClose }) 
             );
           })}
         </nav>
+
+        {/* Theme Toggle Panel */}
+        <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800/85">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Appearance</span>
+            <span className="text-[10px] font-extrabold text-violet-650 dark:text-violet-400 uppercase tracking-wider">
+              {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100/80 dark:bg-slate-950/40 rounded-xl border border-slate-200/50 dark:border-slate-800/40">
+            <button
+              onClick={(e) => theme !== 'light' && toggleTheme(e)}
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
+                theme === 'light'
+                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/30'
+                  : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-200'
+              }`}
+            >
+              <Sun size={14} className={theme === 'light' ? 'text-amber-500 animate-spin-slow' : ''} />
+              Light
+            </button>
+            <button
+              onClick={(e) => theme !== 'dark' && toggleTheme(e)}
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
+                theme === 'dark'
+                  ? 'bg-slate-900 text-slate-100 shadow-sm border border-slate-800/50'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              <Moon size={14} className={theme === 'dark' ? 'text-violet-400' : ''} />
+              Dark
+            </button>
+          </div>
+        </div>
       </div>
     </>
   );
