@@ -85,8 +85,7 @@ export default function InteractiveDonutChart({
                 strokeWidth={isActive ? "12" : "9"}
                 strokeDasharray={slice.dashArray}
                 transform={`rotate(${slice.rotationAngle} 50 50)`}
-                strokeLinecap={slice.percentage > 2 ? "round" : "butt"} // Round caps look beautiful on reasonable percentages
-                className="transition-all duration-300 cursor-pointer origin-center hover:opacity-95"
+                className="transition-all duration-300 cursor-pointer hover:opacity-95"
                 onMouseEnter={() => setActiveIndex(slice.index)}
                 onMouseLeave={() => setActiveIndex(null)}
               />
