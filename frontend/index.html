@@ -3,6 +3,9 @@
 
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="manifest" href="/manifest.json" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -26,16 +29,25 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
+        // Register SW with updateViaCache: 'none' to bypass browser HTTP cache for sw.js
+        navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
           .then(reg => {
             console.log('PWA Service Worker registered successfully.');
-            // Force update check
+            
+            // Check for service worker updates immediately
             reg.update();
+
+            // Check for updates when user returns to tab
+            document.addEventListener('visibilitychange', () => {
+              if (document.visibilityState === 'visible') {
+                reg.update();
+              }
+            });
           })
           .catch(err => console.error('PWA Service Worker registration failed:', err));
       });
 
-      // Reload the page when the service worker claims the client (auto-updates the app)
+      // Reload the page when the new service worker activates and claims the client
       let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!refreshing) {
