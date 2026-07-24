@@ -7,9 +7,14 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/favicon.svg" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Wellmora" />
   <link rel="manifest" href="/manifest.json" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#6366f1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#4f46e5" />
   <title>Wellmora Ledger - Business Expense & Ledger Tracking</title>
   <script>
     (function () {
@@ -34,20 +39,42 @@
           .then(reg => {
             console.log('PWA Service Worker registered successfully.');
             
-            // Check for service worker updates immediately
-            reg.update();
+            const checkForUpdates = () => {
+              reg.update().catch(() => {});
+            };
 
-            // Check for updates when user returns to tab
-            document.addEventListener('visibilitychange', () => {
-              if (document.visibilityState === 'visible') {
-                reg.update();
+            // Force waiting worker to skip waiting on mobile PWA launch
+            if (reg.waiting) {
+              reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+
+            // Handle newly installed service worker automatically
+            reg.addEventListener('updatefound', () => {
+              const installingWorker = reg.installing;
+              if (installingWorker) {
+                installingWorker.addEventListener('statechange', () => {
+                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    installingWorker.postMessage({ type: 'SKIP_WAITING' });
+                  }
+                });
               }
             });
+
+            // Check for updates on startup, tab resume, app focus, & online reconnection
+            checkForUpdates();
+            document.addEventListener('visibilitychange', () => {
+              if (document.visibilityState === 'visible') checkForUpdates();
+            });
+            window.addEventListener('pageshow', checkForUpdates);
+            window.addEventListener('online', checkForUpdates);
+
+            // Periodically check for updates every 10 minutes while app is open
+            setInterval(checkForUpdates, 10 * 60 * 1000);
           })
           .catch(err => console.error('PWA Service Worker registration failed:', err));
       });
 
-      // Reload the page when the new service worker activates and claims the client
+      // Reload the mobile PWA view immediately when new service worker takes over
       let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!refreshing) {

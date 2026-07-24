@@ -6,6 +6,13 @@ const ASSETS_TO_CACHE = [
   '/favicon.svg'
 ];
 
+// Listen for message from frontend to force activate immediately on mobile PWAs
+self.addEventListener('message', (event) => {
+  if (event.data && (event.data.type === 'SKIP_WAITING' || event.data === 'SKIP_WAITING')) {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('install', (event) => {
   self.skipWaiting(); // Force waiting SW to activate immediately
   event.waitUntil(
