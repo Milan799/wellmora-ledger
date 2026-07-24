@@ -43,8 +43,8 @@ export default function Logo({ size = 34, className = "", showBackground = false
         <rect x="16" y="16" width="480" height="480" rx="96" fill="#0b0f19" stroke="#334155" strokeWidth="4" />
       )}
 
-      {/* 4 Origami Faceted Wings of 'W' (Full-bleed 512x512 with dynamic IDs) */}
-      <g>
+      {/* 4 Origami Faceted Wings of 'W' (Centered 512x512 with dynamic IDs) */}
+      <g transform="translate(256, 256) scale(0.72) translate(-256, -256)">
         <path d="M 32 80 L 135 432 L 210 240 L 120 80 Z" fill={`url(#${g1})`} />
         <path d="M 210 240 L 135 432 L 256 300 Z" fill={`url(#${g2})`} opacity="0.95" />
         <path d="M 256 300 L 377 432 L 302 240 Z" fill={`url(#${g3})`} opacity="0.95" />
