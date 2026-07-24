@@ -25,12 +25,10 @@ export default function Sidebar({ activePage, setActivePage, isOpen, onClose, th
       }`}>
         <div className="flex items-center justify-between">
           {/* Logo / Header */}
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 bg-violet-500/10 rounded-xl">
-              <Logo size={20} />
-            </div>
+          <div className="flex items-center gap-3">
+            <Logo size={32} />
             <div className="flex items-center gap-1.5">
-              <span className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider">Wellmora</span>
+              <span className="text-base font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider">Wellmora</span>
               <span className="px-2 py-0.5 bg-violet-100 dark:bg-violet-950/40 text-[9px] font-bold text-violet-700 dark:text-violet-400 rounded-md tracking-wide uppercase">
                 Enterprise
               </span>

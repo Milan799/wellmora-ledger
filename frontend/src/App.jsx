@@ -736,8 +736,8 @@ export default function App() {
           >
             <Menu size={18} />
           </button>
-          <div className="flex items-center gap-1.5">
-            <Logo size={14} />
+          <div className="flex items-center gap-2">
+            <Logo size={24} />
             <span className="font-extrabold text-xs text-slate-900 dark:text-slate-100 uppercase tracking-wider">Wellmora</span>
             <span className="px-1.5 py-0.5 bg-violet-500/10 dark:bg-violet-950/45 text-[9px] font-bold text-violet-600 dark:text-violet-400 rounded tracking-wide uppercase">
               Enterprise
