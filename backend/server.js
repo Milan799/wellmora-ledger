@@ -64,7 +64,7 @@ const authLimiter = rateLimit({
 });
 
 app.use('/api/', apiLimiter);
-app.use('/api/auth/', authLimiter);
+app.use('/api/auth', authLimiter);
 
 // 5. Restrict JSON Payload Size (Prevent DoS via huge payload)
 app.use(express.json({ limit: '10kb' }));
