@@ -1,0 +1,12 @@
+{
+  "name": "business-expense-tracker-root",
+  "version": "1.0.0",
+  "description": "Root configuration for Wellmora Expense & Ledger Tracking System",
+  "main": "backend/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js",
+    "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend"
+  }
+}

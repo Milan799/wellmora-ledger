@@ -28,7 +28,11 @@ app.use(helmet());
 // 2. NoSQL Query Injection Prevention
 app.use(mongoSanitize());
 
-// 3. Configured CORS with flexible domain support
+// 3. Body Parsing Middleware (Must be registered BEFORE routes)
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// 4. Configured CORS with flexible domain support
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
@@ -53,7 +57,7 @@ app.use(cors({
   credentials: true
 }));
 
-// 4. Rate Limiting for API routes
+// 5. Rate Limiting for API routes
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per 15 minutes
@@ -62,7 +66,6 @@ const apiLimiter = rateLimit({
   message: { message: 'Too many requests from this IP, please try again after 15 minutes.' }
 });
 
-// Stricter Rate Limiter for Authentication endpoints to prevent brute-force attacks
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20, // Limit each IP to 20 auth attempts per 15 minutes
@@ -73,17 +76,21 @@ const authLimiter = rateLimit({
 
 app.use('/api/', apiLimiter);
 app.use('/api/auth', authLimiter);
+app.use('/auth', authLimiter);
 
-// 5. Restrict JSON Payload Size (Prevent DoS via huge payload)
-app.use(express.json({ limit: '10kb' }));
-
-// Public Authentication Routes
+// 6. Public Authentication Routes (Support both /api/auth and /auth prefixes)
 app.use('/api/auth', authRouter);
+app.use('/auth', authRouter);
 
-// Protected Financial Data Routes (Requires authentication token)
+// 7. Protected Financial Data Routes (Requires authentication token)
 app.use('/api/transactions', verifyToken, transactionRouter);
 app.use('/api/bank-transactions', verifyToken, bankTransactionRouter);
 app.use('/api/partner-flows', verifyToken, partnerFlowRouter);
+
+// Also mount data routes on root level fallback for convenience
+app.use('/transactions', verifyToken, transactionRouter);
+app.use('/bank-transactions', verifyToken, bankTransactionRouter);
+app.use('/partner-flows', verifyToken, partnerFlowRouter);
 
 // Root Endpoint
 app.get('/', (req, res) => {
