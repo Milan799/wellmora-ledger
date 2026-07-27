@@ -92,6 +92,11 @@ app.use('/transactions', verifyToken, transactionRouter);
 app.use('/bank-transactions', verifyToken, bankTransactionRouter);
 app.use('/partner-flows', verifyToken, partnerFlowRouter);
 
+// Health Check Endpoint
+app.get(['/api/health', '/health'], (req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+});
+
 // Root Endpoint
 app.get('/', (req, res) => {
   res.send('Business Expense & Ledger Tracking System API is running...');
