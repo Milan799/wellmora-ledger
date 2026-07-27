@@ -82,6 +82,11 @@ app.get('/', (req, res) => {
   res.send('Business Expense & Ledger Tracking System API is running...');
 });
 
+// 404 Not Found Fallback Handler
+app.use((req, res) => {
+  res.status(404).json({ message: `API Endpoint Not Found: ${req.method} ${req.originalUrl}` });
+});
+
 // Centralized Error Handling Middleware
 app.use((err, req, res, next) => {
   console.error('⚠️ Express Error:', err.message);
