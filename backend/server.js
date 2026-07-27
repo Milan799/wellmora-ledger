@@ -28,19 +28,27 @@ app.use(helmet());
 // 2. NoSQL Query Injection Prevention
 app.use(mongoSanitize());
 
-// 3. Configured CORS with origin restrictions
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
-
+// 3. Configured CORS with flexible domain support
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, or server-to-server)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS policy violation: Origin not allowed.'));
+    if (!origin) return callback(null, true);
+
+    if (process.env.ALLOWED_ORIGINS && process.env.ALLOWED_ORIGINS !== '*') {
+      const allowedList = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
+      if (allowedList.includes(origin)) return callback(null, true);
     }
+
+    if (
+      origin.startsWith('http://localhost') ||
+      origin.startsWith('http://127.0.0.1') ||
+      origin.endsWith('.onrender.com') ||
+      origin.endsWith('.vercel.app') ||
+      origin.endsWith('.github.io')
+    ) {
+      return callback(null, true);
+    }
+
+    return callback(null, true);
   },
   credentials: true
 }));
