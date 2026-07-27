@@ -1,8 +1,18 @@
 import React from 'react';
-import { BookOpen, Building2, Users2, X, BarChart3, Sun, Moon } from 'lucide-react';
+import { BookOpen, Building2, Users2, X, BarChart3, Sun, Moon, LogOut, User, ShieldCheck } from 'lucide-react';
 import Logo from './Logo';
 
-export default function Sidebar({ activePage, setActivePage, isOpen, onClose, theme, toggleTheme }) {
+export default function Sidebar({
+  activePage,
+  setActivePage,
+  isOpen,
+  onClose,
+  theme,
+  toggleTheme,
+  authUser,
+  onOpenAuth,
+  onLogout
+}) {
   const menuItems = [
     { id: 'ledger', label: 'Ledger & Expenses', icon: BookOpen },
     { id: 'bank', label: 'Bank Transactions', icon: Building2 },
@@ -69,40 +79,77 @@ export default function Sidebar({ activePage, setActivePage, isOpen, onClose, th
           })}
         </nav>
 
-        {/* Theme Toggle Panel */}
-        <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800/85">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Appearance</span>
-            <span className="text-[10px] font-extrabold text-violet-650 dark:text-violet-400 uppercase tracking-wider">
-              {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100/80 dark:bg-slate-950/40 rounded-xl border border-slate-200/50 dark:border-slate-800/40">
+        {/* User Auth Profile Badge */}
+        <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800/85 space-y-3">
+          {authUser ? (
+            <div className="p-3 bg-emerald-500/5 dark:bg-emerald-950/20 border border-emerald-500/20 rounded-xl space-y-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-emerald-500 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
+                  {authUser.name ? authUser.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div className="overflow-hidden flex-1">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {authUser.name}
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                    {authUser.email}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={onLogout}
+                className="w-full py-1.5 px-3 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 text-[11px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <LogOut size={13} />
+                Sign Out
+              </button>
+            </div>
+          ) : (
             <button
-              onClick={(e) => theme !== 'light' && toggleTheme(e)}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
-                theme === 'light'
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/30'
-                  : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-200'
-              }`}
+              onClick={onOpenAuth}
+              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/15 cursor-pointer transition-all duration-200"
             >
-              <Sun size={14} className={theme === 'light' ? 'text-amber-500 animate-spin-slow' : ''} />
-              Light
+              <ShieldCheck size={16} />
+              Sign In / Register
             </button>
-            <button
-              onClick={(e) => theme !== 'dark' && toggleTheme(e)}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
-                theme === 'dark'
-                  ? 'bg-slate-900 text-slate-100 shadow-sm border border-slate-800/50'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              <Moon size={14} className={theme === 'dark' ? 'text-violet-400' : ''} />
-              Dark
-            </button>
+          )}
+
+          {/* Theme Toggle Panel */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Appearance</span>
+              <span className="text-[10px] font-extrabold text-violet-650 dark:text-violet-400 uppercase tracking-wider">
+                {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100/80 dark:bg-slate-950/40 rounded-xl border border-slate-200/50 dark:border-slate-800/40">
+              <button
+                onClick={(e) => theme !== 'light' && toggleTheme(e)}
+                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  theme === 'light'
+                    ? 'bg-white text-slate-900 shadow-sm border border-slate-200/30'
+                    : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-200'
+                }`}
+              >
+                <Sun size={14} className={theme === 'light' ? 'text-amber-500 animate-spin-slow' : ''} />
+                Light
+              </button>
+              <button
+                onClick={(e) => theme !== 'dark' && toggleTheme(e)}
+                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  theme === 'dark'
+                    ? 'bg-slate-900 text-slate-100 shadow-sm border border-slate-800/50'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                }`}
+              >
+                <Moon size={14} className={theme === 'dark' ? 'text-violet-400' : ''} />
+                Dark
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </>
   );
 }
+

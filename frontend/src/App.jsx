@@ -19,6 +19,7 @@ import FinancialSummary from './components/FinancialSummary';
 import DeleteConfirmation from './components/DeleteConfirmation';
 import Notification from './components/Notification';
 import ExportDropdown from './components/ExportDropdown';
+import AuthModal from './components/AuthModal';
 
 const API_BASE_URL = 'https://wellmora-ledger-1.onrender.com/api';
 
@@ -26,8 +27,14 @@ const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   try {
+    const token = localStorage.getItem('authToken');
+    const headers = {
+      ...options.headers,
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
     const response = await fetch(url, {
       ...options,
+      headers,
       signal: controller.signal
     });
     clearTimeout(id);
@@ -43,6 +50,32 @@ export default function App() {
     return localStorage.getItem('activePage') || 'ledger';
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile drawer state
+
+  // Auth State
+  const [authUser, setAuthUser] = useState(() => {
+    try {
+      const storedUser = localStorage.getItem('authUser');
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('authToken') || '');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const handleAuthSuccess = (user, token) => {
+    setAuthUser(user);
+    setAuthToken(token);
+    triggerNotification(`Welcome back, ${user.name}!`, 'success');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('authUser');
+    setAuthUser(null);
+    setAuthToken('');
+    triggerNotification('You have been signed out.', 'info');
+  };
 
   // Theme State
   const [theme, setTheme] = useState(() => {
@@ -769,6 +802,9 @@ export default function App() {
         onClose={() => setIsSidebarOpen(false)}
         theme={theme}
         toggleTheme={toggleTheme}
+        authUser={authUser}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* 3. Main Content Scrollable Pane */}
@@ -951,6 +987,14 @@ export default function App() {
         onConfirm={handleDeleteConfirm}
         transaction={deletingTransaction}
         type={deletingType}
+      />
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+        apiBaseUrl={API_BASE_URL}
       />
 
       {/* Toast Notifications */}
