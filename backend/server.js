@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import mongoSanitize from 'express-mongo-sanitize';
 import authRouter from './routes/auth.js';
+import { verifyToken } from './middleware/auth.js';
 import transactionRouter from './routes/transactions.js';
 import bankTransactionRouter from './routes/bankTransactions.js';
 import partnerFlowRouter from './routes/partnerFlows.js';
@@ -68,11 +69,13 @@ app.use('/api/auth/', authLimiter);
 // 5. Restrict JSON Payload Size (Prevent DoS via huge payload)
 app.use(express.json({ limit: '10kb' }));
 
-// Routes
+// Public Authentication Routes
 app.use('/api/auth', authRouter);
-app.use('/api/transactions', transactionRouter);
-app.use('/api/bank-transactions', bankTransactionRouter);
-app.use('/api/partner-flows', partnerFlowRouter);
+
+// Protected Financial Data Routes (Requires authentication token)
+app.use('/api/transactions', verifyToken, transactionRouter);
+app.use('/api/bank-transactions', verifyToken, bankTransactionRouter);
+app.use('/api/partner-flows', verifyToken, partnerFlowRouter);
 
 // Root Endpoint
 app.get('/', (req, res) => {

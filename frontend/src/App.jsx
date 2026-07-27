@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { flushSync } from 'react-dom';
-import { AlertCircle, RefreshCw, Menu, Sun, Moon } from 'lucide-react';
+import { AlertCircle, RefreshCw, Menu, Sun, Moon, ShieldCheck } from 'lucide-react';
 
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -66,14 +66,22 @@ export default function App() {
   const handleAuthSuccess = (user, token) => {
     setAuthUser(user);
     setAuthToken(token);
+    setIsAuthModalOpen(false);
     triggerNotification(`Welcome back, ${user.name}!`, 'success');
   };
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('authUser');
+    localStorage.removeItem('cached_transactions');
+    localStorage.removeItem('cached_bankTransactions');
+    localStorage.removeItem('cached_partnerTransactions');
     setAuthUser(null);
     setAuthToken('');
+    setTransactions([]);
+    setBankTransactions([]);
+    setPartnerTransactions([]);
+    setIsAuthModalOpen(true);
     triggerNotification('You have been signed out.', 'info');
   };
 
@@ -145,6 +153,7 @@ export default function App() {
 
   // 1. Ledger State
   const [transactions, setTransactions] = useState(() => {
+    if (!localStorage.getItem('authUser')) return [];
     try {
       const cached = localStorage.getItem('cached_transactions');
       return cached ? JSON.parse(cached) : [];
@@ -152,13 +161,12 @@ export default function App() {
       return [];
     }
   });
-  const [loadingLedger, setLoadingLedger] = useState(() => {
-    return !localStorage.getItem('cached_transactions');
-  });
+  const [loadingLedger, setLoadingLedger] = useState(false);
   const [errorLedger, setErrorLedger] = useState(null);
 
   // 2. Bank State
   const [bankTransactions, setBankTransactions] = useState(() => {
+    if (!localStorage.getItem('authUser')) return [];
     try {
       const cached = localStorage.getItem('cached_bankTransactions');
       return cached ? JSON.parse(cached) : [];
@@ -166,13 +174,12 @@ export default function App() {
       return [];
     }
   });
-  const [loadingBank, setLoadingBank] = useState(() => {
-    return !localStorage.getItem('cached_bankTransactions');
-  });
+  const [loadingBank, setLoadingBank] = useState(false);
   const [errorBank, setErrorBank] = useState(null);
 
   // 3. Partner State
   const [partnerTransactions, setPartnerTransactions] = useState(() => {
+    if (!localStorage.getItem('authUser')) return [];
     try {
       const cached = localStorage.getItem('cached_partnerTransactions');
       return cached ? JSON.parse(cached) : [];
@@ -180,9 +187,7 @@ export default function App() {
       return [];
     }
   });
-  const [loadingPartner, setLoadingPartner] = useState(() => {
-    return !localStorage.getItem('cached_partnerTransactions');
-  });
+  const [loadingPartner, setLoadingPartner] = useState(false);
   const [errorPartner, setErrorPartner] = useState(null);
 
   // General Search / Filter for main ledger
@@ -208,12 +213,19 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [ledgerSubTab, setLedgerSubTab] = useState('all'); // 'all' | 'cash'
 
-  // Fetch all categories on mount
+  // Fetch all categories on mount if logged in, otherwise require auth
   useEffect(() => {
-    fetchTransactions();
-    fetchBankTransactions();
-    fetchPartnerTransactions();
-  }, []);
+    if (authUser && authToken) {
+      fetchTransactions();
+      fetchBankTransactions();
+      fetchPartnerTransactions();
+    } else {
+      setTransactions([]);
+      setBankTransactions([]);
+      setPartnerTransactions([]);
+      setIsAuthModalOpen(true);
+    }
+  }, [authUser, authToken]);
 
   const triggerNotification = (message, type = 'success') => {
     setNotification({ message, type });
@@ -810,145 +822,170 @@ export default function App() {
       {/* 3. Main Content Scrollable Pane */}
       <main className="flex-1 h-full overflow-y-auto p-4 sm:p-6 lg:p-8">
 
-        {/* Render PAGE 1: LEDGER */}
-        {activePage === 'ledger' && (
-          <div className="space-y-5 animate-slide-up">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight">Ledger & Expenses</h2>
-                  <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800" title={isOnline ? "Server Connected" : "Connection Offline"}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse-subtle' : 'bg-rose-500'}`} />
-                    <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{isOnline ? 'Online' : 'Offline'}</span>
+        {!authUser ? (
+          <div className="h-full min-h-[450px] flex flex-col items-center justify-center text-center p-8 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl shadow-2xl space-y-5 animate-slide-up">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center ring-1 ring-emerald-500/20 shadow-inner">
+              <ShieldCheck className="w-8 h-8" />
+            </div>
+            <div className="max-w-md space-y-2">
+              <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+                Authentication Required
+              </h2>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+                Your business expense and financial ledger data is strictly protected. Please sign in or create an account to view company transactions, bank entries, and financial reports.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <ShieldCheck size={16} />
+              Sign In / Register Account
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Render PAGE 1: LEDGER */}
+            {activePage === 'ledger' && (
+              <div className="space-y-5 animate-slide-up">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight">Ledger & Expenses</h2>
+                      <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800" title={isOnline ? "Server Connected" : "Connection Offline"}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse-subtle' : 'bg-rose-500'}`} />
+                        <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{isOnline ? 'Online' : 'Offline'}</span>
+                      </div>
+                    </div>
+                    <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">
+                      Track company operating credits, purchases, logistics, and office expenses.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto sm:justify-end">
+                    <button
+                      onClick={fetchTransactions}
+                      className="p-2 bg-slate-100/50 dark:bg-slate-900/50 hover:bg-slate-200/50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-all active:scale-95 cursor-pointer shrink-0"
+                      title="Refresh ledger"
+                    >
+                      <RefreshCw size={14} className={loadingLedger ? 'animate-spin' : ''} />
+                    </button>
+
+                    <div className="shrink-0">
+                      <ExportDropdown onExport={handleLedgerExport} />
+                    </div>
+
+                    <button
+                      onClick={() => { setEditingTransaction(null); setIsFormOpen(true); }}
+                      className="flex-1 sm:flex-initial px-4 py-2 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-violet-500/20 shadow-lg shadow-violet-500/10 cursor-pointer transition-all duration-200 whitespace-nowrap"
+                    >
+                      Add Entry
+                    </button>
                   </div>
                 </div>
-                <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">
-                  Track company operating credits, purchases, logistics, and office expenses.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto sm:justify-end">
-                <button
-                  onClick={fetchTransactions}
-                  className="p-2 bg-slate-100/50 dark:bg-slate-900/50 hover:bg-slate-200/50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-all active:scale-95 cursor-pointer shrink-0"
-                  title="Refresh ledger"
-                >
-                  <RefreshCw size={14} className={loadingLedger ? 'animate-spin' : ''} />
-                </button>
 
-                <div className="shrink-0">
-                  <ExportDropdown onExport={handleLedgerExport} />
+                {errorLedger && (
+                  <div className="mb-5 p-4 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 text-xs font-semibold flex items-center gap-3 animate-slide-up">
+                    <AlertCircle size={16} className="shrink-0" />
+                    <div className="flex-1">{errorLedger}</div>
+                    <button onClick={fetchTransactions} className="px-3 py-1 bg-red-500/10 dark:bg-red-500/15 border border-red-500/20 rounded-lg text-xs font-bold transition-all cursor-pointer">
+                      Retry
+                    </button>
+                  </div>
+                )}
+
+                {/* Sub Tabs */}
+                <div className="flex border-b border-slate-200 dark:border-slate-800 mb-2">
+                  <button
+                    onClick={() => setLedgerSubTab('all')}
+                    className={`py-2 px-4 font-bold text-xs border-b-2 transition-all cursor-pointer ${
+                      ledgerSubTab === 'all'
+                        ? 'border-violet-600 text-violet-700 dark:text-violet-400'
+                        : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                    }`}
+                  >
+                    All Transactions
+                  </button>
+                  <button
+                    onClick={() => setLedgerSubTab('cash')}
+                    className={`py-2 px-4 font-bold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                      ledgerSubTab === 'cash'
+                        ? 'border-violet-600 text-violet-700 dark:text-violet-400'
+                        : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                    }`}
+                  >
+                    <span>💵</span> In Hand Cash Only
+                  </button>
                 </div>
 
-                <button
-                  onClick={() => { setEditingTransaction(null); setIsFormOpen(true); }}
-                  className="flex-1 sm:flex-initial px-4 py-2 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-violet-500/20 shadow-lg shadow-violet-500/10 cursor-pointer transition-all duration-200 whitespace-nowrap"
-                >
-                  Add Entry
-                </button>
-              </div>
-            </div>
+                {/* Metrics cards */}
+                <Dashboard transactions={ledgerTransactionsToDisplay} />
 
-            {errorLedger && (
-              <div className="mb-5 p-4 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 text-xs font-semibold flex items-center gap-3 animate-slide-up">
-                <AlertCircle size={16} className="shrink-0" />
-                <div className="flex-1">{errorLedger}</div>
-                <button onClick={fetchTransactions} className="px-3 py-1 bg-red-500/10 dark:bg-red-500/15 border border-red-500/20 rounded-lg text-xs font-bold transition-all cursor-pointer">
-                  Retry
-                </button>
+                {/* Filter toolbar */}
+                <Filters
+                  search={search}
+                  setSearch={setSearch}
+                  filterType={filterType}
+                  setFilterType={setFilterType}
+                  filterCategory={filterCategory}
+                  setFilterCategory={setFilterCategory}
+                />
+
+                {/* Table */}
+                {loadingLedger ? (
+                  <div className="glass-panel rounded-xl p-12 text-center border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-violet-500/20 border-t-violet-500 rounded-full animate-spin mb-3"></div>
+                    <span className="text-slate-500 dark:text-slate-400 text-xs font-semibold">Loading ledger records...</span>
+                  </div>
+                ) : (
+                  <TransactionTable
+                    transactions={filteredLedger}
+                    onEdit={(t) => { setEditingTransaction(t); setIsFormOpen(true); }}
+                    onDelete={(t) => handleDeleteTrigger(t, 'ledger')}
+                  />
+                )}
               </div>
             )}
 
-            {/* Sub Tabs */}
-            <div className="flex border-b border-slate-200 dark:border-slate-800 mb-2">
-              <button
-                onClick={() => setLedgerSubTab('all')}
-                className={`py-2 px-4 font-bold text-xs border-b-2 transition-all cursor-pointer ${
-                  ledgerSubTab === 'all'
-                    ? 'border-violet-600 text-violet-700 dark:text-violet-400'
-                    : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
-                }`}
-              >
-                All Transactions
-              </button>
-              <button
-                onClick={() => setLedgerSubTab('cash')}
-                className={`py-2 px-4 font-bold text-xs border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-                  ledgerSubTab === 'cash'
-                    ? 'border-violet-600 text-violet-700 dark:text-violet-400'
-                    : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
-                }`}
-              >
-                <span>💵</span> In Hand Cash Only
-              </button>
-            </div>
-
-            {/* Metrics cards */}
-            <Dashboard transactions={ledgerTransactionsToDisplay} />
-
-            {/* Filter toolbar */}
-            <Filters
-              search={search}
-              setSearch={setSearch}
-              filterType={filterType}
-              setFilterType={setFilterType}
-              filterCategory={filterCategory}
-              setFilterCategory={setFilterCategory}
-            />
-
-            {/* Table */}
-            {loadingLedger ? (
-              <div className="glass-panel rounded-xl p-12 text-center border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center">
-                <div className="w-6 h-6 border-2 border-violet-500/20 border-t-violet-500 rounded-full animate-spin mb-3"></div>
-                <span className="text-slate-500 dark:text-slate-400 text-xs font-semibold">Loading ledger records...</span>
+            {/* Render PAGE 2: BANK */}
+            {activePage === 'bank' && (
+              <div className="animate-slide-up">
+                <BankLedger
+                  transactions={bankTransactions}
+                  loading={loadingBank}
+                  onRefresh={fetchBankTransactions}
+                  onAddClick={() => { setEditingBankTransaction(null); setIsBankFormOpen(true); }}
+                  onEdit={(t) => { setEditingBankTransaction(t); setIsBankFormOpen(true); }}
+                  onDelete={(t) => handleDeleteTrigger(t, 'bank')}
+                />
               </div>
-            ) : (
-              <TransactionTable
-                transactions={filteredLedger}
-                onEdit={(t) => { setEditingTransaction(t); setIsFormOpen(true); }}
-                onDelete={(t) => handleDeleteTrigger(t, 'ledger')}
-              />
             )}
-          </div>
-        )}
 
-        {/* Render PAGE 2: BANK */}
-        {activePage === 'bank' && (
-          <div className="animate-slide-up">
-            <BankLedger
-              transactions={bankTransactions}
-              loading={loadingBank}
-              onRefresh={fetchBankTransactions}
-              onAddClick={() => { setEditingBankTransaction(null); setIsBankFormOpen(true); }}
-              onEdit={(t) => { setEditingBankTransaction(t); setIsBankFormOpen(true); }}
-              onDelete={(t) => handleDeleteTrigger(t, 'bank')}
-            />
-          </div>
-        )}
+            {/* Render PAGE 3: PARTNER */}
+            {activePage === 'partner' && (
+              <div className="animate-slide-up">
+                <PartnerLedger
+                  transactions={partnerTransactions}
+                  loading={loadingPartner}
+                  onRefresh={fetchPartnerTransactions}
+                  onAddClick={() => { setEditingPartnerTransaction(null); setIsPartnerFormOpen(true); }}
+                  onEdit={(t) => { setEditingPartnerTransaction(t); setIsPartnerFormOpen(true); }}
+                  onDelete={(t) => handleDeleteTrigger(t, 'partner')}
+                />
+              </div>
+            )}
 
-        {/* Render PAGE 3: PARTNER */}
-        {activePage === 'partner' && (
-          <div className="animate-slide-up">
-            <PartnerLedger
-              transactions={partnerTransactions}
-              loading={loadingPartner}
-              onRefresh={fetchPartnerTransactions}
-              onAddClick={() => { setEditingPartnerTransaction(null); setIsPartnerFormOpen(true); }}
-              onEdit={(t) => { setEditingPartnerTransaction(t); setIsPartnerFormOpen(true); }}
-              onDelete={(t) => handleDeleteTrigger(t, 'partner')}
-            />
-          </div>
-        )}
-
-        {/* Render PAGE 4: SUMMARY */}
-        {activePage === 'summary' && (
-          <div className="animate-slide-up">
-            <FinancialSummary
-              transactions={transactions}
-              bankTransactions={bankTransactions}
-              partnerTransactions={partnerTransactions}
-            />
-          </div>
+            {/* Render PAGE 4: SUMMARY */}
+            {activePage === 'summary' && (
+              <div className="animate-slide-up">
+                <FinancialSummary
+                  transactions={transactions}
+                  bankTransactions={bankTransactions}
+                  partnerTransactions={partnerTransactions}
+                />
+              </div>
+            )}
+          </>
         )}
 
       </main>
