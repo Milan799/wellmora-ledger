@@ -18,7 +18,7 @@ const BACKUPS_DIR = path.join(__dirname, 'backups');
 // Helper to check mongoose connection
 async function ensureDbConnection() {
   if (mongoose.connection.readyState === 1) return;
-  const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/expense_tracker';
+  const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://trymilan971_db_user:milan123@cluster0.emzxezj.mongodb.net/?appName=Cluster0';
   await mongoose.connect(MONGODB_URI);
 }
 

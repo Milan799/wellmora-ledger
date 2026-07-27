@@ -20,7 +20,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/expense_tracker';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://trymilan971_db_user:milan123@cluster0.emzxezj.mongodb.net/?appName=Cluster0';
 
 // 1. Security HTTP Headers
 app.use(helmet());
