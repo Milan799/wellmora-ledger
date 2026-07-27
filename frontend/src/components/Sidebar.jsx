@@ -85,14 +85,14 @@ export default function Sidebar({
             <div className="p-3 bg-emerald-500/5 dark:bg-emerald-950/20 border border-emerald-500/20 rounded-xl space-y-2">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-emerald-500 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
-                  {authUser.name ? authUser.name.charAt(0).toUpperCase() : 'U'}
+                  {(authUser.username || authUser.name || 'W').charAt(0).toUpperCase()}
                 </div>
                 <div className="overflow-hidden flex-1">
                   <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                    {authUser.name}
+                    {authUser.username || authUser.name}
                   </div>
                   <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                    {authUser.email}
+                    Enterprise Administrator
                   </div>
                 </div>
               </div>

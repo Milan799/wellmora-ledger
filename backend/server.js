@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import mongoSanitize from 'express-mongo-sanitize';
-import authRouter from './routes/auth.js';
+import authRouter, { ensureDefaultAdmin } from './routes/auth.js';
 import { verifyToken } from './middleware/auth.js';
 import transactionRouter from './routes/transactions.js';
 import bankTransactionRouter from './routes/bankTransactions.js';
@@ -123,9 +123,12 @@ PartnerFlow.on('index', err => {
 
 // Connect to MongoDB
 mongoose.connect(MONGODB_URI)
-  .then(() => {
+  .then(async () => {
     console.log('Connected to MongoDB successfully at:', MONGODB_URI);
     
+    // Ensure default secure admin credentials exist
+    await ensureDefaultAdmin();
+
     // Automatically capture a safety snapshot on startup
     createBackup()
       .then(filePath => console.log(`💾 Startup auto-backup snapshot created: ${filePath}`))

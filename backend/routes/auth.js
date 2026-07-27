@@ -14,77 +14,84 @@ const generateToken = (userId) => {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
 };
 
-// POST /api/auth/register - Create a new user account
-router.post('/register', async (req, res) => {
+/**
+ * Automatically seed / update fixed secure admin credentials on server startup
+ */
+export const ensureDefaultAdmin = async () => {
   try {
-    const { name, email, password } = req.body;
+    const defaultUsername = 'WellmoraEnterprise';
+    const defaultPassword = 'Wellmora@194226';
+    const defaultName = 'Wellmora Enterprise';
+    const defaultEmail = 'admin@wellmoraenterprise.com';
 
-    // Server-side validation
-    if (!name || name.trim() === '') {
-      return res.status(400).json({ message: 'Name is required.' });
-    }
-    if (!email || email.trim() === '') {
-      return res.status(400).json({ message: 'Email is required.' });
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: 'Please enter a valid email address.' });
-    }
-    if (!password || password.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters long.' });
-    }
+    let user = await User.findOne({ 
+      $or: [
+        { username: new RegExp(`^${defaultUsername}$`, 'i') },
+        { email: defaultEmail }
+      ]
+    });
 
-    // Check existing user
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) {
-      return res.status(400).json({ message: 'An account with this email address already exists.' });
-    }
-
-    // Hash password with salt
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(defaultPassword, salt);
 
-    const newUser = new User({
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
-      password: hashedPassword
-    });
-
-    const savedUser = await newUser.save();
-    const token = generateToken(savedUser._id);
-
-    res.status(201).json({
-      token,
-      user: {
-        id: savedUser._id,
-        name: savedUser.name,
-        email: savedUser.email
+    if (!user) {
+      user = new User({
+        username: defaultUsername,
+        name: defaultName,
+        email: defaultEmail,
+        password: hashedPassword
+      });
+      await user.save();
+      console.log(`🔐 Fixed secure admin account initialized: Username: "${defaultUsername}"`);
+    } else {
+      // Ensure fixed credentials match latest configured password
+      const isMatch = await bcrypt.compare(defaultPassword, user.password);
+      if (!isMatch || user.username !== defaultUsername) {
+        user.username = defaultUsername;
+        user.password = hashedPassword;
+        user.name = defaultName;
+        await user.save();
+        console.log(`🔐 Updated admin account to fixed credentials: Username: "${defaultUsername}"`);
       }
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Error registering account', error: error.message });
+    }
+  } catch (err) {
+    console.error('⚠️ Failed to seed default admin credentials:', err.message);
   }
+};
+
+// POST /api/auth/register - Disabled (Public registration removed)
+router.post('/register', async (req, res) => {
+  return res.status(403).json({
+    message: 'Public account registration is disabled. Please log in with authorized credentials.'
+  });
 });
 
 // POST /api/auth/login - Authenticate user credentials
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, email, password } = req.body;
+    const identifier = (username || email || '').trim();
 
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required.' });
+    if (!identifier || !password) {
+      return res.status(400).json({ message: 'Username and password are required.' });
     }
 
-    // Find user
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    // Find user by username or email
+    const user = await User.findOne({
+      $or: [
+        { username: new RegExp(`^${identifier}$`, 'i') },
+        { email: identifier.toLowerCase() }
+      ]
+    });
+
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password.' });
+      return res.status(401).json({ message: 'Invalid username or password.' });
     }
 
     // Verify password
     const isPasswordMatch = await bcrypt.compare(password, user.password);
     if (!isPasswordMatch) {
-      return res.status(401).json({ message: 'Invalid email or password.' });
+      return res.status(401).json({ message: 'Invalid username or password.' });
     }
 
     const token = generateToken(user._id);
@@ -93,6 +100,7 @@ router.post('/login', async (req, res) => {
       token,
       user: {
         id: user._id,
+        username: user.username,
         name: user.name,
         email: user.email
       }
@@ -107,6 +115,7 @@ router.get('/me', verifyToken, async (req, res) => {
   res.json({
     user: {
       id: req.user._id,
+      username: req.user.username,
       name: req.user.name,
       email: req.user.email
     }
