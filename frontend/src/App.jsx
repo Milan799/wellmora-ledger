@@ -23,6 +23,15 @@ import AuthModal from './components/AuthModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://wellmora-ledger-1.onrender.com/api');
 
+const safeJsonFetch = async (response) => {
+  if (!response) return null;
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return await response.json();
+  }
+  return null;
+};
+
 const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
@@ -333,7 +342,8 @@ export default function App() {
     try {
       const response = await fetchWithTimeout(`${API_BASE_URL}/transactions`);
       if (!response.ok) throw new Error('Failed to fetch transactions');
-      const data = await response.json();
+      const data = await safeJsonFetch(response);
+      if (!data) throw new Error('Invalid server response');
       setTransactions(data);
       localStorage.setItem('cached_transactions', JSON.stringify(data));
       syncOfflineOperations();
@@ -514,7 +524,8 @@ export default function App() {
     try {
       const response = await fetchWithTimeout(`${API_BASE_URL}/bank-transactions`);
       if (!response.ok) throw new Error('Failed to fetch bank transactions');
-      const data = await response.json();
+      const data = await safeJsonFetch(response);
+      if (!data) throw new Error('Invalid server response');
       setBankTransactions(data);
       localStorage.setItem('cached_bankTransactions', JSON.stringify(data));
     } catch (err) {
@@ -541,7 +552,8 @@ export default function App() {
             body: JSON.stringify(formData)
           });
           if (!response.ok) throw new Error('Failed to update bank entry');
-          const updated = await response.json();
+          const updated = await safeJsonFetch(response);
+          if (!updated) throw new Error('Invalid server response');
           setBankTransactions(prev => {
             const newL = prev.map(t => t._id === updated._id ? updated : t);
             localStorage.setItem('cached_bankTransactions', JSON.stringify(newL));
@@ -566,7 +578,8 @@ export default function App() {
             body: JSON.stringify(formData)
           });
           if (!response.ok) throw new Error('Failed to save bank entry');
-          const saved = await response.json();
+          const saved = await safeJsonFetch(response);
+          if (!saved) throw new Error('Invalid server response');
           setBankTransactions(prev => {
             const newL = [saved, ...prev];
             localStorage.setItem('cached_bankTransactions', JSON.stringify(newL));
@@ -603,7 +616,8 @@ export default function App() {
     try {
       const response = await fetchWithTimeout(`${API_BASE_URL}/partner-flows`);
       if (!response.ok) throw new Error('Failed to fetch partner transactions');
-      const data = await response.json();
+      const data = await safeJsonFetch(response);
+      if (!data) throw new Error('Invalid server response');
       setPartnerTransactions(data);
       localStorage.setItem('cached_partnerTransactions', JSON.stringify(data));
     } catch (err) {

@@ -27,7 +27,16 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, apiBaseUrl }
         body: JSON.stringify(payload)
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      let data = {};
+
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const rawText = await response.text();
+        console.error('⚠️ Received non-JSON response from server:', rawText);
+        throw new Error(`Server returned invalid response status (${response.status}). Please check your backend connection.`);
+      }
 
       if (!response.ok) {
         throw new Error(data.message || 'Authentication failed. Please check your details.');
