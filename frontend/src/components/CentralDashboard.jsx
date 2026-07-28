@@ -416,13 +416,13 @@ export default function CentralDashboard({
       </div>
 
       {/* 3. Combined Filter Toolbar */}
-      <div className="glass-panel rounded-2xl p-4 border border-slate-200 dark:border-slate-800 space-y-3.5">
+      <div className="glass-panel rounded-2xl p-4 border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
         
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          
+        {/* Row 1: Search Bar & Sort Toggle */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           {/* Search Box */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={15} />
+          <div className="relative flex-1 min-w-[240px]">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 shrink-0" size={15} />
             <input
               type="text"
               value={search}
@@ -432,67 +432,66 @@ export default function CentralDashboard({
             />
           </div>
 
-          {/* Quick Filter Selects */}
-          <div className="flex flex-wrap items-center gap-2">
-            
-            {/* Source Module Filter */}
-            <div className="flex items-center gap-1 bg-slate-100/70 dark:bg-slate-900/70 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800/80 max-w-full overflow-x-auto">
-              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 px-2 uppercase shrink-0">Source</span>
-              {[
-                { id: 'All', label: 'All' },
-                { id: 'ledger', label: 'Ledger' },
-                { id: 'bank', label: 'Bank' }
-              ].map(opt => (
-                <button
-                  key={opt.id}
-                  onClick={() => setSourceFilter(opt.id)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
-                    sourceFilter === opt.id
-                      ? 'bg-violet-600 text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+          {/* Sort Order Toggle */}
+          <button
+            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+            className="px-3.5 py-2 bg-slate-100/70 dark:bg-slate-900/70 hover:bg-slate-200/70 dark:hover:bg-slate-800/70 border border-slate-200/80 dark:border-slate-800/80 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0"
+            title="Toggle Sort Order"
+          >
+            <ArrowUpDown size={13} className="text-violet-500 shrink-0" />
+            <span className="whitespace-nowrap">{sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}</span>
+          </button>
+        </div>
 
-            {/* Type Filter */}
-            <div className="flex items-center gap-1 bg-slate-100/70 dark:bg-slate-900/70 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800/80 max-w-full overflow-x-auto">
-              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 px-2 uppercase shrink-0">Flow</span>
-              {[
-                { id: 'All', label: 'All' },
-                { id: 'Inflow', label: 'Money In (+)' },
-                { id: 'Outflow', label: 'Money Out (-)' }
-              ].map(opt => (
-                <button
-                  key={opt.id}
-                  onClick={() => setTypeFilter(opt.id)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
-                    typeFilter === opt.id
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+        {/* Row 2: Source & Flow Filters */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          {/* Source Module Filter */}
+          <div className="flex items-center gap-1 bg-slate-100/70 dark:bg-slate-900/70 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800/80 max-w-full overflow-x-auto">
+            <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 px-2 uppercase shrink-0">Source</span>
+            {[
+              { id: 'All', label: 'All' },
+              { id: 'ledger', label: 'Ledger' },
+              { id: 'bank', label: 'Bank' }
+            ].map(opt => (
+              <button
+                key={opt.id}
+                onClick={() => setSourceFilter(opt.id)}
+                className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
+                  sourceFilter === opt.id
+                    ? 'bg-violet-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
 
-            {/* Sort Toggle */}
-            <button
-              onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-              className="px-3 py-2 bg-slate-100/70 dark:bg-slate-900/70 hover:bg-slate-200/70 dark:hover:bg-slate-800/70 border border-slate-200/80 dark:border-slate-800/80 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-all cursor-pointer"
-              title="Toggle Sort Order"
-            >
-              <ArrowUpDown size={13} className="text-violet-500 shrink-0" />
-              <span className="whitespace-nowrap">{sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}</span>
-            </button>
+          {/* Type Filter */}
+          <div className="flex items-center gap-1 bg-slate-100/70 dark:bg-slate-900/70 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800/80 max-w-full overflow-x-auto">
+            <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 px-2 uppercase shrink-0">Flow</span>
+            {[
+              { id: 'All', label: 'All' },
+              { id: 'Inflow', label: 'Money In (+)' },
+              { id: 'Outflow', label: 'Money Out (-)' }
+            ].map(opt => (
+              <button
+                key={opt.id}
+                onClick={() => setTypeFilter(opt.id)}
+                className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
+                  typeFilter === opt.id
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Date Range Selector Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t border-slate-200/50 dark:border-slate-800/50 text-xs">
+        {/* Row 3: Date Range Selector Bar */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2.5 border-t border-slate-200/50 dark:border-slate-800/50 text-xs">
           
           <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 sm:pb-0 w-full sm:w-auto">
             <span className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1 shrink-0">
