@@ -6,6 +6,9 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
+  const [dateRange, setDateRange] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // Calculates stats
   const totalDeposit = transactions
@@ -47,18 +50,62 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
   const filtered = transactions.filter(t => {
     const matchesSearch = 
       t.bankName.toLowerCase().includes(search.toLowerCase()) || 
-      (t.description && t.description.toLowerCase().includes(search.toLowerCase()));
+      (t.description && t.description.toLowerCase().includes(search.toLowerCase())) ||
+      (t.accountNumber && t.accountNumber.toLowerCase().includes(search.toLowerCase())) ||
+      (t.referenceNumber && t.referenceNumber.toLowerCase().includes(search.toLowerCase()));
     const matchesType = filterType === 'All' || t.type === filterType;
     const matchesStatus = filterStatus === 'All' || t.status === filterStatus;
-    return matchesSearch && matchesType && matchesStatus;
+    if (!matchesSearch || !matchesType || !matchesStatus) return false;
+
+    // Date filtering
+    const itemDate = new Date(t.date || t.createdAt);
+    if (isNaN(itemDate.getTime())) return true;
+    const now = new Date();
+
+    if (dateRange === 'today') {
+      return itemDate.getDate() === now.getDate() &&
+        itemDate.getMonth() === now.getMonth() &&
+        itemDate.getFullYear() === now.getFullYear();
+    } else if (dateRange === 'week') {
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(now.getDate() - 7);
+      return itemDate >= oneWeekAgo;
+    } else if (dateRange === 'month') {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      return itemDate >= startOfMonth;
+    } else if (dateRange === 'quarter') {
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      const startOfQuarter = new Date(now.getFullYear(), quarterStartMonth, 1);
+      return itemDate >= startOfQuarter;
+    } else if (dateRange === 'year') {
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      return itemDate >= startOfYear;
+    } else if (dateRange === 'custom') {
+      if (startDate) {
+        const s = new Date(startDate);
+        s.setHours(0, 0, 0, 0);
+        if (itemDate < s) return false;
+      }
+      if (endDate) {
+        const e = new Date(endDate);
+        e.setHours(23, 59, 59, 999);
+        if (itemDate > e) return false;
+      }
+      return true;
+    }
+
+    return true;
   });
 
-  const hasActiveFilters = search || filterType !== 'All' || filterStatus !== 'All';
+  const hasActiveFilters = search || filterType !== 'All' || filterStatus !== 'All' || dateRange !== 'all' || startDate || endDate;
 
   const handleClearFilters = () => {
     setSearch('');
     setFilterType('All');
     setFilterStatus('All');
+    setDateRange('all');
+    setStartDate('');
+    setEndDate('');
   };
 
   // MS Excel HTML Table Exporter
@@ -109,27 +156,27 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
   };
 
   // Exporter for Bank
-  const handleExport = (range, startDate, endDate) => {
-    let toExport = [...filtered];
+  const handleExport = (range, startDateParam, endDateParam) => {
+    let toExport = [...transactions];
     const now = new Date();
     
     if (range === 'monthly') {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      toExport = filtered.filter(t => new Date(t.date) >= startOfMonth);
+      toExport = transactions.filter(t => new Date(t.date || t.createdAt) >= startOfMonth);
     } else if (range === 'quarterly') {
       const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
       const startOfQuarter = new Date(now.getFullYear(), quarterStartMonth, 1);
-      toExport = filtered.filter(t => new Date(t.date) >= startOfQuarter);
+      toExport = transactions.filter(t => new Date(t.date || t.createdAt) >= startOfQuarter);
     } else if (range === 'yearly') {
       const startOfYear = new Date(now.getFullYear(), 0, 1);
-      toExport = filtered.filter(t => new Date(t.date) >= startOfYear);
+      toExport = transactions.filter(t => new Date(t.date || t.createdAt) >= startOfYear);
     } else if (range === 'custom') {
-      const start = new Date(startDate);
+      const start = new Date(startDateParam);
       start.setHours(0, 0, 0, 0);
-      const end = new Date(endDate);
+      const end = new Date(endDateParam);
       end.setHours(23, 59, 59, 999);
-      toExport = filtered.filter(t => {
-        const d = new Date(t.date);
+      toExport = transactions.filter(t => {
+        const d = new Date(t.date || t.createdAt);
         return d >= start && d <= end;
       });
     }
@@ -141,7 +188,7 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
 
     const headers = ['Date', 'Bank Name', 'Account Number', 'Type', 'Amount (INR)', 'Status', 'Description'];
     const rows = toExport.map(t => [
-      new Date(t.date).toLocaleDateString('en-IN'),
+      new Date(t.date || t.createdAt).toLocaleDateString('en-IN'),
       t.bankName,
       t.accountNumber,
       t.type,
@@ -308,11 +355,61 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
           {hasActiveFilters && (
             <button
               onClick={handleClearFilters}
-              className="w-full md:w-auto px-4 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-650 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-95"
+              className="w-full md:w-auto px-4 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-650 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-95 shrink-0"
             >
               <RefreshCw size={12} />
               Reset
             </button>
+          )}
+        </div>
+
+        {/* Date Range Selector Row */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 mt-3 border-t border-slate-200/60 dark:border-slate-800/60 text-xs">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1">
+              <Calendar size={13} />
+              Date Period:
+            </span>
+
+            {[
+              { id: 'all', label: 'All Time' },
+              { id: 'today', label: 'Today' },
+              { id: 'week', label: 'Past 7 Days' },
+              { id: 'month', label: 'This Month' },
+              { id: 'quarter', label: 'This Quarter' },
+              { id: 'year', label: 'This Year' },
+              { id: 'custom', label: 'Custom Range' }
+            ].map(range => (
+              <button
+                key={range.id}
+                onClick={() => setDateRange(range.id)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  dateRange === range.id
+                    ? 'bg-slate-900 dark:bg-slate-100 text-slate-100 dark:text-slate-900 shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900'
+                }`}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
+
+          {dateRange === 'custom' && (
+            <div className="flex items-center gap-2 bg-slate-100/60 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px] font-semibold text-slate-800 dark:text-slate-200"
+              />
+              <span className="text-slate-400 font-bold text-xs">to</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px] font-semibold text-slate-800 dark:text-slate-200"
+              />
+            </div>
           )}
         </div>
       </div>

@@ -204,6 +204,9 @@ export default function App() {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [filterCategory, setFilterCategory] = useState('All');
+  const [ledgerDateRange, setLedgerDateRange] = useState('all');
+  const [ledgerStartDate, setLedgerStartDate] = useState('');
+  const [ledgerEndDate, setLedgerEndDate] = useState('');
 
   // Form modals state
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -473,25 +476,25 @@ export default function App() {
 
   // Exporter for Standard Ledger
   const handleLedgerExport = (range, startDate, endDate) => {
-    let toExport = [...filteredLedger];
+    let toExport = [...ledgerTransactionsToDisplay];
     const now = new Date();
 
     if (range === 'monthly') {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      toExport = filteredLedger.filter(t => new Date(t.date) >= startOfMonth);
+      toExport = toExport.filter(t => new Date(t.date) >= startOfMonth);
     } else if (range === 'quarterly') {
       const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
       const startOfQuarter = new Date(now.getFullYear(), quarterStartMonth, 1);
-      toExport = filteredLedger.filter(t => new Date(t.date) >= startOfQuarter);
+      toExport = toExport.filter(t => new Date(t.date) >= startOfQuarter);
     } else if (range === 'yearly') {
       const startOfYear = new Date(now.getFullYear(), 0, 1);
-      toExport = filteredLedger.filter(t => new Date(t.date) >= startOfYear);
+      toExport = toExport.filter(t => new Date(t.date) >= startOfYear);
     } else if (range === 'custom') {
       const start = new Date(startDate);
       start.setHours(0, 0, 0, 0);
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
-      toExport = filteredLedger.filter(t => {
+      toExport = toExport.filter(t => {
         const d = new Date(t.date);
         return d >= start && d <= end;
       });
@@ -776,10 +779,51 @@ export default function App() {
     : transactions;
 
   const filteredLedger = ledgerTransactionsToDisplay.filter(t => {
-    const matchesSearch = (t.description || '').toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = (t.description || '').toLowerCase().includes(search.toLowerCase()) ||
+      (t.category || '').toLowerCase().includes(search.toLowerCase());
     const matchesType = filterType === 'All' || t.type === filterType;
     const matchesCategory = filterCategory === 'All' || t.category === filterCategory;
-    return matchesSearch && matchesType && matchesCategory;
+
+    if (!matchesSearch || !matchesType || !matchesCategory) return false;
+
+    // Date filtering
+    const itemDate = new Date(t.date || t.createdAt);
+    if (isNaN(itemDate.getTime())) return true;
+    const now = new Date();
+
+    if (ledgerDateRange === 'today') {
+      return itemDate.getDate() === now.getDate() &&
+        itemDate.getMonth() === now.getMonth() &&
+        itemDate.getFullYear() === now.getFullYear();
+    } else if (ledgerDateRange === 'week') {
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(now.getDate() - 7);
+      return itemDate >= oneWeekAgo;
+    } else if (ledgerDateRange === 'month') {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      return itemDate >= startOfMonth;
+    } else if (ledgerDateRange === 'quarter') {
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      const startOfQuarter = new Date(now.getFullYear(), quarterStartMonth, 1);
+      return itemDate >= startOfQuarter;
+    } else if (ledgerDateRange === 'year') {
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      return itemDate >= startOfYear;
+    } else if (ledgerDateRange === 'custom') {
+      if (ledgerStartDate) {
+        const s = new Date(ledgerStartDate);
+        s.setHours(0, 0, 0, 0);
+        if (itemDate < s) return false;
+      }
+      if (ledgerEndDate) {
+        const e = new Date(ledgerEndDate);
+        e.setHours(23, 59, 59, 999);
+        if (itemDate > e) return false;
+      }
+      return true;
+    }
+
+    return true;
   });
 
   const isOnline = !errorLedger;
@@ -959,6 +1003,12 @@ export default function App() {
                   setFilterType={setFilterType}
                   filterCategory={filterCategory}
                   setFilterCategory={setFilterCategory}
+                  dateRange={ledgerDateRange}
+                  setDateRange={setLedgerDateRange}
+                  startDate={ledgerStartDate}
+                  setStartDate={setLedgerStartDate}
+                  endDate={ledgerEndDate}
+                  setEndDate={setLedgerEndDate}
                 />
 
                 {/* Table */}

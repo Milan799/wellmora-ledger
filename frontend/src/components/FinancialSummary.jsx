@@ -1,43 +1,94 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   TrendingUp, 
   TrendingDown, 
   Building2, 
   Users2, 
   Wallet, 
-  BarChart3
+  BarChart3,
+  Calendar
 } from 'lucide-react';
 import InteractiveDonutChart from './InteractiveDonutChart';
+import ExportDropdown from './ExportDropdown';
 
 export default function FinancialSummary({ transactions = [], bankTransactions = [], partnerTransactions = [] }) {
-  
+  const [dateRange, setDateRange] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Date filtering helper
+  const filterByDate = (list) => {
+    return list.filter(t => {
+      const itemDate = new Date(t.date || t.createdAt);
+      if (isNaN(itemDate.getTime())) return true;
+      const now = new Date();
+
+      if (dateRange === 'today') {
+        return itemDate.getDate() === now.getDate() &&
+          itemDate.getMonth() === now.getMonth() &&
+          itemDate.getFullYear() === now.getFullYear();
+      } else if (dateRange === 'week') {
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(now.getDate() - 7);
+        return itemDate >= oneWeekAgo;
+      } else if (dateRange === 'month') {
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        return itemDate >= startOfMonth;
+      } else if (dateRange === 'quarter') {
+        const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+        const startOfQuarter = new Date(now.getFullYear(), quarterStartMonth, 1);
+        return itemDate >= startOfQuarter;
+      } else if (dateRange === 'year') {
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        return itemDate >= startOfYear;
+      } else if (dateRange === 'custom') {
+        if (startDate) {
+          const s = new Date(startDate);
+          s.setHours(0, 0, 0, 0);
+          if (itemDate < s) return false;
+        }
+        if (endDate) {
+          const e = new Date(endDate);
+          e.setHours(23, 59, 59, 999);
+          if (itemDate > e) return false;
+        }
+        return true;
+      }
+      return true;
+    });
+  };
+
+  const activeLedger = filterByDate(transactions);
+  const activeBank = filterByDate(bankTransactions);
+  const activePartner = filterByDate(partnerTransactions);
+
   // 1. General Ledger & In Hand Cash Calculations
-  const ledgerInflow = transactions
+  const ledgerInflow = activeLedger
     .filter(t => t.type === 'Credit')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const ledgerOutflow = transactions
+  const ledgerOutflow = activeLedger
     .filter(t => t.type === 'Debit')
     .reduce((sum, t) => sum + t.amount, 0);
 
   const ledgerNet = ledgerInflow - ledgerOutflow;
 
-  const inHandCashInflow = transactions
+  const inHandCashInflow = activeLedger
     .filter(t => t.isHandCash && t.type === 'Credit')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const inHandCashOutflow = transactions
+  const inHandCashOutflow = activeLedger
     .filter(t => t.isHandCash && t.type === 'Debit')
     .reduce((sum, t) => sum + t.amount, 0);
 
   const inHandCashNet = inHandCashInflow - inHandCashOutflow;
 
   // 2. Bank Transactions Calculations
-  const bankDeposits = bankTransactions
+  const bankDeposits = activeBank
     .filter(t => t.type === 'Deposit' && t.status === 'Completed')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const bankWithdrawals = bankTransactions
+  const bankWithdrawals = activeBank
     .filter(t => t.type === 'Withdrawal' && t.status === 'Completed')
     .reduce((sum, t) => sum + t.amount, 0);
 
@@ -45,7 +96,7 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
 
   // Group by Bank Account Name/Number
   const bankAccountsMap = {};
-  bankTransactions.forEach(t => {
+  activeBank.forEach(t => {
     if (t.status !== 'Completed') return;
     const key = `${t.bankName} (A/C: ${t.accountNumber || 'N/A'})`;
     if (!bankAccountsMap[key]) {
@@ -66,12 +117,12 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
   }));
 
   // 3. Partner Money Flow Calculations
-  const partnerContribution = partnerTransactions
+  const partnerContribution = activePartner
     .filter(t => t.type === 'Capital Contribution')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const partnerWithdrawal = partnerTransactions
-    .filter(t => t.type === 'Profit Withdrawal')
+  const partnerWithdrawal = activePartner
+    .filter(t => t.type === 'Profit Withdrawal' || t.type === 'Share Distribution')
     .reduce((sum, t) => sum + t.amount, 0);
 
   const partnerNet = partnerContribution - partnerWithdrawal;
@@ -80,12 +131,12 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
   const partners = ['Milan Javiya', 'Krushang Prajapati', 'Umang Prajapati', 'Moksh Shah'];
   
   const partnerBreakdown = partners.map(name => {
-    const flows = partnerTransactions.filter(t => t.partnerName === name);
+    const flows = activePartner.filter(t => t.partnerName === name);
     const contributions = flows
       .filter(t => t.type === 'Capital Contribution')
       .reduce((sum, t) => sum + t.amount, 0);
     const withdrawals = flows
-      .filter(t => t.type === 'Profit Withdrawal')
+      .filter(t => t.type === 'Profit Withdrawal' || t.type === 'Share Distribution')
       .reduce((sum, t) => sum + t.amount, 0);
     return {
       name,
@@ -102,7 +153,7 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
 
   // 5. Category-wise Spending (Ledger Debits)
   const categoryTotals = {};
-  transactions
+  activeLedger
     .filter(t => t.type === 'Debit')
     .forEach(t => {
       categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
@@ -158,17 +209,178 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
     }).format(val);
   };
 
+  // MS Excel HTML Table Exporter for Summary
+  const exportToExcel = (headers, rows, filename) => {
+    const htmlContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Financial Summary</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+      </head>
+      <body>
+        <h2 style="font-family: Arial; color: #4f46e5;">Wellmora Enterprise - Financial Summary Report</h2>
+        <table border="1" style="border-collapse: collapse; font-family: Arial; font-size: 12px;">
+          <thead>
+            <tr style="background-color: #6366f1; color: white; font-weight: bold;">
+              ${headers.map(h => `<th style="padding: 8px;">${h}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map(cell => `<td style="padding: 6px;">${String(cell)}</td>`).join('')}</tr>`).join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFinancialSummaryExport = (range, startDateParam, endDateParam) => {
+    let activeL = [...transactions];
+    let activeB = [...bankTransactions];
+    let activeP = [...partnerTransactions];
+    const now = new Date();
+
+    if (range === 'monthly') {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      activeL = transactions.filter(t => new Date(t.date || t.createdAt) >= startOfMonth);
+      activeB = bankTransactions.filter(t => new Date(t.date || t.createdAt) >= startOfMonth);
+      activeP = partnerTransactions.filter(t => new Date(t.date || t.createdAt) >= startOfMonth);
+    } else if (range === 'quarterly') {
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      const startOfQuarter = new Date(now.getFullYear(), quarterStartMonth, 1);
+      activeL = transactions.filter(t => new Date(t.date || t.createdAt) >= startOfQuarter);
+      activeB = bankTransactions.filter(t => new Date(t.date || t.createdAt) >= startOfQuarter);
+      activeP = partnerTransactions.filter(t => new Date(t.date || t.createdAt) >= startOfQuarter);
+    } else if (range === 'yearly') {
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      activeL = transactions.filter(t => new Date(t.date || t.createdAt) >= startOfYear);
+      activeB = bankTransactions.filter(t => new Date(t.date || t.createdAt) >= startOfYear);
+      activeP = partnerTransactions.filter(t => new Date(t.date || t.createdAt) >= startOfYear);
+    } else if (range === 'custom') {
+      const start = new Date(startDateParam);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDateParam);
+      end.setHours(23, 59, 59, 999);
+      activeL = transactions.filter(t => { const d = new Date(t.date || t.createdAt); return d >= start && d <= end; });
+      activeB = bankTransactions.filter(t => { const d = new Date(t.date || t.createdAt); return d >= start && d <= end; });
+      activeP = partnerTransactions.filter(t => { const d = new Date(t.date || t.createdAt); return d >= start && d <= end; });
+    }
+
+    const headers = ['Financial Metric', 'Value (INR)'];
+    const lIn = activeL.filter(t => t.type === 'Credit').reduce((sum, t) => sum + t.amount, 0);
+    const lOut = activeL.filter(t => t.type === 'Debit').reduce((sum, t) => sum + t.amount, 0);
+    const bIn = activeB.filter(t => t.type === 'Deposit' && t.status === 'Completed').reduce((sum, t) => sum + t.amount, 0);
+    const bOut = activeB.filter(t => t.type === 'Withdrawal' && t.status === 'Completed').reduce((sum, t) => sum + t.amount, 0);
+    const pIn = activeP.filter(t => t.type === 'Capital Contribution').reduce((sum, t) => sum + t.amount, 0);
+    const pOut = activeP.filter(t => t.type === 'Profit Withdrawal' || t.type === 'Share Distribution').reduce((sum, t) => sum + t.amount, 0);
+
+    const rows = [
+      ['Total Combined Inflows', lIn + bIn + pIn],
+      ['Total Combined Outflows', lOut + bOut + pOut],
+      ['Operating Ledger Inflows', lIn],
+      ['Operating Ledger Outflows', lOut],
+      ['Operating Ledger Net Balance', lIn - lOut],
+      ['Bank Accounts Deposits', bIn],
+      ['Bank Accounts Withdrawals', bOut],
+      ['Bank Accounts Net Balance', bIn - bOut],
+      ['Partner Capital Contributions', pIn],
+      ['Partner Profit Withdrawals', pOut],
+      ['Partner Net Equity', pIn - pOut],
+    ];
+
+    exportToExcel(headers, rows, `wellmora_financial_summary_${range}.xls`);
+  };
+
   return (
     <div className="space-y-6 pb-8 animate-slide-up">
       {/* Page Title Header */}
-      <div className="pb-5 border-b border-slate-200 dark:border-slate-800">
-        <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight flex items-center gap-2">
-          <BarChart3 className="text-violet-600 dark:text-violet-400" size={20} />
-          Financial Calculations Center
-        </h2>
-        <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">
-          Consolidated real-time balance sheets, equity holdings, and cash distributions.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight flex items-center gap-2">
+            <BarChart3 className="text-violet-600 dark:text-violet-400" size={20} />
+            Financial Calculations Center
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">
+            Consolidated real-time balance sheets, equity holdings, and cash distributions.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <ExportDropdown onExport={handleFinancialSummaryExport} />
+        </div>
+      </div>
+
+      {/* Date Range Selector Toolbar */}
+      <div className="glass-panel rounded-xl p-3.5 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1">
+            <Calendar size={13} />
+            Date Period:
+          </span>
+
+          {[
+            { id: 'all', label: 'All Time' },
+            { id: 'today', label: 'Today' },
+            { id: 'week', label: 'Past 7 Days' },
+            { id: 'month', label: 'This Month' },
+            { id: 'quarter', label: 'This Quarter' },
+            { id: 'year', label: 'This Year' },
+            { id: 'custom', label: 'Custom Range' }
+          ].map(range => (
+            <button
+              key={range.id}
+              onClick={() => setDateRange(range.id)}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                dateRange === range.id
+                  ? 'bg-slate-900 dark:bg-slate-100 text-slate-100 dark:text-slate-900 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900'
+              }`}
+            >
+              {range.label}
+            </button>
+          ))}
+        </div>
+
+        {dateRange === 'custom' && (
+          <div className="flex items-center gap-2 bg-slate-100/60 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px] font-semibold text-slate-800 dark:text-slate-200"
+            />
+            <span className="text-slate-400 font-bold text-xs">to</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px] font-semibold text-slate-800 dark:text-slate-200"
+            />
+          </div>
+        )}
       </div>
 
       {/* Combined Positions Hero Card */}
