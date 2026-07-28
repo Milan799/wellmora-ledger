@@ -18,6 +18,7 @@ import {
   Sparkles,
   ArrowUpDown
 } from 'lucide-react';
+import ExportDropdown from './ExportDropdown';
 
 export default function CentralDashboard({
   transactions = [],
@@ -235,18 +236,42 @@ export default function CentralDashboard({
   }, [allCombinedTransactions, search, sourceFilter, typeFilter, dateRange, startDate, endDate, sortOrder]);
 
   // Export Combined Data to Excel (.xls)
-  const exportCentralToExcel = () => {
-    if (filteredTransactions.length === 0) {
-      alert('No combined transactions available in the current filter selection to export.');
+  const exportCentralToExcel = (range = 'all', startDateParam = '', endDateParam = '') => {
+    let toExport = [...allCombinedTransactions];
+    const now = new Date();
+
+    if (range === 'monthly') {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      toExport = allCombinedTransactions.filter(t => new Date(t.date) >= startOfMonth);
+    } else if (range === 'quarterly') {
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      const startOfQuarter = new Date(now.getFullYear(), quarterStartMonth, 1);
+      toExport = allCombinedTransactions.filter(t => new Date(t.date) >= startOfQuarter);
+    } else if (range === 'yearly') {
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      toExport = allCombinedTransactions.filter(t => new Date(t.date) >= startOfYear);
+    } else if (range === 'custom') {
+      const start = new Date(startDateParam);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDateParam);
+      end.setHours(23, 59, 59, 999);
+      toExport = allCombinedTransactions.filter(t => {
+        const d = new Date(t.date);
+        return d >= start && d <= end;
+      });
+    }
+
+    if (toExport.length === 0) {
+      alert('No combined transactions found in the specified range to export.');
       return;
     }
 
     const headers = ['Date', 'Source Module', 'Description', 'Category / Details', 'Payment Mode', 'Ref No.', 'Flow Type', 'Original Type', 'Amount (INR)'];
-    const rows = filteredTransactions.map(t => [
+    const rows = toExport.map(t => [
       formatDate(t.date),
       t.sourceLabel,
-      t.description.replace(/"/g, '""'),
-      t.entityInfo.replace(/"/g, '""'),
+      (t.description || '').replace(/"/g, '""'),
+      (t.entityInfo || '').replace(/"/g, '""'),
       t.paymentMode,
       t.refNo || '-',
       t.flowType,
@@ -298,7 +323,7 @@ export default function CentralDashboard({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `wellmora_central_consolidated_ledger_${dateRange}.xls`);
+    link.setAttribute('download', `wellmora_central_consolidated_ledger_${range}.xls`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -359,13 +384,7 @@ export default function CentralDashboard({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={exportCentralToExcel}
-            className="w-full md:w-auto px-4 py-2 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-violet-500/20 shadow-lg shadow-violet-600/15 cursor-pointer transition-all duration-200"
-          >
-            <Download size={14} />
-            Export Combined Excel
-          </button>
+          <ExportDropdown onExport={exportCentralToExcel} />
         </div>
       </div>
 
