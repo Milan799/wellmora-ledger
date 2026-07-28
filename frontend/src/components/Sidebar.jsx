@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Building2, Users2, X, BarChart3, Sun, Moon, LogOut, User, ShieldCheck } from 'lucide-react';
+import { BookOpen, Building2, Users2, X, BarChart3, Sun, Moon, LogOut, User, ShieldCheck, LayoutDashboard } from 'lucide-react';
 import Logo from './Logo';
 
 export default function Sidebar({
@@ -14,6 +14,7 @@ export default function Sidebar({
   onLogout
 }) {
   const menuItems = [
+    { id: 'central', label: 'Central Dashboard', icon: LayoutDashboard },
     { id: 'ledger', label: 'Ledger & Expenses', icon: BookOpen },
     { id: 'bank', label: 'Bank Transactions', icon: Building2 },
     { id: 'partner', label: 'Partner Money Flow', icon: Users2 },

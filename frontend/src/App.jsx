@@ -15,6 +15,7 @@ import BankForm from './components/BankForm';
 import PartnerLedger from './components/PartnerLedger';
 import PartnerForm from './components/PartnerForm';
 import FinancialSummary from './components/FinancialSummary';
+import CentralDashboard from './components/CentralDashboard';
 
 import DeleteConfirmation from './components/DeleteConfirmation';
 import Notification from './components/Notification';
@@ -56,7 +57,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
 
 export default function App() {
   const [activePage, setActivePage] = useState(() => {
-    return localStorage.getItem('activePage') || 'ledger';
+    return localStorage.getItem('activePage') || 'central';
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile drawer state
 
@@ -859,6 +860,21 @@ export default function App() {
           </div>
         ) : (
           <>
+            {/* Render PAGE 0: CENTRAL COMBINED DASHBOARD */}
+            {activePage === 'central' && (
+              <CentralDashboard
+                transactions={transactions}
+                bankTransactions={bankTransactions}
+                partnerTransactions={partnerTransactions}
+                onEditLedger={(t) => { setEditingTransaction(t); setIsFormOpen(true); }}
+                onDeleteLedger={(t) => handleDeleteTrigger(t, 'ledger')}
+                onEditBank={(t) => { setEditingBankTransaction(t); setIsBankFormOpen(true); }}
+                onDeleteBank={(t) => handleDeleteTrigger(t, 'bank')}
+                onEditPartner={(t) => { setEditingPartnerTransaction(t); setIsPartnerFormOpen(true); }}
+                onDeletePartner={(t) => handleDeleteTrigger(t, 'partner')}
+              />
+            )}
+
             {/* Render PAGE 1: LEDGER */}
             {activePage === 'ledger' && (
               <div className="space-y-5 animate-slide-up">
