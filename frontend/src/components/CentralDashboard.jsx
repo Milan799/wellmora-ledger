@@ -60,21 +60,21 @@ export default function CentralDashboard({
     });
   };
 
-  // Normalize all transactions into unified data structure
+  // Normalize Ledger & Bank transactions into combined data structure
   const allCombinedTransactions = useMemo(() => {
     const ledgerItems = (transactions || []).map(t => ({
       _id: t._id,
       raw: t,
       sourceModule: 'ledger',
-      sourceLabel: 'Operating Ledger',
+      sourceLabel: 'Cash / Expense',
       date: t.date || t.createdAt || new Date().toISOString(),
       timestamp: new Date(t.date || t.createdAt || Date.now()).getTime(),
       description: t.description || 'Ledger Entry',
-      entityInfo: t.category || 'General Expense',
-      subCategory: t.isHandCash ? 'In Hand Cash' : 'Ledger Account',
+      entityInfo: t.category || 'Expense',
+      subCategory: t.isHandCash ? 'In Hand Cash' : 'Cash Account',
       flowType: t.type === 'Credit' ? 'Inflow' : 'Outflow',
       originalType: t.type,
-      paymentMode: t.isHandCash ? 'In Hand Cash' : 'Ledger Transfer',
+      paymentMode: t.isHandCash ? 'In Hand Cash' : 'Cash Transfer',
       amount: Number(t.amount || 0),
       refNo: '',
       status: 'Completed'
@@ -87,7 +87,7 @@ export default function CentralDashboard({
       sourceLabel: 'Bank Account',
       date: t.date || t.createdAt || new Date().toISOString(),
       timestamp: new Date(t.date || t.createdAt || Date.now()).getTime(),
-      description: t.notes || `${t.type} - ${t.bankName || 'Bank'}`,
+      description: t.description || t.notes || `${t.type} - ${t.bankName || 'Bank'}`,
       entityInfo: `${t.bankName || 'Bank'}${t.accountNumber ? ` (A/C: ${t.accountNumber})` : ''}`,
       subCategory: t.paymentMethod || 'Bank Transfer',
       flowType: t.type === 'Deposit' ? 'Inflow' : 'Outflow',
@@ -98,48 +98,72 @@ export default function CentralDashboard({
       status: t.status || 'Completed'
     }));
 
-    const partnerItems = (partnerTransactions || []).map(t => ({
-      _id: t._id,
-      raw: t,
-      sourceModule: 'partner',
-      sourceLabel: 'Partner Equity',
-      date: t.date || t.createdAt || new Date().toISOString(),
-      timestamp: new Date(t.date || t.createdAt || Date.now()).getTime(),
-      description: t.notes || `${t.type} by ${t.partnerName || 'Partner'}`,
-      entityInfo: `Partner: ${t.partnerName || 'N/A'}`,
-      subCategory: t.type,
-      flowType: t.type === 'Capital Contribution' ? 'Inflow' : 'Outflow',
-      originalType: t.type,
-      paymentMode: t.paymentMode || 'Capital Transfer',
-      amount: Number(t.amount || 0),
-      refNo: '',
-      status: 'Completed'
-    }));
+    return [...ledgerItems, ...bankItems];
+  }, [transactions, bankTransactions]);
 
-    return [...ledgerItems, ...bankItems, ...partnerItems];
-  }, [transactions, bankTransactions, partnerTransactions]);
+  // Date-filtered transactions
+  const dateFilteredTransactions = useMemo(() => {
+    const now = new Date();
+    return allCombinedTransactions.filter(t => {
+      const itemDate = new Date(t.date);
+      if (isNaN(itemDate.getTime())) return true;
 
-  // Combined Inflow / Outflow KPI metrics across all modules
+      if (dateRange === 'today') {
+        const today = new Date();
+        return (
+          itemDate.getDate() === today.getDate() &&
+          itemDate.getMonth() === today.getMonth() &&
+          itemDate.getFullYear() === today.getFullYear()
+        );
+      } else if (dateRange === 'week') {
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(now.getDate() - 7);
+        return itemDate >= oneWeekAgo;
+      } else if (dateRange === 'month') {
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        return itemDate >= startOfMonth;
+      } else if (dateRange === 'quarter') {
+        const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+        const startOfQuarter = new Date(now.getFullYear(), quarterStartMonth, 1);
+        return itemDate >= startOfQuarter;
+      } else if (dateRange === 'year') {
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        return itemDate >= startOfYear;
+      } else if (dateRange === 'custom') {
+        if (startDate) {
+          const s = new Date(startDate);
+          s.setHours(0, 0, 0, 0);
+          if (itemDate < s) return false;
+        }
+        if (endDate) {
+          const e = new Date(endDate);
+          e.setHours(23, 59, 59, 999);
+          if (itemDate > e) return false;
+        }
+        return true;
+      }
+      return true;
+    });
+  }, [allCombinedTransactions, dateRange, startDate, endDate]);
+
+  // Dynamic Inflow, Outflow & Net Balance metrics for selected date filter
   const kpiData = useMemo(() => {
     let totalInflow = 0;
     let totalOutflow = 0;
 
     let ledgerIn = 0, ledgerOut = 0;
     let bankIn = 0, bankOut = 0;
-    let partnerIn = 0, partnerOut = 0;
 
-    allCombinedTransactions.forEach(t => {
+    dateFilteredTransactions.forEach(t => {
       if (t.status === 'Failed') return;
       if (t.flowType === 'Inflow') {
         totalInflow += t.amount;
         if (t.sourceModule === 'ledger') ledgerIn += t.amount;
         if (t.sourceModule === 'bank') bankIn += t.amount;
-        if (t.sourceModule === 'partner') partnerIn += t.amount;
       } else {
         totalOutflow += t.amount;
         if (t.sourceModule === 'ledger') ledgerOut += t.amount;
         if (t.sourceModule === 'bank') bankOut += t.amount;
-        if (t.sourceModule === 'partner') partnerOut += t.amount;
       }
     });
 
@@ -151,17 +175,13 @@ export default function CentralDashboard({
       ledgerOut,
       bankIn,
       bankOut,
-      partnerIn,
-      partnerOut,
-      totalCount: allCombinedTransactions.length
+      totalCount: dateFilteredTransactions.length
     };
-  }, [allCombinedTransactions]);
+  }, [dateFilteredTransactions]);
 
   // Filtering and sorting date-wise transactions
   const filteredTransactions = useMemo(() => {
-    const now = new Date();
-    
-    return allCombinedTransactions.filter(t => {
+    return dateFilteredTransactions.filter(t => {
       // 1. Search filter
       if (search.trim()) {
         const q = search.toLowerCase();
@@ -187,44 +207,6 @@ export default function CentralDashboard({
         return false;
       }
 
-      // 4. Date range filter
-      const itemDate = new Date(t.date);
-      if (isNaN(itemDate.getTime())) return true;
-
-      if (dateRange === 'today') {
-        const today = new Date();
-        if (
-          itemDate.getDate() !== today.getDate() ||
-          itemDate.getMonth() !== today.getMonth() ||
-          itemDate.getFullYear() !== today.getFullYear()
-        ) return false;
-      } else if (dateRange === 'week') {
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(now.getDate() - 7);
-        if (itemDate < oneWeekAgo) return false;
-      } else if (dateRange === 'month') {
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        if (itemDate < startOfMonth) return false;
-      } else if (dateRange === 'quarter') {
-        const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
-        const startOfQuarter = new Date(now.getFullYear(), quarterStartMonth, 1);
-        if (itemDate < startOfQuarter) return false;
-      } else if (dateRange === 'year') {
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        if (itemDate < startOfYear) return false;
-      } else if (dateRange === 'custom') {
-        if (startDate) {
-          const s = new Date(startDate);
-          s.setHours(0, 0, 0, 0);
-          if (itemDate < s) return false;
-        }
-        if (endDate) {
-          const e = new Date(endDate);
-          e.setHours(23, 59, 59, 999);
-          if (itemDate > e) return false;
-        }
-      }
-
       return true;
     }).sort((a, b) => {
       if (sortOrder === 'asc') {
@@ -233,7 +215,7 @@ export default function CentralDashboard({
         return b.timestamp - a.timestamp;
       }
     });
-  }, [allCombinedTransactions, search, sourceFilter, typeFilter, dateRange, startDate, endDate, sortOrder]);
+  }, [dateFilteredTransactions, search, sourceFilter, typeFilter, sortOrder]);
 
   // Export Combined Data to Excel (.xls)
   const exportCentralToExcel = (range = 'all', startDateParam = '', endDateParam = '') => {
@@ -262,11 +244,11 @@ export default function CentralDashboard({
     }
 
     if (toExport.length === 0) {
-      alert('No combined transactions found in the specified range to export.');
+      alert('No transactions found in the specified range to export.');
       return;
     }
 
-    const headers = ['Date', 'Source Module', 'Description', 'Category / Details', 'Payment Mode', 'Ref No.', 'Flow Type', 'Original Type', 'Amount (INR)'];
+    const headers = ['Date', 'Source', 'Description', 'Category / Bank Details', 'Payment Mode', 'Ref No.', 'Flow Type', 'Amount (INR)'];
     const rows = toExport.map(t => [
       formatDate(t.date),
       t.sourceLabel,
@@ -275,7 +257,6 @@ export default function CentralDashboard({
       t.paymentMode,
       t.refNo || '-',
       t.flowType,
-      t.originalType,
       t.amount
     ]);
 
@@ -283,23 +264,9 @@ export default function CentralDashboard({
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
       <head>
         <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-        <!--[if gte mso 9]>
-        <xml>
-          <x:ExcelWorkbook>
-            <x:ExcelWorksheets>
-              <x:ExcelWorksheet>
-                <x:Name>Central Consolidated Ledger</x:Name>
-                <x:WorksheetOptions>
-                  <x:DisplayGridlines/>
-                </x:WorksheetOptions>
-              </x:ExcelWorksheet>
-            </x:ExcelWorksheets>
-          </x:ExcelWorkbook>
-        </xml>
-        <![endif]-->
       </head>
       <body>
-        <h2 style="font-family: Arial; color: #4f46e5;">Wellmora Enterprise - Central Date-Wise Consolidated Ledger</h2>
+        <h2 style="font-family: Arial; color: #4f46e5;">Wellmora - Cash & Bank Transaction Report</h2>
         <p style="font-family: Arial; font-size: 12px; color: #64748b;">Report Generated: ${new Date().toLocaleString('en-IN')}</p>
         <table border="1" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px;">
           <thead>
@@ -323,7 +290,7 @@ export default function CentralDashboard({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `wellmora_central_consolidated_ledger_${range}.xls`);
+    link.setAttribute('download', `wellmora_transactions_${range}.xls`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -347,13 +314,6 @@ export default function CentralDashboard({
             Bank
           </span>
         );
-      case 'partner':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-violet-500/10 text-violet-700 dark:text-violet-400 border border-violet-500/20">
-            <Users2 size={11} />
-            Partner
-          </span>
-        );
       default:
         return null;
     }
@@ -371,13 +331,13 @@ export default function CentralDashboard({
             </div>
             <div>
               <h2 className="text-xl font-black text-slate-900 dark:text-slate-50 tracking-tight flex items-center gap-2">
-                Central Combined Dashboard
+                Main Dashboard
                 <span className="px-2 py-0.5 text-[10px] font-bold bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 rounded-md">
-                  Unified Date-Wise Feed
+                  Cash & Bank
                 </span>
               </h2>
               <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5 font-medium">
-                Integrated real-time date-wise transaction ledger combining Operating Expenses, Bank Accounts, and Partner Capital.
+                Simple view of all your cash expenses and bank account transactions date-wise.
               </p>
             </div>
           </div>
@@ -388,13 +348,13 @@ export default function CentralDashboard({
         </div>
       </div>
 
-      {/* 2. Executive KPI Cards */}
+      {/* 2. Date-Wise Summary KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Total Inflows */}
+        {/* Total Money In (Inflow) */}
         <div className="glass-panel glass-panel-hover rounded-xl p-4.5 glow-green relative overflow-hidden transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-6 -mt-6 blur-2xl"></div>
           <div className="flex items-center justify-between mb-2.5">
-            <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-wider uppercase">Total Combined Inflows</span>
+            <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-wider uppercase">Total Money In (Inflow)</span>
             <div className="p-1.5 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400">
               <TrendingUp size={16} />
             </div>
@@ -403,17 +363,16 @@ export default function CentralDashboard({
             {formatCurrency(kpiData.totalInflow)}
           </h3>
           <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 text-[9.5px] font-semibold text-slate-500 dark:text-slate-400">
-            <span>Ledger: {formatCurrency(kpiData.ledgerIn)}</span>
-            <span>Bank: {formatCurrency(kpiData.bankIn)}</span>
-            <span>Partner: {formatCurrency(kpiData.partnerIn)}</span>
+            <span>Ledger In: {formatCurrency(kpiData.ledgerIn)}</span>
+            <span>Bank In: {formatCurrency(kpiData.bankIn)}</span>
           </div>
         </div>
 
-        {/* Total Outflows */}
+        {/* Total Money Out (Outflow) */}
         <div className="glass-panel glass-panel-hover rounded-xl p-4.5 glow-rose relative overflow-hidden transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full -mr-6 -mt-6 blur-2xl"></div>
           <div className="flex items-center justify-between mb-2.5">
-            <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-wider uppercase">Total Combined Outflows</span>
+            <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-wider uppercase">Total Money Out (Outflow)</span>
             <div className="p-1.5 bg-rose-500/10 dark:bg-rose-500/20 rounded-lg text-rose-600 dark:text-rose-400">
               <TrendingDown size={16} />
             </div>
@@ -422,13 +381,12 @@ export default function CentralDashboard({
             {formatCurrency(kpiData.totalOutflow)}
           </h3>
           <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 text-[9.5px] font-semibold text-slate-500 dark:text-slate-400">
-            <span>Ledger: {formatCurrency(kpiData.ledgerOut)}</span>
-            <span>Bank: {formatCurrency(kpiData.bankOut)}</span>
-            <span>Partner: {formatCurrency(kpiData.partnerOut)}</span>
+            <span>Ledger Out: {formatCurrency(kpiData.ledgerOut)}</span>
+            <span>Bank Out: {formatCurrency(kpiData.bankOut)}</span>
           </div>
         </div>
 
-        {/* Net Consolidated Position */}
+        {/* Net Balance */}
         <div className={`glass-panel glass-panel-hover rounded-xl p-4.5 relative overflow-hidden transition-all duration-300 ${
           kpiData.netBalance >= 0 ? 'glow-indigo' : 'glow-rose'
         }`}>
@@ -436,7 +394,7 @@ export default function CentralDashboard({
             kpiData.netBalance >= 0 ? 'bg-indigo-500/5' : 'bg-rose-500/5'
           }`}></div>
           <div className="flex items-center justify-between mb-2.5">
-            <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-wider uppercase">Net Consolidated Surplus</span>
+            <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-wider uppercase">Net Balance</span>
             <div className={`p-1.5 rounded-lg ${
               kpiData.netBalance >= 0 
                 ? 'bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' 
@@ -451,8 +409,8 @@ export default function CentralDashboard({
             {formatCurrency(kpiData.netBalance)}
           </h3>
           <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 text-[9.5px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-            <span>{kpiData.totalCount} Total Transactions Recorded</span>
-            <span>{filteredTransactions.length} Filtered</span>
+            <span>{kpiData.totalCount} Records in Selected Period</span>
+            <span>{filteredTransactions.length} Shown</span>
           </div>
         </div>
       </div>
@@ -469,7 +427,7 @@ export default function CentralDashboard({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search across all modules, descriptions, categories, banks..."
+              placeholder="Search descriptions, categories, banks..."
               className="w-full pl-9 pr-4 py-2 bg-slate-100/70 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800/80 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all"
             />
           </div>
@@ -483,8 +441,7 @@ export default function CentralDashboard({
               {[
                 { id: 'All', label: 'All' },
                 { id: 'ledger', label: 'Ledger' },
-                { id: 'bank', label: 'Bank' },
-                { id: 'partner', label: 'Partner' }
+                { id: 'bank', label: 'Bank' }
               ].map(opt => (
                 <button
                   key={opt.id}
@@ -505,8 +462,8 @@ export default function CentralDashboard({
               <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 px-2 uppercase shrink-0">Flow</span>
               {[
                 { id: 'All', label: 'All' },
-                { id: 'Inflow', label: 'Inflow (+)' },
-                { id: 'Outflow', label: 'Outflow (-)' }
+                { id: 'Inflow', label: 'Money In (+)' },
+                { id: 'Outflow', label: 'Money Out (-)' }
               ].map(opt => (
                 <button
                   key={opt.id}

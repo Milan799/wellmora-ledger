@@ -321,10 +321,10 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
         <div>
           <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight flex items-center gap-2">
             <BarChart3 className="text-violet-600 dark:text-violet-400" size={20} />
-            Financial Calculations Center
+            Financial Overview
           </h2>
           <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">
-            Consolidated real-time balance sheets, equity holdings, and cash distributions.
+            Simple summary of your money, bank balances, and partner shares.
           </p>
         </div>
 
@@ -388,9 +388,9 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
         <div className="lg:col-span-2 glass-panel rounded-2xl p-6 glow-violet relative overflow-hidden flex flex-col justify-between min-h-[160px]">
           <div className="absolute top-0 right-0 w-36 h-36 bg-gradient-to-br from-violet-650/10 to-indigo-650/10 rounded-full blur-2xl -mr-6 -mt-6"></div>
           <div className="flex items-center justify-between z-10">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Combined Cash Assets</span>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Money Available</span>
             <span className="px-2 py-0.5 bg-violet-500/10 dark:bg-violet-950/45 text-[9px] font-bold text-violet-600 dark:text-violet-400 rounded-md tracking-wide uppercase border border-violet-500/10">
-              Liquid Cash Position
+              Total Cash & Bank
             </span>
           </div>
           <div className="my-4 z-10">
@@ -398,7 +398,7 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
               {formatCurrency(totalNetLiquidAssets)}
             </h1>
             <p className="text-slate-450 dark:text-slate-400 text-[10.5px] mt-1 font-medium">
-              Sum of In-Hand Cash Ledger Balance ({formatCurrency(inHandCashNet)}) + Bank Accounts Balance ({formatCurrency(bankNet)}).
+              In-Hand Cash ({formatCurrency(inHandCashNet)}) + Bank Balance ({formatCurrency(bankNet)}).
             </p>
           </div>
           <div className="flex items-center gap-6 text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider border-t border-slate-200/50 dark:border-slate-800/50 pt-3 z-10">
@@ -409,19 +409,19 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
 
         {/* Combined Turnover Statistics */}
         <div className="glass-panel rounded-2xl p-5 flex flex-col justify-between">
-          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">Total Combined Turnovers</span>
+          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">Total Money In & Out</span>
           <div className="space-y-3.5 flex-1 flex flex-col justify-center">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400"><TrendingUp size={14} /></div>
-                <span className="text-xs font-semibold text-slate-600 dark:text-slate-450">Inflows</span>
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-450">Money In</span>
               </div>
               <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalCombinedInflows)}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-rose-500/10 dark:bg-rose-500/20 rounded-lg text-rose-600 dark:text-rose-450"><TrendingDown size={14} /></div>
-                <span className="text-xs font-semibold text-slate-600 dark:text-slate-450">Outflows</span>
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-450">Money Out</span>
               </div>
               <span className="text-xs font-bold text-rose-600 dark:text-rose-400">{formatCurrency(totalCombinedOutflows)}</span>
             </div>

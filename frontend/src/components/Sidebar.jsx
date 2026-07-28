@@ -14,11 +14,11 @@ export default function Sidebar({
   onLogout
 }) {
   const menuItems = [
-    { id: 'central', label: 'Central Dashboard', icon: LayoutDashboard },
-    { id: 'ledger', label: 'Ledger & Expenses', icon: BookOpen },
-    { id: 'bank', label: 'Bank Transactions', icon: Building2 },
-    { id: 'partner', label: 'Partner Money Flow', icon: Users2 },
-    { id: 'summary', label: 'Financial Summary', icon: BarChart3 }
+    { id: 'central', label: 'Main Dashboard', icon: LayoutDashboard },
+    { id: 'ledger', label: 'Expenses & Cash', icon: BookOpen },
+    { id: 'bank', label: 'Bank Accounts', icon: Building2 },
+    { id: 'partner', label: 'Partner Investments', icon: Users2 },
+    { id: 'summary', label: 'Financial Overview', icon: BarChart3 }
   ];
 
   return (

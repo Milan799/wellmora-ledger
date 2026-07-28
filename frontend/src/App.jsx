@@ -935,7 +935,7 @@ export default function App() {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight">Ledger & Expenses</h2>
+                      <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight">Expenses & Cash</h2>
                       <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800" title={isOnline ? "Server Connected" : "Connection Offline"}>
                         <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse-subtle' : 'bg-rose-500'}`} />
                         <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{isOnline ? 'Online' : 'Offline'}</span>
