@@ -35,10 +35,12 @@ export default function PartnerLedger({ transactions, onEdit, onDelete, loading,
     }
   };
 
-  const filtered = transactions.filter(t => {
+  const safeTransactions = transactions || [];
+
+  const filtered = safeTransactions.filter(t => {
     const matchesSearch = 
-      t.partnerName.toLowerCase().includes(search.toLowerCase()) || 
-      (t.description && t.description.toLowerCase().includes(search.toLowerCase()));
+      (t.partnerName || '').toLowerCase().includes(search.toLowerCase()) || 
+      (t.description || '').toLowerCase().includes(search.toLowerCase());
     const matchesType = filterType === 'All' || t.type === filterType;
     if (!matchesSearch || !matchesType) return false;
 

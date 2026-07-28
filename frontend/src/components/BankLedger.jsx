@@ -8,6 +8,8 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
   const [filterStatus, setFilterStatus] = useState('All');
   const [dateRange, setDateRange] = useState('all');
   const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
     return new Date(dateString).toLocaleDateString('en-IN', options);
@@ -34,12 +36,14 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
     }
   };
 
-  const filtered = transactions.filter(t => {
+  const safeTransactions = transactions || [];
+
+  const filtered = safeTransactions.filter(t => {
     const matchesSearch = 
-      t.bankName.toLowerCase().includes(search.toLowerCase()) || 
-      (t.description && t.description.toLowerCase().includes(search.toLowerCase())) ||
-      (t.accountNumber && t.accountNumber.toLowerCase().includes(search.toLowerCase())) ||
-      (t.referenceNumber && t.referenceNumber.toLowerCase().includes(search.toLowerCase()));
+      (t.bankName || '').toLowerCase().includes(search.toLowerCase()) || 
+      (t.description || '').toLowerCase().includes(search.toLowerCase()) ||
+      (t.accountNumber || '').toLowerCase().includes(search.toLowerCase()) ||
+      (t.referenceNumber || '').toLowerCase().includes(search.toLowerCase());
     const matchesType = filterType === 'All' || t.type === filterType;
     const matchesStatus = filterStatus === 'All' || t.status === filterStatus;
     if (!matchesSearch || !matchesType || !matchesStatus) return false;
