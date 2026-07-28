@@ -33,12 +33,13 @@ const safeJsonFetch = async (response) => {
   return null;
 };
 
-const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
+const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   try {
     const token = localStorage.getItem('authToken');
     const headers = {
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       ...options.headers,
       ...(token ? { 'Authorization': `Bearer ${token}` } : {})
     };
@@ -267,20 +268,21 @@ export default function App() {
           else if (op.type === 'bank') url = `${API_BASE_URL}/bank-transactions`;
           else if (op.type === 'partner') url = `${API_BASE_URL}/partner-flows`;
 
-          const response = await fetch(url, {
+          const response = await fetchWithTimeout(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(cleanData)
           });
           if (!response.ok) throw new Error();
 
-          const savedItem = await response.json();
-          if (op.type === 'ledger') {
-            setTransactions(prev => prev.map(t => t._id === op.data._id ? savedItem : t));
-          } else if (op.type === 'bank') {
-            setBankTransactions(prev => prev.map(t => t._id === op.data._id ? savedItem : t));
-          } else if (op.type === 'partner') {
-            setPartnerTransactions(prev => prev.map(t => t._id === op.data._id ? savedItem : t));
+          const savedItem = await safeJsonFetch(response);
+          if (savedItem) {
+            if (op.type === 'ledger') {
+              setTransactions(prev => prev.map(t => t._id === op.data._id ? savedItem : t));
+            } else if (op.type === 'bank') {
+              setBankTransactions(prev => prev.map(t => t._id === op.data._id ? savedItem : t));
+            } else if (op.type === 'partner') {
+              setPartnerTransactions(prev => prev.map(t => t._id === op.data._id ? savedItem : t));
+            }
           }
         } else if (op.action === 'EDIT') {
           let url = '';
@@ -290,9 +292,8 @@ export default function App() {
 
           if (op.data._id.startsWith('local_')) continue;
 
-          const response = await fetch(url, {
+          const response = await fetchWithTimeout(url, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(op.data)
           });
           if (!response.ok) throw new Error();
@@ -304,7 +305,7 @@ export default function App() {
 
           if (op.data._id.startsWith('local_')) continue;
 
-          const response = await fetch(url, { method: 'DELETE' });
+          const response = await fetchWithTimeout(url, { method: 'DELETE' });
           if (!response.ok) throw new Error();
         }
       } catch (err) {
@@ -317,17 +318,20 @@ export default function App() {
     if (failedOps.length === 0) {
       triggerNotification('Offline entries successfully synced to server!', 'success');
       // Quietly reload backend data
-      const res1 = await fetch(`${API_BASE_URL}/transactions`).then(r => r.json()).catch(() => null);
+      const r1 = await fetchWithTimeout(`${API_BASE_URL}/transactions`).catch(() => null);
+      const res1 = r1 ? await safeJsonFetch(r1) : null;
       if (res1) {
         setTransactions(res1);
         localStorage.setItem('cached_transactions', JSON.stringify(res1));
       }
-      const res2 = await fetch(`${API_BASE_URL}/bank-transactions`).then(r => r.json()).catch(() => null);
+      const r2 = await fetchWithTimeout(`${API_BASE_URL}/bank-transactions`).catch(() => null);
+      const res2 = r2 ? await safeJsonFetch(r2) : null;
       if (res2) {
         setBankTransactions(res2);
         localStorage.setItem('cached_bankTransactions', JSON.stringify(res2));
       }
-      const res3 = await fetch(`${API_BASE_URL}/partner-flows`).then(r => r.json()).catch(() => null);
+      const r3 = await fetchWithTimeout(`${API_BASE_URL}/partner-flows`).catch(() => null);
+      const res3 = r3 ? await safeJsonFetch(r3) : null;
       if (res3) {
         setPartnerTransactions(res3);
         localStorage.setItem('cached_partnerTransactions', JSON.stringify(res3));
@@ -370,20 +374,21 @@ export default function App() {
     try {
       if (editingTransaction) {
         try {
-          const response = await fetch(`${API_BASE_URL}/transactions/${editingTransaction._id}`, {
+          const response = await fetchWithTimeout(`${API_BASE_URL}/transactions/${editingTransaction._id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
           });
           if (!response.ok) throw new Error('Failed to update ledger');
-          const updated = await response.json();
+          const updated = await safeJsonFetch(response);
+          if (!updated) throw new Error('Invalid server response');
           setTransactions(prev => {
             const newL = prev.map(t => t._id === updated._id ? updated : t);
             localStorage.setItem('cached_transactions', JSON.stringify(newL));
             return newL;
           });
           triggerNotification('Ledger entry updated successfully!', 'success');
-        } catch {
+        } catch (err) {
+          console.warn('Network submit failed, queuing offline:', err);
           const updatedLocally = { ...editingTransaction, ...formData, updatedAt: new Date().toISOString() };
           setTransactions(prev => {
             const newL = prev.map(t => t._id === editingTransaction._id ? updatedLocally : t);
@@ -395,20 +400,21 @@ export default function App() {
         }
       } else {
         try {
-          const response = await fetch(`${API_BASE_URL}/transactions`, {
+          const response = await fetchWithTimeout(`${API_BASE_URL}/transactions`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
           });
           if (!response.ok) throw new Error('Failed to save ledger');
-          const saved = await response.json();
+          const saved = await safeJsonFetch(response);
+          if (!saved) throw new Error('Invalid server response');
           setTransactions(prev => {
             const newL = [saved, ...prev];
             localStorage.setItem('cached_transactions', JSON.stringify(newL));
             return newL;
           });
           triggerNotification('Ledger entry added successfully!', 'success');
-        } catch {
+        } catch (err) {
+          console.warn('Network submit failed, queuing offline:', err);
           const localNew = { ...formData, _id: `local_${Date.now()}`, date: formData.date || new Date().toISOString(), createdAt: new Date().toISOString() };
           setTransactions(prev => {
             const newL = [localNew, ...prev];
@@ -550,9 +556,8 @@ export default function App() {
     try {
       if (editingBankTransaction) {
         try {
-          const response = await fetch(`${API_BASE_URL}/bank-transactions/${editingBankTransaction._id}`, {
+          const response = await fetchWithTimeout(`${API_BASE_URL}/bank-transactions/${editingBankTransaction._id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
           });
           if (!response.ok) throw new Error('Failed to update bank entry');
@@ -564,7 +569,8 @@ export default function App() {
             return newL;
           });
           triggerNotification('Bank record updated successfully!', 'success');
-        } catch {
+        } catch (err) {
+          console.warn('Network bank submit failed, queuing offline:', err);
           const updatedLocally = { ...editingBankTransaction, ...formData, updatedAt: new Date().toISOString() };
           setBankTransactions(prev => {
             const newL = prev.map(t => t._id === editingBankTransaction._id ? updatedLocally : t);
@@ -576,9 +582,8 @@ export default function App() {
         }
       } else {
         try {
-          const response = await fetch(`${API_BASE_URL}/bank-transactions`, {
+          const response = await fetchWithTimeout(`${API_BASE_URL}/bank-transactions`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
           });
           if (!response.ok) throw new Error('Failed to save bank entry');
@@ -590,7 +595,8 @@ export default function App() {
             return newL;
           });
           triggerNotification('Bank record added successfully!', 'success');
-        } catch {
+        } catch (err) {
+          console.warn('Network bank submit failed, queuing offline:', err);
           const localNew = { ...formData, _id: `local_${Date.now()}`, date: formData.date || new Date().toISOString(), createdAt: new Date().toISOString() };
           setBankTransactions(prev => {
             const newL = [localNew, ...prev];
@@ -642,20 +648,21 @@ export default function App() {
     try {
       if (editingPartnerTransaction) {
         try {
-          const response = await fetch(`${API_BASE_URL}/partner-flows/${editingPartnerTransaction._id}`, {
+          const response = await fetchWithTimeout(`${API_BASE_URL}/partner-flows/${editingPartnerTransaction._id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
           });
           if (!response.ok) throw new Error('Failed to update partner entry');
-          const updated = await response.json();
+          const updated = await safeJsonFetch(response);
+          if (!updated) throw new Error('Invalid server response');
           setPartnerTransactions(prev => {
             const newL = prev.map(t => t._id === updated._id ? updated : t);
             localStorage.setItem('cached_partnerTransactions', JSON.stringify(newL));
             return newL;
           });
           triggerNotification('Partner flow updated successfully!', 'success');
-        } catch {
+        } catch (err) {
+          console.warn('Network partner submit failed, queuing offline:', err);
           const updatedLocally = { ...editingPartnerTransaction, ...formData, updatedAt: new Date().toISOString() };
           setPartnerTransactions(prev => {
             const newL = prev.map(t => t._id === editingPartnerTransaction._id ? updatedLocally : t);
@@ -667,20 +674,21 @@ export default function App() {
         }
       } else {
         try {
-          const response = await fetch(`${API_BASE_URL}/partner-flows`, {
+          const response = await fetchWithTimeout(`${API_BASE_URL}/partner-flows`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
           });
           if (!response.ok) throw new Error('Failed to save partner entry');
-          const saved = await response.json();
+          const saved = await safeJsonFetch(response);
+          if (!saved) throw new Error('Invalid server response');
           setPartnerTransactions(prev => {
             const newL = [saved, ...prev];
             localStorage.setItem('cached_partnerTransactions', JSON.stringify(newL));
             return newL;
           });
           triggerNotification('Partner flow added successfully!', 'success');
-        } catch {
+        } catch (err) {
+          console.warn('Network partner submit failed, queuing offline:', err);
           const localNew = { ...formData, _id: `local_${Date.now()}`, date: formData.date || new Date().toISOString(), createdAt: new Date().toISOString() };
           setPartnerTransactions(prev => {
             const newL = [localNew, ...prev];
@@ -717,7 +725,7 @@ export default function App() {
 
     try {
       try {
-        const response = await fetch(`${API_BASE_URL}/${urlSegment}/${deletingTransaction._id}`, {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/${urlSegment}/${deletingTransaction._id}`, {
           method: 'DELETE'
         });
         if (!response.ok) throw new Error('Failed to remove entry');
@@ -742,7 +750,8 @@ export default function App() {
           });
         }
         triggerNotification('Record deleted successfully!', 'success');
-      } catch {
+      } catch (err) {
+        console.warn('Network delete failed, deleting locally:', err);
         // Delete locally
         if (deletingType === 'ledger') {
           setTransactions(prev => {
