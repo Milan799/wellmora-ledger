@@ -8,7 +8,31 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
   const [filterStatus, setFilterStatus] = useState('All');
   const [dateRange, setDateRange] = useState('all');
   const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const formatDate = (dateString) => {
+    const options = { year: 'numeric', month: 'short', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString('en-IN', options);
+  };
+
+  const formatCurrency = (val) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 2
+    }).format(val || 0);
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'Completed':
+        return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-450 border-emerald-500/20';
+      case 'Pending':
+        return 'bg-amber-500/10 text-amber-600 dark:text-amber-450 border-amber-500/20';
+      case 'Failed':
+        return 'bg-rose-500/10 text-rose-655 dark:text-rose-455 border-rose-500/20';
+      default:
+        return 'bg-amber-500/10 text-amber-600';
+    }
+  };
 
   const filtered = transactions.filter(t => {
     const matchesSearch = 
