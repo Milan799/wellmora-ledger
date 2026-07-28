@@ -334,9 +334,9 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
       </div>
 
       {/* Date Range Selector Toolbar */}
-      <div className="glass-panel rounded-xl p-3.5 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2.5 text-xs">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1">
+      <div className="glass-panel rounded-xl p-3.5 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 sm:pb-0 w-full sm:w-auto">
+          <span className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1 shrink-0">
             <Calendar size={13} />
             Date Period:
           </span>
@@ -353,7 +353,7 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
             <button
               key={range.id}
               onClick={() => setDateRange(range.id)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
                 dateRange === range.id
                   ? 'bg-slate-900 dark:bg-slate-100 text-slate-100 dark:text-slate-900 shadow-sm'
                   : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900'
@@ -365,7 +365,7 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
         </div>
 
         {dateRange === 'custom' && (
-          <div className="flex items-center gap-2 bg-slate-100/60 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800">
+          <div className="flex items-center gap-2 bg-slate-100/60 dark:bg-slate-900/60 p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-800 w-full sm:w-auto justify-between sm:justify-start">
             <input
               type="date"
               value={startDate}

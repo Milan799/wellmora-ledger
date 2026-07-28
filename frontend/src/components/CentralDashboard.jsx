@@ -463,7 +463,7 @@ export default function CentralDashboard({
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           
           {/* Search Box */}
-          <div className="relative flex-1 min-w-[240px]">
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={15} />
             <input
               type="text"
@@ -478,8 +478,8 @@ export default function CentralDashboard({
           <div className="flex flex-wrap items-center gap-2">
             
             {/* Source Module Filter */}
-            <div className="flex items-center gap-1 bg-slate-100/70 dark:bg-slate-900/70 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800/80">
-              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 px-2 uppercase">Source</span>
+            <div className="flex items-center gap-1 bg-slate-100/70 dark:bg-slate-900/70 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800/80 max-w-full overflow-x-auto">
+              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 px-2 uppercase shrink-0">Source</span>
               {[
                 { id: 'All', label: 'All' },
                 { id: 'ledger', label: 'Ledger' },
@@ -489,7 +489,7 @@ export default function CentralDashboard({
                 <button
                   key={opt.id}
                   onClick={() => setSourceFilter(opt.id)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
                     sourceFilter === opt.id
                       ? 'bg-violet-600 text-white shadow-sm'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
@@ -501,8 +501,8 @@ export default function CentralDashboard({
             </div>
 
             {/* Type Filter */}
-            <div className="flex items-center gap-1 bg-slate-100/70 dark:bg-slate-900/70 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800/80">
-              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 px-2 uppercase">Flow</span>
+            <div className="flex items-center gap-1 bg-slate-100/70 dark:bg-slate-900/70 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800/80 max-w-full overflow-x-auto">
+              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 px-2 uppercase shrink-0">Flow</span>
               {[
                 { id: 'All', label: 'All' },
                 { id: 'Inflow', label: 'Inflow (+)' },
@@ -511,7 +511,7 @@ export default function CentralDashboard({
                 <button
                   key={opt.id}
                   onClick={() => setTypeFilter(opt.id)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
                     typeFilter === opt.id
                       ? 'bg-emerald-600 text-white shadow-sm'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
@@ -528,17 +528,17 @@ export default function CentralDashboard({
               className="px-3 py-2 bg-slate-100/70 dark:bg-slate-900/70 hover:bg-slate-200/70 dark:hover:bg-slate-800/70 border border-slate-200/80 dark:border-slate-800/80 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-all cursor-pointer"
               title="Toggle Sort Order"
             >
-              <ArrowUpDown size={13} className="text-violet-500" />
-              <span>{sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}</span>
+              <ArrowUpDown size={13} className="text-violet-500 shrink-0" />
+              <span className="whitespace-nowrap">{sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}</span>
             </button>
           </div>
         </div>
 
         {/* Date Range Selector Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200/50 dark:border-slate-800/50 text-xs">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t border-slate-200/50 dark:border-slate-800/50 text-xs">
           
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1">
+          <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 sm:pb-0 w-full sm:w-auto">
+            <span className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1 shrink-0">
               <Calendar size={13} />
               Date Period:
             </span>
@@ -555,7 +555,7 @@ export default function CentralDashboard({
               <button
                 key={range.id}
                 onClick={() => setDateRange(range.id)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
                   dateRange === range.id
                     ? 'bg-slate-900 dark:bg-slate-100 text-slate-100 dark:text-slate-900 shadow-sm'
                     : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900'
@@ -567,7 +567,7 @@ export default function CentralDashboard({
           </div>
 
           {dateRange === 'custom' && (
-            <div className="flex items-center gap-2 bg-slate-100/60 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800">
+            <div className="flex items-center gap-2 bg-slate-100/60 dark:bg-slate-900/60 p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-800 w-full sm:w-auto justify-between sm:justify-start">
               <input
                 type="date"
                 value={startDate}
@@ -586,7 +586,7 @@ export default function CentralDashboard({
         </div>
       </div>
 
-      {/* 4. Date-Wise Unified Transactions Table */}
+      {/* 4. Date-Wise Unified Transactions (Mobile Feed + Desktop Table) */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800/80 shadow-xl">
         <div className="p-4 bg-slate-50/70 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -595,7 +595,7 @@ export default function CentralDashboard({
               Date-Wise Consolidated Transactions ({filteredTransactions.length})
             </h3>
           </div>
-          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest hidden sm:inline">
             Chronological Stream
           </span>
         </div>
@@ -606,63 +606,56 @@ export default function CentralDashboard({
             No combined transactions match your current search and date filters.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-100/40 dark:bg-slate-950/40 text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider">
-                  <th className="px-4 py-3.5">Date</th>
-                  <th className="px-4 py-3.5">Module Source</th>
-                  <th className="px-4 py-3.5">Description / Note</th>
-                  <th className="px-4 py-3.5">Category / Account</th>
-                  <th className="px-4 py-3.5">Payment Mode</th>
-                  <th className="px-4 py-3.5">Type</th>
-                  <th className="px-4 py-3.5 text-right">Amount</th>
-                  <th className="px-4 py-3.5 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200/40 dark:divide-slate-800/40 text-xs text-slate-700 dark:text-slate-250">
-                {filteredTransactions.map((t) => (
-                  <tr 
-                    key={`${t.sourceModule}_${t._id}`} 
-                    className="hover:bg-slate-100/50 dark:hover:bg-slate-900/30 transition-colors"
-                  >
-                    {/* Date */}
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-slate-100 text-xs">
-                        <Calendar size={13} className="text-slate-400 dark:text-slate-500 shrink-0" />
+          <>
+            {/* Mobile Card Feed (block md:hidden) */}
+            <div className="block md:hidden divide-y divide-slate-200/60 dark:divide-slate-800/60">
+              {filteredTransactions.map((t) => (
+                <div key={`mobile_${t.sourceModule}_${t._id}`} className="p-4 space-y-2.5 hover:bg-slate-100/40 dark:hover:bg-slate-900/40 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-1 font-bold text-slate-900 dark:text-slate-100 text-xs">
+                        <Calendar size={13} className="text-slate-400 shrink-0" />
                         {formatDate(t.date)}
-                      </div>
-                    </td>
-
-                    {/* Source Module */}
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      {renderSourceBadge(t.sourceModule)}
-                    </td>
-
-                    {/* Description */}
-                    <td className="px-4 py-3.5 max-w-xs truncate font-medium text-slate-900 dark:text-slate-100 text-xs" title={t.description}>
-                      {t.description}
-                      {t.refNo && (
-                        <span className="block text-[9.5px] font-normal text-slate-400 dark:text-slate-500">
-                          Ref: {t.refNo}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Category / Entity */}
-                    <td className="px-4 py-3.5 whitespace-nowrap font-medium text-slate-600 dark:text-slate-350 text-xs">
-                      {t.entityInfo}
-                    </td>
-
-                    {/* Payment Mode */}
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 rounded-md text-[10px] font-semibold border border-slate-200/60 dark:border-slate-800">
-                        {t.paymentMode}
                       </span>
-                    </td>
+                      {renderSourceBadge(t.sourceModule)}
+                    </div>
 
-                    {/* Flow Type */}
-                    <td className="px-4 py-3.5 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          if (t.sourceModule === 'ledger') onEditLedger(t.raw);
+                          else if (t.sourceModule === 'bank') onEditBank(t.raw);
+                          else if (t.sourceModule === 'partner') onEditPartner(t.raw);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 bg-slate-100 dark:bg-slate-900 rounded-lg"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (t.sourceModule === 'ledger') onDeleteLedger(t.raw);
+                          else if (t.sourceModule === 'bank') onDeleteBank(t.raw);
+                          else if (t.sourceModule === 'partner') onDeletePartner(t.raw);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 bg-slate-100 dark:bg-slate-900 rounded-lg"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                      {t.description}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                      {t.entityInfo} • <span className="font-semibold">{t.paymentMode}</span>
+                      {t.refNo && <span className="ml-1 text-[10px] text-slate-400">Ref: {t.refNo}</span>}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <div>
                       {t.flowType === 'Inflow' ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                           <ArrowUpRight size={11} />
@@ -674,47 +667,121 @@ export default function CentralDashboard({
                           {t.originalType}
                         </span>
                       )}
-                    </td>
+                    </div>
 
-                    {/* Amount */}
-                    <td className={`px-4 py-3.5 text-right whitespace-nowrap font-extrabold text-xs ${
+                    <div className={`text-base font-black ${
                       t.flowType === 'Inflow' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'
                     }`}>
                       {t.flowType === 'Inflow' ? '+' : '-'}{formatCurrency(t.amount)}
-                    </td>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-                    {/* Action buttons */}
-                    <td className="px-4 py-3.5 whitespace-nowrap text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => {
-                            if (t.sourceModule === 'ledger') onEditLedger(t.raw);
-                            else if (t.sourceModule === 'bank') onEditBank(t.raw);
-                            else if (t.sourceModule === 'partner') onEditPartner(t.raw);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg cursor-pointer transition-colors"
-                          title="Edit transaction"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (t.sourceModule === 'ledger') onDeleteLedger(t.raw);
-                            else if (t.sourceModule === 'bank') onDeleteBank(t.raw);
-                            else if (t.sourceModule === 'partner') onDeletePartner(t.raw);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer transition-colors"
-                          title="Delete transaction"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </td>
+            {/* Desktop Data Table (hidden md:block) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-100/40 dark:bg-slate-950/40 text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    <th className="px-4 py-3.5">Date</th>
+                    <th className="px-4 py-3.5">Module Source</th>
+                    <th className="px-4 py-3.5">Description / Note</th>
+                    <th className="px-4 py-3.5">Category / Account</th>
+                    <th className="px-4 py-3.5">Payment Mode</th>
+                    <th className="px-4 py-3.5">Type</th>
+                    <th className="px-4 py-3.5 text-right">Amount</th>
+                    <th className="px-4 py-3.5 text-center">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-200/40 dark:divide-slate-800/40 text-xs text-slate-700 dark:text-slate-250">
+                  {filteredTransactions.map((t) => (
+                    <tr 
+                      key={`${t.sourceModule}_${t._id}`} 
+                      className="hover:bg-slate-100/50 dark:hover:bg-slate-900/30 transition-colors"
+                    >
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-slate-100 text-xs">
+                          <Calendar size={13} className="text-slate-400 dark:text-slate-500 shrink-0" />
+                          {formatDate(t.date)}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        {renderSourceBadge(t.sourceModule)}
+                      </td>
+
+                      <td className="px-4 py-3.5 max-w-xs truncate font-medium text-slate-900 dark:text-slate-100 text-xs" title={t.description}>
+                        {t.description}
+                        {t.refNo && (
+                          <span className="block text-[9.5px] font-normal text-slate-400 dark:text-slate-500">
+                            Ref: {t.refNo}
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3.5 whitespace-nowrap font-medium text-slate-600 dark:text-slate-350 text-xs">
+                        {t.entityInfo}
+                      </td>
+
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 rounded-md text-[10px] font-semibold border border-slate-200/60 dark:border-slate-800">
+                          {t.paymentMode}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        {t.flowType === 'Inflow' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            <ArrowUpRight size={11} />
+                            {t.originalType}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                            <ArrowDownRight size={11} />
+                            {t.originalType}
+                          </span>
+                        )}
+                      </td>
+
+                      <td className={`px-4 py-3.5 text-right whitespace-nowrap font-extrabold text-xs ${
+                        t.flowType === 'Inflow' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'
+                      }`}>
+                        {t.flowType === 'Inflow' ? '+' : '-'}{formatCurrency(t.amount)}
+                      </td>
+
+                      <td className="px-4 py-3.5 whitespace-nowrap text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              if (t.sourceModule === 'ledger') onEditLedger(t.raw);
+                              else if (t.sourceModule === 'bank') onEditBank(t.raw);
+                              else if (t.sourceModule === 'partner') onEditPartner(t.raw);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg cursor-pointer transition-colors"
+                            title="Edit transaction"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (t.sourceModule === 'ledger') onDeleteLedger(t.raw);
+                              else if (t.sourceModule === 'bank') onDeleteBank(t.raw);
+                              else if (t.sourceModule === 'partner') onDeletePartner(t.raw);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer transition-colors"
+                            title="Delete transaction"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
