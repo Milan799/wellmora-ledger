@@ -51,7 +51,75 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
 
   return (
     <div className="glass-panel rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800/60 shadow-lg animate-fade-in">
-      <div className="overflow-x-auto">
+      {/* Mobile Card Feed (block md:hidden) */}
+      <div className="block md:hidden divide-y divide-slate-200/60 dark:divide-slate-800/60">
+        {transactions.map((t) => (
+          <div key={`mobile_${t._id}`} className="p-4 space-y-2.5 hover:bg-slate-100/40 dark:hover:bg-slate-900/40 transition-colors">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="flex items-center gap-1 font-bold text-slate-900 dark:text-slate-100 text-xs">
+                  <Calendar size={13} className="text-slate-400 shrink-0" />
+                  {formatDate(t.date)}
+                </span>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${getCategoryBadgeClass(t.category)}`}>
+                  {t.category}
+                </span>
+                {t.isHandCash && (
+                  <span className="inline-flex items-center px-1.5 py-0.2 rounded-md text-[8px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-450 border border-amber-500/20">
+                    In Hand Cash
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => onEdit(t)}
+                  className="p-1.5 text-slate-400 hover:text-indigo-600 bg-slate-100 dark:bg-slate-900 rounded-lg"
+                >
+                  <Edit2 size={13} />
+                </button>
+                <button
+                  onClick={() => onDelete(t)}
+                  className="p-1.5 text-slate-400 hover:text-rose-600 bg-slate-100 dark:bg-slate-900 rounded-lg"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                {t.description}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <div>
+                {t.type === 'Credit' ? (
+                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <ArrowUpRight size={10} />
+                    Credit
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                    <ArrowDownRight size={10} />
+                    Debit
+                  </span>
+                )}
+              </div>
+
+              <div className={`text-base font-black ${
+                t.type === 'Credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'
+              }`}>
+                {t.type === 'Credit' ? '+' : '-'}{formatCurrency(t.amount)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop Data Table (hidden md:block) */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider">

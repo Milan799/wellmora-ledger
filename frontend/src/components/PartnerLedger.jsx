@@ -407,7 +407,62 @@ export default function PartnerLedger({ transactions, onEdit, onDelete, loading,
         </div>
       ) : (
         <div className="glass-panel rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800/60 shadow-lg animate-fade-in">
-          <div className="overflow-x-auto">
+          {/* Mobile Card Feed (block md:hidden) */}
+          <div className="block md:hidden divide-y divide-slate-200/60 dark:divide-slate-800/60">
+            {filtered.map((t) => (
+              <div key={`mobile_${t._id}`} className="p-4 space-y-2.5 hover:bg-slate-100/40 dark:hover:bg-slate-900/40 transition-colors">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="flex items-center gap-1 font-bold text-slate-900 dark:text-slate-100 text-xs">
+                      <Calendar size={13} className="text-slate-400 shrink-0" />
+                      {formatDate(t.date)}
+                    </span>
+                    <span className="px-2 py-0.5 bg-violet-500/10 text-violet-700 dark:text-violet-400 rounded-md text-[10px] font-bold border border-violet-500/20">
+                      {t.partnerName}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => onEdit(t)}
+                      className="p-1.5 text-slate-400 hover:text-indigo-600 bg-slate-100 dark:bg-slate-900 rounded-lg"
+                    >
+                      <Edit2 size={13} />
+                    </button>
+                    <button
+                      onClick={() => onDelete(t)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 bg-slate-100 dark:bg-slate-900 rounded-lg"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                    {t.description || '—'}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${getFlowTypeBadgeClass(t.type)}`}>
+                      {t.type}
+                    </span>
+                  </div>
+
+                  <div className={`text-base font-black ${
+                    t.type === 'Capital Contribution' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'
+                  }`}>
+                    {t.type === 'Capital Contribution' ? '+' : '-'}{formatCurrency(t.amount)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Data Table (hidden md:block) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider">
