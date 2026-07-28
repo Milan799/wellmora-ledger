@@ -1002,7 +1002,7 @@ export default function App() {
                 </div>
 
                 {/* Metrics cards */}
-                <Dashboard transactions={ledgerTransactionsToDisplay} />
+                <Dashboard transactions={filteredLedger} />
 
                 {/* Filter toolbar */}
                 <Filters

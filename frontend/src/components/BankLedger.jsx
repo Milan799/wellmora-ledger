@@ -10,43 +10,6 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // Calculates stats
-  const totalDeposit = transactions
-    .filter(t => t.type === 'Deposit' && t.status !== 'Failed')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const totalWithdrawal = transactions
-    .filter(t => t.type === 'Withdrawal' && t.status !== 'Failed')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const netBalance = totalDeposit - totalWithdrawal;
-
-  const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('en-IN', options);
-  };
-
-  const formatCurrency = (val) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 2
-    }).format(val);
-  };
-
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'Completed':
-        return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-450 border-emerald-500/20';
-      case 'Pending':
-        return 'bg-amber-500/10 text-amber-600 dark:text-amber-450 border-amber-500/20';
-      case 'Failed':
-        return 'bg-rose-500/10 text-rose-655 dark:text-rose-455 border-rose-500/20';
-      default:
-        return 'bg-amber-500/10 text-amber-600';
-    }
-  };
-
   const filtered = transactions.filter(t => {
     const matchesSearch = 
       t.bankName.toLowerCase().includes(search.toLowerCase()) || 
@@ -96,6 +59,17 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
 
     return true;
   });
+
+  // Calculates stats for selected date filter
+  const totalDeposit = filtered
+    .filter(t => t.type === 'Deposit' && t.status !== 'Failed')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const totalWithdrawal = filtered
+    .filter(t => t.type === 'Withdrawal' && t.status !== 'Failed')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const netBalance = totalDeposit - totalWithdrawal;
 
   const hasActiveFilters = search || filterType !== 'All' || filterStatus !== 'All' || dateRange !== 'all' || startDate || endDate;
 

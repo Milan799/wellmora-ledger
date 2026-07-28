@@ -9,43 +9,6 @@ export default function PartnerLedger({ transactions, onEdit, onDelete, loading,
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // Calculates stats
-  const totalContribution = transactions
-    .filter(t => t.type === 'Capital Contribution')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const totalWithdrawal = transactions
-    .filter(t => t.type === 'Profit Withdrawal' || t.type === 'Share Distribution')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const netEquity = totalContribution - totalWithdrawal;
-
-  const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('en-IN', options);
-  };
-
-  const formatCurrency = (val) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 2
-    }).format(val);
-  };
-
-  const getFlowTypeBadgeClass = (type) => {
-    switch (type) {
-      case 'Capital Contribution':
-        return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-450 border-emerald-500/20';
-      case 'Profit Withdrawal':
-        return 'bg-orange-500/10 text-orange-605 dark:text-orange-400 border-orange-500/20';
-      case 'Share Distribution':
-        return 'bg-rose-500/10 text-rose-650 dark:text-rose-455 border-rose-500/20';
-      default:
-        return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
-    }
-  };
-
   const filtered = transactions.filter(t => {
     const matchesSearch = 
       t.partnerName.toLowerCase().includes(search.toLowerCase()) || 
@@ -92,6 +55,17 @@ export default function PartnerLedger({ transactions, onEdit, onDelete, loading,
 
     return true;
   });
+
+  // Calculates stats for active date period
+  const totalContribution = filtered
+    .filter(t => t.type === 'Capital Contribution')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const totalWithdrawal = filtered
+    .filter(t => t.type === 'Profit Withdrawal' || t.type === 'Share Distribution')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const netEquity = totalContribution - totalWithdrawal;
 
   const hasActiveFilters = search || filterType !== 'All' || dateRange !== 'all' || startDate || endDate;
 
