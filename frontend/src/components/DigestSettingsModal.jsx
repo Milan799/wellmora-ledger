@@ -14,7 +14,7 @@ import {
   SendHorizontal
 } from 'lucide-react';
 
-export default function DigestSettingsModal({ isOpen, onClose }) {
+export default function DigestSettingsModal({ isOpen = true, onClose, isEmbedded = false }) {
   const [config, setConfig] = useState({
     enabled: false,
     channel: 'Email', // 'Email', 'WhatsApp', 'Telegram'
@@ -47,12 +47,12 @@ export default function DigestSettingsModal({ isOpen, onClose }) {
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || isEmbedded) {
       fetchConfig();
     }
-  }, [isOpen]);
+  }, [isOpen, isEmbedded]);
 
-  if (!isOpen) return null;
+  if (!isOpen && !isEmbedded) return null;
 
   const handleSaveConfig = async () => {
     setLoading(true);
@@ -130,9 +130,10 @@ System Status: ✅ All ledgers balanced and audit verified.`;
     setTimeout(() => setCopied(false), 2000);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-      <div className="glass-panel max-w-2xl w-full max-h-[92vh] flex flex-col rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+  const contentMarkup = (
+    <div className={`glass-panel w-full rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 ${
+      isEmbedded ? 'max-w-none shadow-lg' : 'max-w-2xl max-h-[92vh] flex flex-col shadow-2xl'
+    }`}>
         
         {/* Modal Header */}
         <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-violet-500/10 via-indigo-500/5 to-transparent flex items-center justify-between shrink-0">
@@ -326,8 +327,6 @@ System Status: ✅ All ledgers balanced and audit verified.`;
             </pre>
           </div>
 
-        </div>
-
         {/* Modal Footer */}
         <div className="px-6 py-4 bg-slate-50/80 dark:bg-slate-900/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
           <button
@@ -347,6 +346,20 @@ System Status: ✅ All ledgers balanced and audit verified.`;
         </div>
 
       </div>
+    </div>
+  );
+
+  if (isEmbedded) {
+    return (
+      <div className="w-full max-w-4xl mx-auto space-y-6 pb-8 animate-slide-up">
+        {contentMarkup}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+      {contentMarkup}
     </div>
   );
 }

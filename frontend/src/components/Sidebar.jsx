@@ -58,8 +58,8 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* Navigation Menu */}
-        <nav className="space-y-1.5 flex-1">
+        {/* Navigation Menu (Scrollable if many items) */}
+        <nav className="space-y-1.5 flex-1 overflow-y-auto pr-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activePage === item.id;

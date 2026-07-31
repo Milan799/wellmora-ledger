@@ -1095,7 +1095,7 @@ export default function App() {
             {activePage === 'backup_sync' && (
               <div className="animate-slide-up">
                 <BackupManagerModal
-                  isOpen={true}
+                  isEmbedded={true}
                   onClose={() => setActivePage('central')}
                 />
               </div>
@@ -1105,7 +1105,7 @@ export default function App() {
             {activePage === 'digest_alerts' && (
               <div className="animate-slide-up">
                 <DigestSettingsModal
-                  isOpen={true}
+                  isEmbedded={true}
                   onClose={() => setActivePage('central')}
                 />
               </div>

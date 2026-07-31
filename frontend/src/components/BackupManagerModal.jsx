@@ -17,7 +17,7 @@ import {
   Zap
 } from 'lucide-react';
 
-export default function BackupManagerModal({ isOpen, onClose }) {
+export default function BackupManagerModal({ isOpen = true, onClose, isEmbedded = false }) {
   const [activeTab, setActiveTab] = useState('files'); // 'files', 'cloud', 'restore'
   const [backups, setBackups] = useState([]);
   const [settings, setSettings] = useState({ schedule: 'daily', cloudWebhookUrl: '', autoCloudUpload: false });
@@ -48,12 +48,12 @@ export default function BackupManagerModal({ isOpen, onClose }) {
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || isEmbedded) {
       fetchBackups();
     }
-  }, [isOpen]);
+  }, [isOpen, isEmbedded]);
 
-  if (!isOpen) return null;
+  if (!isOpen && !isEmbedded) return null;
 
   const handleCreateBackup = async () => {
     setCreating(true);
@@ -173,9 +173,10 @@ export default function BackupManagerModal({ isOpen, onClose }) {
   const totalSizeBytes = backups.reduce((sum, b) => sum + (b.sizeBytes || 0), 0);
   const filteredBackups = backups.filter(b => b.filename.toLowerCase().includes(search.toLowerCase()));
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-      <div className="glass-panel max-w-3xl w-full max-h-[92vh] flex flex-col rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+  const contentMarkup = (
+    <div className={`glass-panel w-full rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 ${
+      isEmbedded ? 'max-w-none shadow-lg' : 'max-w-3xl max-h-[92vh] flex flex-col shadow-2xl'
+    }`}>
         
         {/* Modal Header */}
         <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-violet-500/10 via-indigo-500/5 to-transparent flex items-center justify-between shrink-0">
@@ -476,8 +477,6 @@ export default function BackupManagerModal({ isOpen, onClose }) {
               </div>
             </div>
           )}
-        </div>
-
         {/* Modal Footer */}
         <div className="px-6 py-4 bg-slate-50/80 dark:bg-slate-900/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
           <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1">
@@ -492,6 +491,20 @@ export default function BackupManagerModal({ isOpen, onClose }) {
         </div>
 
       </div>
+    </div>
+  );
+
+  if (isEmbedded) {
+    return (
+      <div className="w-full max-w-5xl mx-auto space-y-6 pb-8 animate-slide-up">
+        {contentMarkup}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+      {contentMarkup}
     </div>
   );
 }
