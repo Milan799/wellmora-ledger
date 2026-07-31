@@ -56,10 +56,6 @@ export default function DividendCalculatorModal({
     }));
   };
 
-  const handleQuickPreset = (amount) => {
-    setNetProfitInput(amount.toString());
-  };
-
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -126,35 +122,6 @@ export default function DividendCalculatorModal({
               Ownership Split: {totalPct.toFixed(1)}% {isValidPct ? '✓ Valid' : '⚠️ Must total 100%'}
             </span>
           </div>
-        </div>
-
-        {/* Quick Amount Presets */}
-        <div className="pt-2 border-t border-white/10 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-bold text-violet-200 uppercase tracking-wider">Quick Presets:</span>
-          <button
-            onClick={() => handleQuickPreset(100000)}
-            className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
-          >
-            ₹1 Lakh
-          </button>
-          <button
-            onClick={() => handleQuickPreset(500000)}
-            className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
-          >
-            ₹5 Lakhs
-          </button>
-          <button
-            onClick={() => handleQuickPreset(1000000)}
-            className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
-          >
-            ₹10 Lakhs
-          </button>
-          <button
-            onClick={() => handleQuickPreset(2500000)}
-            className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
-          >
-            ₹25 Lakhs
-          </button>
         </div>
       </div>
 
