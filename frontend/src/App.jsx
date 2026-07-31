@@ -889,7 +889,7 @@ export default function App() {
       />
 
       {/* 3. Main Content Scrollable Pane */}
-      <main className="flex-1 h-full overflow-y-auto p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 h-full overflow-y-auto p-4 sm:p-6 lg:p-8 pb-20 md:pb-8">
 
         {!authUser ? (
           <div className="h-full min-h-[450px] flex flex-col items-center justify-center text-center p-8 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl shadow-2xl space-y-5 animate-slide-up">
