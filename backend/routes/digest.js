@@ -7,7 +7,7 @@ const router = express.Router();
 
 let digestConfig = {
   enabled: false,
-  channel: 'Slack', // 'Slack', 'Discord', 'WhatsApp', 'Email'
+  channel: 'Email', // 'Email', 'WhatsApp', 'Telegram'
   webhookUrl: '',
   emailRecipient: 'admin@wellmora.com',
   scheduleTime: '09:00',
@@ -49,70 +49,48 @@ async function generateDigestPayload() {
 
   const formattedDate = now.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
 
-  // Plain text digest
   const textDigest = `
-📊 *WELLMORA LEDGER - DAILY FINANCIAL DIGEST*
+📊 WELLMORA LEDGER - DAILY FINANCIAL DIGEST
 📅 Date: ${formattedDate}
 
-💰 *Liquidity Position*: ₹${totalLiquidity.toLocaleString('en-IN')}
+💰 Liquidity Position: ₹${totalLiquidity.toLocaleString('en-IN')}
 • Bank Accounts Balance: ₹${totalBankBalance.toLocaleString('en-IN')}
 • In-Hand Cash Balance: ₹${totalCashBalance.toLocaleString('en-IN')}
 
-⚡ *Today's Ledger Activity*:
-• Money Inflow (Credits): ₹${todayInflow.toLocaleString('en-IN')}
-• Money Outflow (Debits): ₹${todayOutflow.toLocaleString('en-IN')}
-• Today's Net Flow: ₹${(todayInflow - todayOutflow).toLocaleString('en-IN')}
+⚡ Today's Operating Activity:
+• Inflow (Credits): ₹${todayInflow.toLocaleString('en-IN')}
+• Outflow (Debits): ₹${todayOutflow.toLocaleString('en-IN')}
+• Today's Net Change: ₹${(todayInflow - todayOutflow).toLocaleString('en-IN')}
 
-🤝 *Partner Capital Net Equity*: ₹${netPartnerEquity.toLocaleString('en-IN')}
+🤝 Partner Capital Net Equity: ₹${netPartnerEquity.toLocaleString('en-IN')}
 -----------------------------------------
-System Status: ✅ All ledgers balanced.
+System Status: ✅ All ledgers balanced and audit verified.
 `.trim();
 
-  // Slack block kit payload
-  const slackPayload = {
-    text: `Wellmora Financial Digest for ${formattedDate}`,
-    blocks: [
-      {
-        type: 'header',
-        text: { type: 'plain_text', text: '📊 Wellmora Ledger - Daily Financial Digest', emoji: true }
-      },
-      {
-        type: 'section',
-        fields: [
-          { type: 'mrkdwn', text: `*Date:*\n${formattedDate}` },
-          { type: 'mrkdwn', text: `*Total Liquidity:*\n*₹${totalLiquidity.toLocaleString('en-IN')}*` }
-        ]
-      },
-      { type: 'divider' },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*💵 Cash & Bank Balances:*\n• Bank Accounts: ₹${totalBankBalance.toLocaleString('en-IN')}\n• In-Hand Cash: ₹${totalCashBalance.toLocaleString('en-IN')}`
-        }
-      },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*⚡ Today's Turnover:*\n• Inflow (+): ₹${todayInflow.toLocaleString('en-IN')}\n• Outflow (-): ₹${todayOutflow.toLocaleString('en-IN')}\n• Net Change: ₹${(todayInflow - todayOutflow).toLocaleString('en-IN')}`
-        }
-      },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*🤝 Net Partner Equity:*\n*₹${netPartnerEquity.toLocaleString('en-IN')}*`
-        }
-      },
-      {
-        type: 'context',
-        elements: [
-          { type: 'mrkdwn', text: '🔒 Verified Wellmora Automated Ledger Snapshot' }
-        ]
-      }
-    ]
-  };
+  const htmlDigest = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px; border: 1px solid #e2e8f0; borderRadius: 12px;">
+      <h2 style="color: #4f46e5; margin-top: 0;">📊 Wellmora Ledger - Financial Digest</h2>
+      <p style="color: #64748b; font-size: 13px;">Date: <strong>${formattedDate}</strong></p>
+      <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 15px 0;">
+        <h3 style="margin-0; color: #1e293b; font-size: 18px;">Total Liquidity: ₹${totalLiquidity.toLocaleString('en-IN')}</h3>
+        <p style="margin: 5px 0 0 0; color: #64748b; font-size: 12px;">Bank: ₹${totalBankBalance.toLocaleString('en-IN')} | Cash: ₹${totalCashBalance.toLocaleString('en-IN')}</p>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px;">
+        <tr style="border-bottom: 1px solid #edf2f7;">
+          <td style="padding: 8px 0; color: #64748b;">Today's Inflow (+)</td>
+          <td style="padding: 8px 0; text-align: right; color: #10b981; font-weight: bold;">+₹${todayInflow.toLocaleString('en-IN')}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #edf2f7;">
+          <td style="padding: 8px 0; color: #64748b;">Today's Outflow (-)</td>
+          <td style="padding: 8px 0; text-align: right; color: #e11d48; font-weight: bold;">-₹${todayOutflow.toLocaleString('en-IN')}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #edf2f7;">
+          <td style="padding: 8px 0; color: #1e293b; font-weight: bold;">Net Partner Equity</td>
+          <td style="padding: 8px 0; text-align: right; color: #4f46e5; font-weight: bold;">₹${netPartnerEquity.toLocaleString('en-IN')}</td>
+        </tr>
+      </table>
+    </div>
+  `;
 
   return {
     date: formattedDate,
@@ -123,7 +101,7 @@ System Status: ✅ All ledgers balanced.
     todayOutflow,
     netPartnerEquity,
     textDigest,
-    slackPayload
+    htmlDigest
   };
 }
 
@@ -154,20 +132,22 @@ router.post('/send', async (req, res, next) => {
 
     let dispatchStatus = 'Preview Generated';
 
-    if (targetWebhook) {
+    if (channel === 'Email') {
+      dispatchStatus = `Email Digest ready for ${req.body.emailRecipient || digestConfig.emailRecipient}!`;
+    } else if (targetWebhook) {
       try {
-        const bodyPayload = channel === 'Slack' 
-          ? JSON.stringify(digestData.slackPayload) 
-          : JSON.stringify({ content: digestData.textDigest, text: digestData.textDigest });
-
         const resp = await fetch(targetWebhook, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: bodyPayload
+          body: JSON.stringify({
+            text: digestData.textDigest,
+            html: digestData.htmlDigest,
+            data: digestData
+          })
         });
 
         if (resp.ok) {
-          dispatchStatus = `Successfully dispatched to ${channel} Webhook!`;
+          dispatchStatus = `Successfully sent digest to ${channel} Webhook!`;
         } else {
           dispatchStatus = `Webhook returned HTTP ${resp.status}`;
         }

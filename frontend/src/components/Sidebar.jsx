@@ -21,7 +21,7 @@ export default function Sidebar({
     { id: 'summary', label: 'Financial Overview', icon: BarChart3 },
     { id: 'report_builder', label: 'Custom Financial Reports', icon: BarChart2 },
     { id: 'backup_sync', label: 'Backup & Cloud Sync', icon: Database },
-    { id: 'digest_alerts', label: 'Slack & Email Digest', icon: Bell }
+    { id: 'digest_alerts', label: 'Email & Digest Alerts', icon: Bell }
   ];
 
   return (

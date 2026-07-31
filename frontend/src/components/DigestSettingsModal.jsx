@@ -1,23 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { X, Bell, Send, Check, AlertCircle, MessageSquare, Mail, Smartphone } from 'lucide-react';
-
-const SlackIcon = ({ size = 18 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="13" y="2" width="3" height="8" rx="1.5"/>
-    <path d="M19 8.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3"/>
-    <rect x="8" y="14" width="3" height="8" rx="1.5"/>
-    <path d="M5 15.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3"/>
-    <rect x="2" y="8" width="8" height="3" rx="1.5"/>
-    <path d="M8.5 5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"/>
-    <rect x="14" y="13" width="8" height="3" rx="1.5"/>
-    <path d="M15.5 19a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0"/>
-  </svg>
-);
+import { 
+  X, 
+  Bell, 
+  Send, 
+  Check, 
+  AlertCircle, 
+  Mail, 
+  Smartphone, 
+  Copy, 
+  CheckCircle2, 
+  Clock, 
+  Sparkles,
+  SendHorizontal
+} from 'lucide-react';
 
 export default function DigestSettingsModal({ isOpen, onClose }) {
   const [config, setConfig] = useState({
     enabled: false,
-    channel: 'Slack',
+    channel: 'Email', // 'Email', 'WhatsApp', 'Telegram'
     webhookUrl: '',
     emailRecipient: 'admin@wellmora.com',
     scheduleTime: '09:00',
@@ -26,10 +26,11 @@ export default function DigestSettingsModal({ isOpen, onClose }) {
 
   const [loading, setLoading] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
-  const [testResult, setTestResult] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [testResult, setTestResult] = useState({ type: '', text: '' });
   const [previewData, setPreviewData] = useState(null);
 
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('authToken') || localStorage.getItem('token');
 
   const fetchConfig = async () => {
     try {
@@ -55,6 +56,7 @@ export default function DigestSettingsModal({ isOpen, onClose }) {
 
   const handleSaveConfig = async () => {
     setLoading(true);
+    setTestResult({ type: '', text: '' });
     try {
       const resp = await fetch('/api/digest/config', {
         method: 'POST',
@@ -65,10 +67,10 @@ export default function DigestSettingsModal({ isOpen, onClose }) {
         body: JSON.stringify(config)
       });
       if (resp.ok) {
-        setTestResult('✅ Digest notification settings saved successfully!');
+        setTestResult({ type: 'success', text: 'Digest settings saved successfully!' });
       }
     } catch (err) {
-      setTestResult('❌ Failed to save digest settings');
+      setTestResult({ type: 'error', text: 'Failed to save digest settings.' });
     } finally {
       setLoading(false);
     }
@@ -76,7 +78,7 @@ export default function DigestSettingsModal({ isOpen, onClose }) {
 
   const handleSendTest = async () => {
     setSendingTest(true);
-    setTestResult('');
+    setTestResult({ type: '', text: '' });
     try {
       const resp = await fetch('/api/digest/send', {
         method: 'POST',
@@ -86,61 +88,99 @@ export default function DigestSettingsModal({ isOpen, onClose }) {
         },
         body: JSON.stringify({
           webhookUrl: config.webhookUrl,
+          emailRecipient: config.emailRecipient,
           channel: config.channel
         })
       });
 
       if (resp.ok) {
         const data = await resp.json();
-        setTestResult(`✅ ${data.message}`);
+        setTestResult({ type: 'success', text: data.message });
         setPreviewData(data.digest);
       } else {
-        setTestResult('❌ Failed to dispatch digest');
+        setTestResult({ type: 'error', text: 'Failed to dispatch digest payload.' });
       }
     } catch (err) {
-      setTestResult(`❌ Error: ${err.message}`);
+      setTestResult({ type: 'error', text: `Error: ${err.message}` });
     } finally {
       setSendingTest(false);
     }
   };
 
+  const samplePreviewText = `📊 WELLMORA LEDGER - DAILY FINANCIAL DIGEST
+📅 Date: ${new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
+
+💰 Liquidity Position: ₹15,40,000.00
+• Bank Accounts Balance: ₹12,00,000.00
+• In-Hand Cash Balance: ₹3,40,000.00
+
+⚡ Today's Operating Activity:
+• Inflow (Credits): ₹2,50,000.00
+• Outflow (Debits): ₹80,000.00
+• Today's Net Change: +₹1,70,000.00
+
+🤝 Partner Capital Net Equity: ₹25,00,000.00
+-----------------------------------------
+System Status: ✅ All ledgers balanced and audit verified.`;
+
+  const handleCopyPreview = () => {
+    const textToCopy = previewData ? previewData.textDigest : samplePreviewText;
+    navigator.clipboard.writeText(textToCopy);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-      <div className="glass-panel max-w-2xl w-full max-h-[90vh] flex flex-col rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+      <div className="glass-panel max-w-2xl w-full max-h-[92vh] flex flex-col rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
         
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/70 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400">
-              <Bell size={18} />
+        {/* Modal Header */}
+        <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-violet-500/10 via-indigo-500/5 to-transparent flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-500/20">
+              <Bell size={22} />
             </div>
             <div>
-              <h3 className="text-base font-black tracking-tight">Slack / WhatsApp / Email Daily Digest</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-xs">Configure automated daily financial summary reports to your team's chat channels.</p>
+              <h3 className="text-lg font-black tracking-tight text-slate-900 dark:text-slate-50">
+                Email & Instant Digest Alerts
+              </h3>
+              <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5 font-medium">
+                Automated daily financial snapshots delivered to email or WhatsApp/Telegram bots.
+              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
           >
-            <X size={16} />
+            <X size={18} />
           </button>
         </div>
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
 
-          {testResult && (
-            <div className="p-3 bg-violet-500/10 border border-violet-500/20 rounded-xl text-xs font-bold text-violet-700 dark:text-violet-300">
-              {testResult}
+          {/* Test Status Banner */}
+          {testResult.text && (
+            <div className={`p-3.5 rounded-2xl text-xs font-bold flex items-center gap-2.5 ${
+              testResult.type === 'success'
+                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
+                : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20'
+            }`}>
+              {testResult.type === 'success' ? <CheckCircle2 size={16} className="shrink-0" /> : <AlertCircle size={16} className="shrink-0" />}
+              <span className="flex-1">{testResult.text}</span>
             </div>
           )}
 
-          {/* Toggle Enable */}
-          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
-            <div>
-              <span className="text-xs font-extrabold uppercase text-slate-800 dark:text-slate-200 block">Automated Daily Financial Digest</span>
-              <span className="text-[10px] text-slate-400">Send automatic summary cards every morning at 09:00 AM.</span>
+          {/* Toggle Active Card */}
+          <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between">
+            <div className="space-y-0.5">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-100 block">
+                Automated Daily Financial Digest
+              </span>
+              <span className="text-[11px] text-slate-500 block">
+                Automatically generate and send a daily summary report every morning.
+              </span>
             </div>
 
             <label className="relative inline-flex items-center cursor-pointer">
@@ -154,18 +194,17 @@ export default function DigestSettingsModal({ isOpen, onClose }) {
             </label>
           </div>
 
-          {/* Channel Choice */}
+          {/* Channel Choice (Email / WhatsApp / Telegram) */}
           <div className="space-y-2">
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Notification Channel
+            <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+              Notification Destination Channel
             </label>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
-                { id: 'Slack', label: 'Slack Webhook', icon: SlackIcon },
-                { id: 'Discord', label: 'Discord Webhook', icon: MessageSquare },
-                { id: 'WhatsApp', label: 'WhatsApp Bot', icon: Smartphone },
-                { id: 'Email', label: 'Email Digest', icon: Mail }
+                { id: 'Email', label: 'Email Report', icon: Mail, desc: 'HTML & Text email digest' },
+                { id: 'WhatsApp', label: 'WhatsApp Bot', icon: Smartphone, desc: 'WhatsApp Webhook payload' },
+                { id: 'Telegram', label: 'Telegram Bot', icon: SendHorizontal, desc: 'Telegram Bot API webhook' }
               ].map(ch => {
                 const IconComp = ch.icon;
                 const isSelected = config.channel === ch.id;
@@ -174,100 +213,136 @@ export default function DigestSettingsModal({ isOpen, onClose }) {
                     key={ch.id}
                     type="button"
                     onClick={() => setConfig({ ...config, channel: ch.id })}
-                    className={`p-3 rounded-xl border text-left flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    className={`p-3.5 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
                       isSelected
-                        ? 'border-violet-500 bg-violet-500/10 text-violet-600 dark:text-violet-400 font-extrabold shadow-sm'
-                        : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-semibold hover:border-slate-300'
+                        ? 'border-violet-600 bg-violet-500/10 text-violet-700 dark:text-violet-300 shadow-md ring-1 ring-violet-500/30'
+                        : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
                     }`}
                   >
-                    <IconComp size={18} />
-                    <span className="text-xs">{ch.label}</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className={`p-2 rounded-xl ${isSelected ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                        <IconComp size={16} />
+                      </div>
+                      {isSelected && <CheckCircle2 size={16} className="text-violet-600 dark:text-violet-400" />}
+                    </div>
+                    <div>
+                      <span className="text-xs font-black block text-slate-900 dark:text-slate-100">{ch.label}</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">{ch.desc}</span>
+                    </div>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Inputs based on channel */}
-          <div className="space-y-3">
+          {/* Dynamic Configuration Fields */}
+          <div className="p-4 bg-slate-50/70 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3 text-xs">
             {config.channel === 'Email' ? (
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Recipient Email Address</label>
+                <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">
+                  Recipient Email Address
+                </label>
                 <input
                   type="email"
                   value={config.emailRecipient}
                   onChange={(e) => setConfig({ ...config, emailRecipient: e.target.value })}
                   placeholder="admin@wellmora.com"
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold"
+                  className="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-xs"
                 />
               </div>
             ) : (
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                  {config.channel} Incoming Webhook URL / Endpoint
+                <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">
+                  {config.channel} Webhook / Bot API URL
                 </label>
                 <input
                   type="text"
                   value={config.webhookUrl}
                   onChange={(e) => setConfig({ ...config, webhookUrl: e.target.value })}
-                  placeholder={`https://hooks.${config.channel.toLowerCase()}.com/services/...`}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono"
+                  placeholder={`https://api.${config.channel.toLowerCase()}.com/webhook/send`}
+                  className="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-mono text-xs"
                 />
               </div>
             )}
+
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">Schedule Time</label>
+                <div className="relative">
+                  <Clock size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="time"
+                    value={config.scheduleTime}
+                    onChange={(e) => setConfig({ ...config, scheduleTime: e.target.value })}
+                    className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">Dispatch Frequency</label>
+                <select
+                  value={config.frequency}
+                  onChange={(e) => setConfig({ ...config, frequency: e.target.value })}
+                  className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-xs"
+                >
+                  <option value="daily">Daily Every Morning</option>
+                  <option value="weekly">Weekly Summary</option>
+                  <option value="monthly">Monthly Summary</option>
+                </select>
+              </div>
+            </div>
           </div>
 
-          {/* Live Preview Card */}
-          <div className="glass-panel p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-900 text-slate-100 space-y-2">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-violet-400 flex items-center gap-1">
-                <Bell size={12} /> Live Digest Payload Preview ({config.channel})
+          {/* Interactive Live Payload Preview Box */}
+          <div className="glass-panel p-4 rounded-2xl border border-slate-800 bg-slate-950 text-slate-100 space-y-3 shadow-lg">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
+                <Sparkles size={13} /> Live Digest Payload Preview
               </span>
-              <button
-                onClick={handleSendTest}
-                disabled={sendingTest}
-                className="px-3 py-1 bg-violet-600 hover:bg-violet-500 text-white font-bold text-[10px] rounded-lg flex items-center gap-1 cursor-pointer"
-              >
-                <Send size={11} /> {sendingTest ? 'Sending...' : 'Send Test Digest Now'}
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyPreview}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-[10px] rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  {copied ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+                  {copied ? 'Copied!' : 'Copy Text'}
+                </button>
+
+                <button
+                  disabled={sendingTest}
+                  onClick={handleSendTest}
+                  className="px-3 py-1 bg-violet-600 hover:bg-violet-500 text-white font-extrabold text-[10px] rounded-lg flex items-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
+                >
+                  <Send size={11} className={sendingTest ? 'animate-spin' : ''} />
+                  {sendingTest ? 'Sending...' : 'Send Live Test'}
+                </button>
+              </div>
             </div>
 
-            <pre className="text-[11px] font-mono text-emerald-400 bg-slate-950 p-3 rounded-lg overflow-x-auto whitespace-pre-wrap">
-              {previewData ? previewData.textDigest : `📊 WELLMORA LEDGER - DAILY FINANCIAL DIGEST
-📅 Date: ${new Date().toLocaleDateString('en-IN')}
-
-💰 Liquidity Position: ₹15,40,000
-• Bank Accounts Balance: ₹12,00,000
-• In-Hand Cash Balance: ₹3,40,000
-
-⚡ Today's Ledger Activity:
-• Money Inflow (Credits): ₹2,50,000
-• Money Outflow (Debits): ₹80,000
-• Today's Net Flow: +₹1,70,000
-
-🤝 Partner Capital Net Equity: ₹25,00,000
------------------------------------------
-System Status: ✅ All ledgers balanced.`}
+            <pre className="text-[11px] font-mono text-emerald-400 bg-slate-900/80 p-3.5 rounded-xl overflow-x-auto whitespace-pre-wrap leading-relaxed border border-slate-800">
+              {previewData ? previewData.textDigest : samplePreviewText}
             </pre>
           </div>
 
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 bg-slate-50/80 dark:bg-slate-900/80 border-t border-slate-200 dark:border-slate-800">
+        {/* Modal Footer */}
+        <div className="px-6 py-4 bg-slate-50/80 dark:bg-slate-900/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+            className="px-5 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-extrabold text-xs rounded-xl cursor-pointer transition-colors"
           >
-            Close
+            Cancel
           </button>
 
           <button
             disabled={loading}
             onClick={handleSaveConfig}
-            className="px-5 py-2 bg-violet-600 hover:bg-violet-500 text-white font-extrabold text-xs rounded-xl cursor-pointer transition-all shadow-md active:scale-95"
+            className="px-6 py-2 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl cursor-pointer shadow-lg shadow-violet-500/20 active:scale-95 transition-all"
           >
-            {loading ? 'Saving...' : 'Save Configuration'}
+            {loading ? 'Saving...' : 'Save Settings'}
           </button>
         </div>
 
