@@ -17,8 +17,6 @@ import PartnerForm from './components/PartnerForm';
 import FinancialSummary from './components/FinancialSummary';
 import CentralDashboard from './components/CentralDashboard';
 import CustomReportBuilder from './components/CustomReportBuilder';
-import BackupManagerModal from './components/BackupManagerModal';
-import DigestSettingsModal from './components/DigestSettingsModal';
 
 import DeleteConfirmation from './components/DeleteConfirmation';
 import Notification from './components/Notification';
@@ -1087,26 +1085,6 @@ export default function App() {
                   transactions={transactions}
                   bankTransactions={bankTransactions}
                   partnerTransactions={partnerTransactions}
-                />
-              </div>
-            )}
-
-            {/* Render PAGE 6: BACKUP & CLOUD SYNC */}
-            {activePage === 'backup_sync' && (
-              <div className="animate-slide-up">
-                <BackupManagerModal
-                  isEmbedded={true}
-                  onClose={() => setActivePage('central')}
-                />
-              </div>
-            )}
-
-            {/* Render PAGE 7: DIGEST ALERTS */}
-            {activePage === 'digest_alerts' && (
-              <div className="animate-slide-up">
-                <DigestSettingsModal
-                  isEmbedded={true}
-                  onClose={() => setActivePage('central')}
                 />
               </div>
             )}

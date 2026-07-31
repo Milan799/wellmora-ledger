@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Building2, Users2, X, BarChart3, Sun, Moon, LogOut, User, ShieldCheck, LayoutDashboard, BarChart2, Database, Bell } from 'lucide-react';
+import { BookOpen, Building2, Users2, X, BarChart3, Sun, Moon, LogOut, User, ShieldCheck, LayoutDashboard, BarChart2 } from 'lucide-react';
 import Logo from './Logo';
 
 export default function Sidebar({
@@ -19,9 +19,7 @@ export default function Sidebar({
     { id: 'bank', label: 'Bank Accounts', icon: Building2 },
     { id: 'partner', label: 'Partner Investments', icon: Users2 },
     { id: 'summary', label: 'Financial Overview', icon: BarChart3 },
-    { id: 'report_builder', label: 'Custom Financial Reports', icon: BarChart2 },
-    { id: 'backup_sync', label: 'Backup & Cloud Sync', icon: Database },
-    { id: 'digest_alerts', label: 'Email & Digest Alerts', icon: Bell }
+    { id: 'report_builder', label: 'Custom Financial Reports', icon: BarChart2 }
   ];
 
   return (
