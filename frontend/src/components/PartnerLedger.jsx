@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Calendar, Search, RefreshCw, Trash2, Edit2, Users, Wallet, Landmark, Calculator, FileText } from 'lucide-react';
+import { Calendar, Search, RefreshCw, Trash2, Edit2, Users, Wallet, Landmark, Calculator } from 'lucide-react';
 import ExportDropdown from './ExportDropdown';
 import DividendCalculatorModal from './DividendCalculatorModal';
-import PartnerCapitalStatement from './PartnerCapitalStatement';
 
 export default function PartnerLedger({ 
   transactions, 
@@ -21,8 +20,6 @@ export default function PartnerLedger({
   const [endDate, setEndDate] = useState('');
   
   const [isDividendOpen, setIsDividendOpen] = useState(false);
-  const [isStatementOpen, setIsStatementOpen] = useState(false);
-  const [selectedPartnerForStatement, setSelectedPartnerForStatement] = useState('Milan Javiya');
 
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
@@ -220,14 +217,6 @@ export default function PartnerLedger({
         onPostShareDistribution={onAddPartnerFlow}
       />
 
-      {/* Partner Capital PDF Statement Modal */}
-      <PartnerCapitalStatement
-        isOpen={isStatementOpen}
-        onClose={() => setIsStatementOpen(false)}
-        partnerTransactions={safeTransactions}
-        initialPartnerName={selectedPartnerForStatement}
-      />
-
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
         <div>
@@ -243,14 +232,6 @@ export default function PartnerLedger({
             title="Open Dividend & Profit Sharing Calculator"
           >
             <Calculator size={14} /> Dividend Calculator
-          </button>
-
-          <button
-            onClick={() => setIsStatementOpen(true)}
-            className="px-3 py-2 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shrink-0"
-            title="Generate PDF Partner Statement"
-          >
-            <FileText size={14} /> Statement PDF
           </button>
 
           <button
