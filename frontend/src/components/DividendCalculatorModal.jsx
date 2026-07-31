@@ -81,17 +81,17 @@ export default function DividendCalculatorModal({ isOpen, onClose, transactions 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-fade-in">
-      <div className="glass-panel max-w-2xl w-full max-h-[90vh] my-auto flex flex-col rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-md overflow-y-auto animate-fade-in">
+      <div className="max-w-2xl w-full max-h-[85vh] sm:max-h-[90vh] my-auto flex flex-col rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400">
               <Calculator size={18} />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-black tracking-tight">Partner Profit Sharing & Dividend Calculator</h3>
+              <h3 className="text-sm sm:text-base font-black tracking-tight text-slate-900 dark:text-slate-100">Partner Profit Sharing & Dividend Calculator</h3>
               <p className="text-slate-500 dark:text-slate-400 text-xs">Compute profit distribution based on partner equity ownership.</p>
             </div>
           </div>
@@ -104,12 +104,12 @@ export default function DividendCalculatorModal({ isOpen, onClose, transactions 
         </div>
 
         {/* Modal Content Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 space-y-5">
           
           {/* Top Inputs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
                 Total Net Profit to Distribute (INR)
               </label>
               <div className="relative">
@@ -119,13 +119,13 @@ export default function DividendCalculatorModal({ isOpen, onClose, transactions 
                   value={netProfitInput}
                   onChange={(e) => setNetProfitInput(e.target.value)}
                   placeholder="e.g. 1000000"
-                  className="w-full pl-7 pr-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                  className="w-full pl-7 pr-3 py-2 bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
                 Fiscal Period Name / Notes
               </label>
               <input
@@ -133,15 +133,15 @@ export default function DividendCalculatorModal({ isOpen, onClose, transactions 
                 value={periodName}
                 onChange={(e) => setPeriodName(e.target.value)}
                 placeholder="e.g. Q1 2026 Distribution"
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               />
             </div>
           </div>
 
           {/* Equity Weight Controls */}
-          <div className="space-y-3 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
+          <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider">
+              <span className="text-xs font-black uppercase text-slate-800 dark:text-slate-200 tracking-wider">
                 Partner Equity Ownership Split (%)
               </span>
               <span className={`text-xs font-bold px-2 py-0.5 rounded-md border ${
@@ -155,8 +155,8 @@ export default function DividendCalculatorModal({ isOpen, onClose, transactions 
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {partnersList.map(partner => (
-                <div key={partner} className="p-3 bg-slate-50/70 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 rounded-xl flex items-center justify-between gap-3">
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{partner}</span>
+                <div key={partner} className="p-3 bg-slate-100/80 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between gap-3">
+                  <span className="text-xs font-bold text-slate-900 dark:text-slate-200 truncate">{partner}</span>
                   <div className="flex items-center gap-1 shrink-0 w-24">
                     <input
                       type="number"
@@ -165,7 +165,7 @@ export default function DividendCalculatorModal({ isOpen, onClose, transactions 
                       max="100"
                       value={equityPcts[partner] || ''}
                       onChange={(e) => handlePctChange(partner, e.target.value)}
-                      className="w-full px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-right"
+                      className="w-full px-2 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-slate-100 text-right"
                     />
                     <span className="text-xs font-bold text-slate-400">%</span>
                   </div>
@@ -175,7 +175,7 @@ export default function DividendCalculatorModal({ isOpen, onClose, transactions 
           </div>
 
           {/* Computed Dividend Breakdown Card */}
-          <div className="glass-panel p-4 rounded-xl border border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-indigo-500/5 space-y-3">
+          <div className="p-4 rounded-xl border border-violet-500/20 bg-slate-50 dark:bg-slate-950 space-y-3">
             <h4 className="text-xs font-black uppercase text-violet-600 dark:text-violet-400 tracking-wider flex items-center gap-1.5">
               <Layers size={14} />
               Calculated Payout Summary

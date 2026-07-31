@@ -83,21 +83,21 @@ export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = n
 
   // Unified theme styling
   const styles = {
-    backdrop: 'bg-slate-950/40 dark:bg-slate-955/70',
+    backdrop: 'bg-slate-950/70',
     panel: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800',
-    headerBg: 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800',
+    headerBg: 'bg-slate-50 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 shrink-0',
     headerText: 'text-slate-900 dark:text-slate-50',
     closeBtnHover: 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300',
-    input: 'bg-slate-55 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-violet-500/10 focus:border-violet-500/40',
+    input: 'bg-slate-100 dark:bg-slate-950 border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-violet-500/10 focus:border-violet-500/40',
     icon: 'text-slate-400 dark:text-slate-500',
-    label: 'text-slate-600 dark:text-slate-400',
-    cancelBtn: 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800',
+    label: 'text-slate-700 dark:text-slate-300',
+    cancelBtn: 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800',
     submitBtn: 'bg-violet-600 hover:bg-violet-500 shadow-violet-500/10 dark:shadow-violet-900/15 border-violet-500/20'
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in ${styles.backdrop}`}>
-      <div className={`w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl border ${styles.panel} animate-modal`}>
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-md animate-fade-in ${styles.backdrop}`}>
+      <div className={`w-full max-w-lg max-h-[85vh] sm:max-h-[90vh] my-auto flex flex-col rounded-3xl overflow-hidden shadow-2xl border ${styles.panel} animate-modal`}>
         {/* Header */}
         <div className={`flex items-center justify-between px-6 py-4 border-b ${styles.headerBg}`}>
           <h2 className={`text-lg font-bold tracking-tight ${styles.headerText}`}>
@@ -109,7 +109,7 @@ export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = n
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 bg-white/10 dark:bg-transparent">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-5">
           {/* Partner Name */}
           <div>
             <label className={`block text-xs font-bold mb-1.5 uppercase tracking-wider ${styles.label}`}>Partner Name</label>
