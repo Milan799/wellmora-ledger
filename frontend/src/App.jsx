@@ -947,9 +947,6 @@ export default function App() {
                         <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{isOnline ? 'Online' : 'Offline'}</span>
                       </div>
                     </div>
-                    <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">
-                      Track company operating credits, purchases, logistics, and office expenses.
-                    </p>
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto sm:justify-end">
                     <button

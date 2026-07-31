@@ -479,7 +479,7 @@ export default function PartnerLedger({
                   </div>
 
                   <div className={`text-base font-black ${
-                    t.type === 'Capital Contribution' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'
+                    t.type === 'Capital Contribution' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                   }`}>
                     {t.type === 'Capital Contribution' ? '+' : '-'}{formatCurrency(t.amount)}
                   </div>
@@ -530,7 +530,7 @@ export default function PartnerLedger({
                     </td>
                     
                     <td className={`px-4 py-3.5 text-right whitespace-nowrap font-bold text-xs ${
-                      t.type === 'Capital Contribution' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'
+                      t.type === 'Capital Contribution' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                     }`}>
                       {t.type === 'Capital Contribution' ? '+' : '-'}{formatCurrency(t.amount)}
                     </td>

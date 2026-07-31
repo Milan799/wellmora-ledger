@@ -109,7 +109,7 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
               </div>
 
               <div className={`text-base font-black ${
-                t.type === 'Credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'
+                t.type === 'Credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
               }`}>
                 {t.type === 'Credit' ? '+' : '-'}{formatCurrency(t.amount)}
               </div>
@@ -182,7 +182,7 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
                 
                 {/* Amount */}
                 <td className={`px-4 py-3.5 text-right whitespace-nowrap font-bold text-xs ${
-                  t.type === 'Credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'
+                  t.type === 'Credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                 }`}>
                   {t.type === 'Credit' ? '+' : '-'}{formatCurrency(t.amount)}
                 </td>

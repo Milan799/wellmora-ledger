@@ -625,7 +625,7 @@ export default function CentralDashboard({
                     </div>
 
                     <div className={`text-base font-black ${
-                      t.flowType === 'Inflow' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'
+                      t.flowType === 'Inflow' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                     }`}>
                       {t.flowType === 'Inflow' ? '+' : '-'}{formatCurrency(t.amount)}
                     </div>
@@ -700,7 +700,7 @@ export default function CentralDashboard({
                       </td>
 
                       <td className={`px-4 py-3.5 text-right whitespace-nowrap font-extrabold text-xs ${
-                        t.flowType === 'Inflow' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'
+                        t.flowType === 'Inflow' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                       }`}>
                         {t.flowType === 'Inflow' ? '+' : '-'}{formatCurrency(t.amount)}
                       </td>
