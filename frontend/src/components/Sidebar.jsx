@@ -27,12 +27,12 @@ export default function Sidebar({
       {/* Mobile overlay backdrop */}
       {isOpen && (
         <div 
-          className="fixed inset-0 z-30 bg-slate-950/40 backdrop-blur-sm md:hidden transition-opacity duration-300"
+          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm md:hidden transition-opacity duration-300"
           onClick={onClose}
         />
       )}
 
-      <div className={`fixed md:static inset-y-0 left-0 z-40 w-72 h-screen bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800/85 flex flex-col p-5 shrink-0 space-y-6 transition-transform duration-300 ease-in-out ${
+      <div className={`fixed md:static inset-y-0 left-0 z-50 w-[82vw] max-w-[290px] md:w-72 h-screen h-[100dvh] bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800/85 flex flex-col p-4 sm:p-5 shrink-0 space-y-4 sm:space-y-6 shadow-2xl md:shadow-none transition-transform duration-300 ease-in-out ${
         isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
       }`}>
         <div className="flex items-center justify-between">

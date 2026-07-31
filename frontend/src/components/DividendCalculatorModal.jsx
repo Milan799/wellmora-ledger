@@ -81,17 +81,17 @@ export default function DividendCalculatorModal({ isOpen, onClose, transactions 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in">
-      <div className="glass-panel max-w-2xl w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-fade-in">
+      <div className="glass-panel max-w-2xl w-full max-h-[90vh] my-auto flex flex-col rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400">
               <Calculator size={18} />
             </div>
             <div>
-              <h3 className="text-base font-black tracking-tight">Partner Profit Sharing & Dividend Calculator</h3>
+              <h3 className="text-sm sm:text-base font-black tracking-tight">Partner Profit Sharing & Dividend Calculator</h3>
               <p className="text-slate-500 dark:text-slate-400 text-xs">Compute profit distribution based on partner equity ownership.</p>
             </div>
           </div>
@@ -104,7 +104,7 @@ export default function DividendCalculatorModal({ isOpen, onClose, transactions 
         </div>
 
         {/* Modal Content Body */}
-        <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
           
           {/* Top Inputs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -203,7 +203,7 @@ export default function DividendCalculatorModal({ isOpen, onClose, transactions 
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-between px-6 py-4 bg-slate-50/80 dark:bg-slate-900/80 border-t border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-between px-6 py-4 bg-slate-50/80 dark:bg-slate-900/80 border-t border-slate-200 dark:border-slate-800 shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"

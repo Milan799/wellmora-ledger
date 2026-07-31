@@ -41,28 +41,77 @@ export default function PartnerCapitalStatement({ isOpen, onClose, partnerTransa
     });
   };
 
-  // PDF Exporter
+  // PDF Exporter with fallback
   const handleDownloadPDF = async () => {
     if (!statementRef.current) return;
     setIsExporting(true);
     try {
       const element = statementRef.current;
+      
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        backgroundColor: '#ffffff'
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: 800
       });
 
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, Math.min(pdfHeight, pdf.internal.pageSize.getHeight()));
       pdf.save(`Capital_Statement_${selectedPartner.replace(/\s+/g, '_')}.pdf`);
     } catch (err) {
-      console.error('PDF export failed:', err);
-      alert('Failed to generate PDF. You can also use the Print button.');
+      console.error('Canvas PDF Export Failed, triggering direct jsPDF fallback:', err);
+      try {
+        const doc = new jsPDF('p', 'mm', 'a4');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(79, 70, 229);
+        doc.text('WELLMORA ENTERPRISE', 15, 20);
+
+        doc.setFontSize(11);
+        doc.setTextColor(100, 116, 139);
+        doc.text('Business Expense & Partner Ledger System', 15, 26);
+        doc.text('Official Partner Capital & Equity Statement', 15, 32);
+        doc.line(15, 36, 195, 36);
+
+        doc.setFontSize(10);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`Partner Name: ${selectedPartner}`, 15, 45);
+        doc.text(`Date Generated: ${new Date().toLocaleDateString('en-IN')}`, 15, 51);
+
+        doc.setFillColor(241, 245, 249);
+        doc.rect(15, 57, 180, 24, 'F');
+
+        doc.text(`Total Capital Contributed: ${formatCurrency(totalContributions)}`, 20, 65);
+        doc.text(`Total Drawings & Dividends: ${formatCurrency(totalDrawings)}`, 20, 71);
+        doc.text(`Closing Net Equity: ${formatCurrency(netEquity)}`, 20, 77);
+
+        let y = 92;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Itemized Transactions Log:', 15, y);
+        y += 8;
+
+        doc.setFontSize(9);
+        partnerFlows.forEach((t) => {
+          if (y > 270) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.setFont('helvetica', 'normal');
+          const line = `${formatDate(t.date || t.createdAt)}  |  ${t.type}  |  ${formatCurrency(t.amount)}  |  ${t.description || ''}`;
+          doc.text(line.slice(0, 90), 15, y);
+          y += 6;
+        });
+
+        doc.save(`Capital_Statement_${selectedPartner.replace(/\s+/g, '_')}.pdf`);
+      } catch (fallbackErr) {
+        alert('Could not download PDF automatically. Please click Print and choose "Save as PDF".');
+      }
     } finally {
       setIsExporting(false);
     }
@@ -73,11 +122,11 @@ export default function PartnerCapitalStatement({ isOpen, onClose, partnerTransa
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-      <div className="glass-panel max-w-4xl w-full max-h-[92vh] flex flex-col rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-fade-in">
+      <div className="glass-panel max-w-3xl w-full max-h-[92vh] my-auto flex flex-col rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
         
         {/* Modal Toolbar */}
-        <div className="flex flex-wrap items-center justify-between px-6 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/70 shrink-0 gap-3">
+        <div className="flex flex-wrap items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/70 shrink-0 gap-3">
           <div className="flex items-center gap-3">
             <label className="text-xs font-bold uppercase text-slate-500">Partner:</label>
             <select
@@ -118,7 +167,7 @@ export default function PartnerCapitalStatement({ isOpen, onClose, partnerTransa
         </div>
 
         {/* Printable Statement Container */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-100 dark:bg-slate-950">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 bg-slate-100 dark:bg-slate-950">
           <div 
             ref={statementRef} 
             className="max-w-3xl mx-auto bg-white text-slate-900 p-8 md:p-10 rounded-xl shadow-lg border border-slate-200 space-y-6"
