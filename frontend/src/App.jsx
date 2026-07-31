@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { flushSync } from 'react-dom';
-import { AlertCircle, RefreshCw, Menu, Sun, Moon, ShieldCheck } from 'lucide-react';
+import { AlertCircle, RefreshCw, Menu, Sun, Moon, ShieldCheck, LogOut } from 'lucide-react';
 
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -844,34 +844,39 @@ export default function App() {
       {/* 1. Mobile Top Navigation Bar */}
       <div className="md:hidden flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 z-20 shrink-0">
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-1.5 text-slate-650 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors"
-          >
-            <Menu size={18} />
-          </button>
-          <div className="flex items-center gap-2">
-            <Logo size={24} />
-            <span className="font-extrabold text-xs text-slate-900 dark:text-slate-100 uppercase tracking-wider">Wellmora</span>
-            <span className="px-1.5 py-0.5 bg-violet-500/10 dark:bg-violet-950/45 text-[9px] font-bold text-violet-600 dark:text-violet-400 rounded tracking-wide uppercase">
-              Enterprise
-            </span>
-          </div>
+          <Logo size={24} />
+          <span className="font-black text-xs text-slate-900 dark:text-slate-100 uppercase tracking-wider">Wellmora</span>
+          <span className="px-1.5 py-0.5 bg-violet-500/10 dark:bg-violet-950/45 text-[9px] font-bold text-violet-600 dark:text-violet-400 rounded tracking-wide uppercase">
+            Enterprise
+          </span>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={toggleTheme}
-            className="p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors"
             title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
           >
-            {theme === 'dark' ? <Sun size={15} className="text-amber-500" /> : <Moon size={15} className="text-slate-650" />}
+            {theme === 'dark' ? <Sun size={17} className="text-amber-500" /> : <Moon size={17} className="text-slate-600" />}
           </button>
 
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 rounded-xl" title={isOnline ? "Server Connected" : "Connection Offline"}>
-            <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse-subtle' : 'bg-rose-500'}`} />
-            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{isOnline ? 'Online' : 'Offline'}</span>
-          </div>
+          {authUser ? (
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-xl cursor-pointer transition-colors active:scale-95"
+              title="Sign Out"
+            >
+              <LogOut size={14} />
+              <span>Logout</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl cursor-pointer shadow-sm transition-all"
+            >
+              Sign In
+            </button>
+          )}
         </div>
       </div>
 
