@@ -277,7 +277,7 @@ export default function Sidebar({
       {/* =========================================================
           3. NATIVE MOBILE BOTTOM NAVIGATION BAR (md:hidden)
          ========================================================= */}
-      <div className="fixed bottom-0 inset-x-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/85 flex items-center justify-around py-2 px-1 md:hidden shadow-lg">
+      <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200/90 dark:border-slate-800/90 flex items-center justify-around py-2.5 px-2 md:hidden shadow-2xl">
         {[
           { id: 'central', label: 'Home', icon: LayoutDashboard },
           { id: 'ledger', label: 'Expenses', icon: BookOpen },
@@ -291,23 +291,17 @@ export default function Sidebar({
             <button
               key={`bottom_nav_${nav.id}`}
               onClick={() => setActivePage(nav.id)}
-              className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer ${
-                isActive ? 'text-violet-600 dark:text-violet-400 font-black scale-105' : 'text-slate-400 dark:text-slate-500 font-semibold'
+              className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all cursor-pointer ${
+                isActive 
+                  ? 'text-violet-600 dark:text-violet-400 font-extrabold scale-110' 
+                  : 'text-slate-500 dark:text-slate-400 font-bold hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
-              <Icon size={18} />
-              <span className="text-[9.5px] mt-0.5">{nav.label}</span>
+              <Icon size={22} className={isActive ? 'stroke-[2.5]' : 'stroke-[1.8]'} />
+              <span className="text-[11px] font-bold mt-1 tracking-tight">{nav.label}</span>
             </button>
           );
         })}
-
-        <button
-          onClick={() => (isOpen ? onClose() : document.querySelector('button[title="Open navigation menu"]')?.click())}
-          className="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-slate-400 dark:text-slate-500 font-semibold"
-        >
-          <Menu size={18} />
-          <span className="text-[9.5px] mt-0.5">Menu</span>
-        </button>
       </div>
     </>
   );
