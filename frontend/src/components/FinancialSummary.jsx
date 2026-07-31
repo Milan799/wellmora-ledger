@@ -323,9 +323,6 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
             <BarChart3 className="text-violet-600 dark:text-violet-400" size={20} />
             Financial Overview
           </h2>
-          <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">
-            Simple summary of your money, bank balances, and partner shares.
-          </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">

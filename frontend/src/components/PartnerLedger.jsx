@@ -221,9 +221,6 @@ export default function PartnerLedger({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
         <div>
           <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight">Partner Capital Flows</h2>
-          <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">
-            Track business partner capital contributions, draws, and dividends.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
           <button

@@ -336,9 +336,6 @@ export default function CentralDashboard({
                   Cash & Bank
                 </span>
               </h2>
-              <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5 font-medium">
-                Simple view of all your cash expenses and bank account transactions date-wise.
-              </p>
             </div>
           </div>
         </div>

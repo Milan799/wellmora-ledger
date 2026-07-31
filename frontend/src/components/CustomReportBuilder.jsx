@@ -223,9 +223,6 @@ export default function CustomReportBuilder({ transactions = [], bankTransaction
             <BarChart2 className="text-violet-600 dark:text-violet-400" size={20} />
             Custom Financial Report Builder
           </h2>
-          <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">
-            Generate Profit & Loss (P&L), Balance Sheets, and Cash Flow Statements with side-by-side period comparisons.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">

@@ -208,9 +208,6 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
         <div>
           <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight">Appliance Bank Ledger</h2>
-          <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">
-            Manage deposit settlements, payment payouts, and bank balances.
-          </p>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto sm:justify-end">
           <button
