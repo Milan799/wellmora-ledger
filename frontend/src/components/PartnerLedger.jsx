@@ -13,6 +13,7 @@ export default function PartnerLedger({
   onAddClick,
   onAddPartnerFlow 
 }) {
+  const [activeTab, setActiveTab] = useState('flows'); // 'flows' | 'calculator'
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [dateRange, setDateRange] = useState('all');
@@ -80,19 +81,13 @@ export default function PartnerLedger({
       const startOfYear = new Date(now.getFullYear(), 0, 1);
       return itemDate >= startOfYear;
     } else if (dateRange === 'custom') {
-      if (startDate) {
-        const s = new Date(startDate);
-        s.setHours(0, 0, 0, 0);
-        if (itemDate < s) return false;
-      }
-      if (endDate) {
-        const e = new Date(endDate);
-        e.setHours(23, 59, 59, 999);
-        if (itemDate > e) return false;
-      }
-      return true;
+      if (!startDate || !endDate) return true;
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      return itemDate >= start && itemDate <= end;
     }
-
     return true;
   });
 
@@ -220,16 +215,32 @@ export default function PartnerLedger({
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight">Partner Capital Flows</h2>
+          <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight">Partner Investments & Capital</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
-          <button
-            onClick={() => setIsDividendOpen(true)}
-            className="px-3 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shrink-0"
-            title="Open Dividend & Profit Sharing Calculator"
-          >
-            <Calculator size={14} /> Dividend Calculator
-          </button>
+          {/* Tab Switcher */}
+          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+            <button
+              onClick={() => setActiveTab('flows')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'flows'
+                  ? 'bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <Users size={14} /> Capital Flows
+            </button>
+            <button
+              onClick={() => setActiveTab('calculator')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'calculator'
+                  ? 'bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <Calculator size={14} /> Dividend Calculator
+            </button>
+          </div>
 
           <button
             onClick={onRefresh}
@@ -243,14 +254,25 @@ export default function PartnerLedger({
             <ExportDropdown onExport={handleExport} />
           </div>
 
-          <button
-            onClick={onAddClick}
-            className="px-4 py-2 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-violet-500/20 shadow-lg shadow-violet-500/10 cursor-pointer transition-all duration-200 whitespace-nowrap"
-          >
-            Add Transaction
-          </button>
+          {activeTab === 'flows' && (
+            <button
+              onClick={onAddClick}
+              className="px-4 py-2 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-violet-500/20 shadow-lg shadow-violet-500/10 cursor-pointer transition-all duration-200 whitespace-nowrap"
+            >
+              Add Transaction
+            </button>
+          )}
         </div>
       </div>
+
+      {activeTab === 'calculator' ? (
+        <DividendCalculatorModal
+          isEmbedded={true}
+          transactions={operatingTransactions}
+          onPostShareDistribution={onAddPartnerFlow}
+        />
+      ) : (
+        <>
 
       {/* Dashboard Top Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
@@ -559,6 +581,8 @@ export default function PartnerLedger({
             </table>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );
