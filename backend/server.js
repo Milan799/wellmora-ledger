@@ -10,7 +10,11 @@ import { verifyToken } from './middleware/auth.js';
 import transactionRouter from './routes/transactions.js';
 import bankTransactionRouter from './routes/bankTransactions.js';
 import partnerFlowRouter from './routes/partnerFlows.js';
-import { createBackup } from './backupManager.js';
+import backupRouter from './routes/backups.js';
+import reportsRouter from './routes/reports.js';
+import digestRouter from './routes/digest.js';
+import { createBackup, pruneOldBackups } from './backupManager.js';
+import cron from 'node-cron';
 import Transaction from './models/Transaction.js';
 import BankTransaction from './models/BankTransaction.js';
 import PartnerFlow from './models/PartnerFlow.js';
@@ -86,11 +90,17 @@ app.use('/auth', authRouter);
 app.use('/api/transactions', verifyToken, transactionRouter);
 app.use('/api/bank-transactions', verifyToken, bankTransactionRouter);
 app.use('/api/partner-flows', verifyToken, partnerFlowRouter);
+app.use('/api/backups', verifyToken, backupRouter);
+app.use('/api/reports', verifyToken, reportsRouter);
+app.use('/api/digest', verifyToken, digestRouter);
 
 // Also mount data routes on root level fallback for convenience
 app.use('/transactions', verifyToken, transactionRouter);
 app.use('/bank-transactions', verifyToken, bankTransactionRouter);
 app.use('/partner-flows', verifyToken, partnerFlowRouter);
+app.use('/backups', verifyToken, backupRouter);
+app.use('/reports', verifyToken, reportsRouter);
+app.use('/digest', verifyToken, digestRouter);
 
 // Health Check Endpoint
 app.get(['/api/health', '/health'], (req, res) => {
@@ -154,6 +164,17 @@ mongoose.connect(MONGODB_URI)
       .then(filePath => console.log(`💾 Startup auto-backup snapshot created: ${filePath}`))
       .catch(err => console.error(`⚠️ Startup auto-backup failed: ${err.message}`));
 
+    // Schedule automated daily backup snapshot at midnight
+    cron.schedule('0 0 * * *', async () => {
+      try {
+        console.log('⏰ Running scheduled midnight database backup & prune operation...');
+        await createBackup();
+        await pruneOldBackups(30);
+      } catch (err) {
+        console.error('⚠️ Midnight backup cron failed:', err.message);
+      }
+    });
+
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
@@ -162,4 +183,5 @@ mongoose.connect(MONGODB_URI)
     console.error('MongoDB connection error:', err.message);
     process.exit(1);
   });
+
 

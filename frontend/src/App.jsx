@@ -16,6 +16,9 @@ import PartnerLedger from './components/PartnerLedger';
 import PartnerForm from './components/PartnerForm';
 import FinancialSummary from './components/FinancialSummary';
 import CentralDashboard from './components/CentralDashboard';
+import CustomReportBuilder from './components/CustomReportBuilder';
+import BackupManagerModal from './components/BackupManagerModal';
+import DigestSettingsModal from './components/DigestSettingsModal';
 
 import DeleteConfirmation from './components/DeleteConfirmation';
 import Notification from './components/Notification';
@@ -1055,11 +1058,13 @@ export default function App() {
               <div className="animate-slide-up">
                 <PartnerLedger
                   transactions={partnerTransactions}
+                  operatingTransactions={transactions}
                   loading={loadingPartner}
                   onRefresh={fetchPartnerTransactions}
                   onAddClick={() => { setEditingPartnerTransaction(null); setIsPartnerFormOpen(true); }}
                   onEdit={(t) => { setEditingPartnerTransaction(t); setIsPartnerFormOpen(true); }}
                   onDelete={(t) => handleDeleteTrigger(t, 'partner')}
+                  onAddPartnerFlow={handlePartnerSubmit}
                 />
               </div>
             )}
@@ -1071,6 +1076,37 @@ export default function App() {
                   transactions={transactions}
                   bankTransactions={bankTransactions}
                   partnerTransactions={partnerTransactions}
+                />
+              </div>
+            )}
+
+            {/* Render PAGE 5: CUSTOM FINANCIAL REPORT BUILDER */}
+            {activePage === 'report_builder' && (
+              <div className="animate-slide-up">
+                <CustomReportBuilder
+                  transactions={transactions}
+                  bankTransactions={bankTransactions}
+                  partnerTransactions={partnerTransactions}
+                />
+              </div>
+            )}
+
+            {/* Render PAGE 6: BACKUP & CLOUD SYNC */}
+            {activePage === 'backup_sync' && (
+              <div className="animate-slide-up">
+                <BackupManagerModal
+                  isOpen={true}
+                  onClose={() => setActivePage('central')}
+                />
+              </div>
+            )}
+
+            {/* Render PAGE 7: DIGEST ALERTS */}
+            {activePage === 'digest_alerts' && (
+              <div className="animate-slide-up">
+                <DigestSettingsModal
+                  isOpen={true}
+                  onClose={() => setActivePage('central')}
                 />
               </div>
             )}

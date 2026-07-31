@@ -1,13 +1,28 @@
 import React, { useState } from 'react';
-import { Calendar, Search, RefreshCw, Trash2, Edit2, Users, Wallet, Landmark } from 'lucide-react';
+import { Calendar, Search, RefreshCw, Trash2, Edit2, Users, Wallet, Landmark, Calculator, FileText } from 'lucide-react';
 import ExportDropdown from './ExportDropdown';
+import DividendCalculatorModal from './DividendCalculatorModal';
+import PartnerCapitalStatement from './PartnerCapitalStatement';
 
-export default function PartnerLedger({ transactions, onEdit, onDelete, loading, onRefresh, onAddClick }) {
+export default function PartnerLedger({ 
+  transactions, 
+  operatingTransactions = [], 
+  onEdit, 
+  onDelete, 
+  loading, 
+  onRefresh, 
+  onAddClick,
+  onAddPartnerFlow 
+}) {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [dateRange, setDateRange] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  
+  const [isDividendOpen, setIsDividendOpen] = useState(false);
+  const [isStatementOpen, setIsStatementOpen] = useState(false);
+  const [selectedPartnerForStatement, setSelectedPartnerForStatement] = useState('Milan Javiya');
 
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
@@ -197,6 +212,22 @@ export default function PartnerLedger({ transactions, onEdit, onDelete, loading,
 
   return (
     <div className="space-y-5">
+      {/* Dividend Calculator Modal */}
+      <DividendCalculatorModal
+        isOpen={isDividendOpen}
+        onClose={() => setIsDividendOpen(false)}
+        transactions={operatingTransactions}
+        onPostShareDistribution={onAddPartnerFlow}
+      />
+
+      {/* Partner Capital PDF Statement Modal */}
+      <PartnerCapitalStatement
+        isOpen={isStatementOpen}
+        onClose={() => setIsStatementOpen(false)}
+        partnerTransactions={safeTransactions}
+        initialPartnerName={selectedPartnerForStatement}
+      />
+
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
         <div>
@@ -205,7 +236,23 @@ export default function PartnerLedger({ transactions, onEdit, onDelete, loading,
             Track business partner capital contributions, draws, and dividends.
           </p>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto sm:justify-end">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
+          <button
+            onClick={() => setIsDividendOpen(true)}
+            className="px-3 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shrink-0"
+            title="Open Dividend & Profit Sharing Calculator"
+          >
+            <Calculator size={14} /> Dividend Calculator
+          </button>
+
+          <button
+            onClick={() => setIsStatementOpen(true)}
+            className="px-3 py-2 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shrink-0"
+            title="Generate PDF Partner Statement"
+          >
+            <FileText size={14} /> Statement PDF
+          </button>
+
           <button
             onClick={onRefresh}
             className="p-2 bg-slate-100/50 dark:bg-slate-900/50 hover:bg-slate-200/50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-all active:scale-95 cursor-pointer shrink-0"
@@ -220,7 +267,7 @@ export default function PartnerLedger({ transactions, onEdit, onDelete, loading,
 
           <button
             onClick={onAddClick}
-            className="flex-1 sm:flex-initial px-4 py-2 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-violet-500/20 shadow-lg shadow-violet-500/10 cursor-pointer transition-all duration-200 whitespace-nowrap"
+            className="px-4 py-2 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-violet-500/20 shadow-lg shadow-violet-500/10 cursor-pointer transition-all duration-200 whitespace-nowrap"
           >
             Add Transaction
           </button>
