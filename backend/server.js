@@ -27,40 +27,29 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://trymilan971_db_user:milan123@cluster0.emzxezj.mongodb.net/?appName=Cluster0';
 
-// 1. Security HTTP Headers
-app.use(helmet());
+// 1. Fully Permissive CORS Middleware with Preflight OPTIONS Support
+const corsOptions = {
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  credentials: false
+};
 
-// 2. NoSQL Query Injection Prevention
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
+// 2. Security HTTP Headers with cross-origin policies configured for API access
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false
+}));
+
+// 3. NoSQL Query Injection Prevention
 app.use(mongoSanitize());
 
-// 3. Body Parsing Middleware (Increased limit to 10mb for image/receipt uploads)
+// 4. Body Parsing Middleware (Increased limit to 10mb for image/receipt uploads)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// 4. Configured CORS with flexible domain support
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-
-    if (process.env.ALLOWED_ORIGINS && process.env.ALLOWED_ORIGINS !== '*') {
-      const allowedList = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
-      if (allowedList.includes(origin)) return callback(null, true);
-    }
-
-    if (
-      origin.startsWith('http://localhost') ||
-      origin.startsWith('http://127.0.0.1') ||
-      origin.endsWith('.onrender.com') ||
-      origin.endsWith('.vercel.app') ||
-      origin.endsWith('.github.io')
-    ) {
-      return callback(null, true);
-    }
-
-    return callback(null, true);
-  },
-  credentials: true
-}));
 
 // 5. Rate Limiting for API routes (Allowing high throughput for real-time data sync)
 const apiLimiter = rateLimit({

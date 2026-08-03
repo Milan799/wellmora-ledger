@@ -759,8 +759,8 @@ export default function App() {
     try {
       const response = await fetchWithTimeout(`${API_BASE_URL}/orders`);
       if (!response.ok) {
-        if (response.status === 429) {
-          console.warn("Orders fetch rate-limited (429), using cached orders.");
+        if (response.status === 429 || response.status === 404) {
+          console.warn(`Orders fetch HTTP ${response.status}, using cached local orders.`);
           return;
         }
         throw new Error(`HTTP ${response.status}`);
