@@ -772,8 +772,20 @@ export default function App() {
       }
       const data = await safeJsonFetch(response);
       if (data && Array.isArray(data)) {
-        setOrders(data);
-        localStorage.setItem('cached_orders', JSON.stringify(data));
+        setOrders(prev => {
+          const mergedMap = new Map();
+          data.forEach(o => {
+            if (o.orderNumber) mergedMap.set(o.orderNumber.trim(), o);
+          });
+          prev.forEach(o => {
+            if (o.orderNumber && !mergedMap.has(o.orderNumber.trim())) {
+              mergedMap.set(o.orderNumber.trim(), o);
+            }
+          });
+          const mergedList = Array.from(mergedMap.values());
+          localStorage.setItem('cached_orders', JSON.stringify(mergedList));
+          return mergedList;
+        });
       }
     } catch (err) {
       console.warn("Failed to fetch orders:", err);

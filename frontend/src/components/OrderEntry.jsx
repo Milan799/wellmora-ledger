@@ -127,6 +127,26 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     setIsFormOpen(true);
   };
 
+  // Compress canvas output to lightweight JPEG (~50KB) to prevent 413 Payload Too Large errors
+  const compressCanvasToJpeg = (canvas, maxWidth = 800, quality = 0.6) => {
+    try {
+      const compCanvas = document.createElement('canvas');
+      let width = canvas.width || 800;
+      let height = canvas.height || 600;
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+      compCanvas.width = width;
+      compCanvas.height = height;
+      const ctx = compCanvas.getContext('2d');
+      ctx.drawImage(canvas, 0, 0, width, height);
+      return compCanvas.toDataURL('image/jpeg', quality);
+    } catch (e) {
+      return canvas.toDataURL('image/jpeg', 0.5);
+    }
+  };
+
   // Render a specific PDF page to Canvas Data URL & extract direct PDF text
   const renderPdfPageToCanvas = async (pdf, pageNum) => {
     const page = await pdf.getPage(pageNum);
@@ -139,14 +159,14 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       console.warn(`PDF text extraction warning on page ${pageNum}:`, e);
     }
 
-    const viewport = page.getViewport({ scale: 2.0 });
+    const viewport = page.getViewport({ scale: 1.5 });
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     canvas.height = viewport.height;
     canvas.width = viewport.width;
 
     await page.render({ canvasContext: context, viewport: viewport }).promise;
-    const dataUrl = canvas.toDataURL('image/png');
+    const dataUrl = compressCanvasToJpeg(canvas);
 
     return { dataUrl, pdfText };
   };
