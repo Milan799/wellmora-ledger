@@ -62,12 +62,13 @@ app.use(cors({
   credentials: true
 }));
 
-// 5. Rate Limiting for API routes
+// 5. Rate Limiting for API routes (Allowing high throughput for real-time data sync)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per 15 minutes
+  max: 2000, // High throughput limit for multi-device sync
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'GET', // Allow GET read calls without rate-limiting blocks
   message: { message: 'Too many requests from this IP, please try again after 15 minutes.' }
 });
 

@@ -260,8 +260,10 @@ export default function App() {
   useEffect(() => {
     fetchOrders();
     const syncInterval = setInterval(() => {
-      fetchOrders();
-    }, 5000);
+      if (document.visibilityState === 'visible') {
+        fetchOrders();
+      }
+    }, 10000);
 
     const handleFocus = () => {
       fetchOrders();
@@ -756,15 +758,23 @@ export default function App() {
     setErrorOrders(null);
     try {
       const response = await fetchWithTimeout(`${API_BASE_URL}/orders`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        if (response.status === 429) {
+          console.warn("Orders fetch rate-limited (429), using cached orders.");
+          return;
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }
       const data = await safeJsonFetch(response);
-      if (data) {
+      if (data && Array.isArray(data)) {
         setOrders(data);
         localStorage.setItem('cached_orders', JSON.stringify(data));
       }
     } catch (err) {
       console.warn("Failed to fetch orders:", err);
-      setErrorOrders(err.message);
+      if (!localStorage.getItem('cached_orders')) {
+        setErrorOrders(err.message);
+      }
     } finally {
       setLoadingOrders(false);
     }
