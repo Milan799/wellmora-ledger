@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 const orderItemSchema = new mongoose.Schema({
   description: { type: String, trim: true },
+  fsnSku: { type: String, trim: true, default: '' },
   quantity: { type: Number, default: 1 },
   price: { type: Number, default: 0 },
   total: { type: Number, default: 0 }
@@ -13,29 +14,59 @@ const orderSchema = new mongoose.Schema({
     ref: 'User',
     required: false
   },
-  orderNumber: {
+  orderSource: {
     type: String,
+    default: 'Flipkart'
+  },
+  orderNumber: {
+    type: String, // e.g. OD328719203910283000
     trim: true,
-    default: ''
+    required: true
   },
   date: {
     type: Date,
     default: Date.now
   },
+  deliveryDate: {
+    type: Date,
+    default: null
+  },
   vendorCustomer: {
-    type: String,
+    type: String, // Buyer / Customer Name or Store
     trim: true,
-    default: 'General Order'
+    default: 'Flipkart Customer'
+  },
+  sellerName: {
+    type: String, // e.g. RetailNet, SuperComNet, etc.
+    trim: true,
+    default: 'Flipkart Seller'
   },
   items: [orderItemSchema],
   amount: {
-    type: Number,
-    required: [true, 'Order total amount is required'],
+    type: Number, // Net Paid Total
+    required: [true, 'Order net amount is required'],
     min: [0, 'Amount cannot be negative']
   },
-  taxAmount: {
+  subtotalAmount: {
     type: Number,
     default: 0
+  },
+  taxAmount: {
+    type: Number, // GST Amount
+    default: 0
+  },
+  discountAmount: {
+    type: Number,
+    default: 0
+  },
+  deliveryFee: {
+    type: Number,
+    default: 0
+  },
+  orderStatus: {
+    type: String,
+    enum: ['Ordered', 'Shipped', 'Delivered', 'Cancelled', 'Returned'],
+    default: 'Delivered'
   },
   paymentStatus: {
     type: String,
@@ -44,15 +75,15 @@ const orderSchema = new mongoose.Schema({
   },
   paymentMode: {
     type: String,
-    enum: ['Cash', 'UPI', 'Bank Transfer', 'Credit Card', 'Other'],
-    default: 'UPI'
+    enum: ['Flipkart Pay Later', 'UPI / PhonePe', 'Cash on Delivery (COD)', 'Credit / Debit Card', 'Net Banking', 'Other'],
+    default: 'UPI / PhonePe'
   },
   category: {
     type: String,
-    default: 'Purchase'
+    default: 'Flipkart Purchase'
   },
   receiptImage: {
-    type: String, // Base64 data URL or photo URL
+    type: String, // Base64 receipt / screenshot photo
     default: ''
   },
   notes: {

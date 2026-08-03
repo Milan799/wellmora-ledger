@@ -3,26 +3,33 @@ import Order from '../models/Order.js';
 
 const router = express.Router();
 
-// GET all orders (sorted newest first)
+// GET all Flipkart orders (newest first)
 router.get('/', async (req, res) => {
   try {
     const orders = await Order.find().sort({ date: -1, createdAt: -1 });
     res.json(orders);
   } catch (error) {
-    res.status(500).json({ message: 'Error retrieving orders', error: error.message });
+    res.status(500).json({ message: 'Error retrieving Flipkart orders', error: error.message });
   }
 });
 
-// POST a new order entry
+// POST a new Flipkart order entry
 router.post('/', async (req, res) => {
   try {
     const { 
+      orderSource,
       orderNumber, 
       date, 
+      deliveryDate,
       vendorCustomer, 
+      sellerName,
       items, 
       amount, 
+      subtotalAmount,
       taxAmount, 
+      discountAmount,
+      deliveryFee,
+      orderStatus,
       paymentStatus, 
       paymentMode, 
       category, 
@@ -31,19 +38,26 @@ router.post('/', async (req, res) => {
     } = req.body;
     
     if (amount === undefined || amount === null || Number(amount) < 0) {
-      return res.status(400).json({ message: 'Valid amount is required' });
+      return res.status(400).json({ message: 'Valid net order amount is required' });
     }
     
     const newOrder = new Order({
-      orderNumber: orderNumber || `ORD-${Date.now().toString().slice(-6)}`,
+      orderSource: orderSource || 'Flipkart',
+      orderNumber: orderNumber || `OD${Date.now()}000`,
       date: date || new Date(),
-      vendorCustomer: vendorCustomer || 'General Order',
+      deliveryDate: deliveryDate || null,
+      vendorCustomer: vendorCustomer || 'Flipkart Customer',
+      sellerName: sellerName || 'Flipkart Seller',
       items: Array.isArray(items) ? items : [],
       amount: Number(amount),
+      subtotalAmount: Number(subtotalAmount || amount),
       taxAmount: Number(taxAmount || 0),
+      discountAmount: Number(discountAmount || 0),
+      deliveryFee: Number(deliveryFee || 0),
+      orderStatus: orderStatus || 'Delivered',
       paymentStatus: paymentStatus || 'Paid',
-      paymentMode: paymentMode || 'UPI',
-      category: category || 'Purchase',
+      paymentMode: paymentMode || 'UPI / PhonePe',
+      category: category || 'Flipkart Purchase',
       receiptImage: receiptImage || '',
       notes: notes || ''
     });
@@ -51,21 +65,28 @@ router.post('/', async (req, res) => {
     const savedOrder = await newOrder.save();
     res.status(201).json(savedOrder);
   } catch (error) {
-    res.status(400).json({ message: 'Error saving order entry', error: error.message });
+    res.status(400).json({ message: 'Error saving Flipkart order entry', error: error.message });
   }
 });
 
-// PUT (update) an existing order entry
+// PUT (update) an existing Flipkart order entry
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { 
+      orderSource,
       orderNumber, 
       date, 
+      deliveryDate,
       vendorCustomer, 
+      sellerName,
       items, 
       amount, 
+      subtotalAmount,
       taxAmount, 
+      discountAmount,
+      deliveryFee,
+      orderStatus,
       paymentStatus, 
       paymentMode, 
       category, 
@@ -76,12 +97,19 @@ router.put('/:id', async (req, res) => {
     const updatedOrder = await Order.findByIdAndUpdate(
       id,
       { 
+        orderSource,
         orderNumber, 
         date, 
+        deliveryDate,
         vendorCustomer, 
+        sellerName,
         items, 
         amount: Number(amount), 
+        subtotalAmount: Number(subtotalAmount || amount),
         taxAmount: Number(taxAmount || 0), 
+        discountAmount: Number(discountAmount || 0),
+        deliveryFee: Number(deliveryFee || 0),
+        orderStatus,
         paymentStatus, 
         paymentMode, 
         category, 
@@ -92,28 +120,28 @@ router.put('/:id', async (req, res) => {
     );
 
     if (!updatedOrder) {
-      return res.status(404).json({ message: 'Order entry not found' });
+      return res.status(404).json({ message: 'Flipkart order entry not found' });
     }
 
     res.json(updatedOrder);
   } catch (error) {
-    res.status(400).json({ message: 'Error updating order entry', error: error.message });
+    res.status(400).json({ message: 'Error updating Flipkart order entry', error: error.message });
   }
 });
 
-// DELETE an order entry
+// DELETE a Flipkart order entry
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const deletedOrder = await Order.findByIdAndDelete(id);
 
     if (!deletedOrder) {
-      return res.status(404).json({ message: 'Order entry not found' });
+      return res.status(404).json({ message: 'Flipkart order entry not found' });
     }
 
-    res.json({ message: 'Order entry successfully deleted', id });
+    res.json({ message: 'Flipkart order entry successfully deleted', id });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting order entry', error: error.message });
+    res.status(500).json({ message: 'Error deleting Flipkart order entry', error: error.message });
   }
 });
 

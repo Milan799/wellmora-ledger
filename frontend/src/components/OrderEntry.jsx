@@ -19,7 +19,13 @@ import {
   Image as ImageIcon,
   Check,
   RefreshCw,
-  Tag
+  Tag,
+  Package,
+  Truck,
+  Store,
+  ExternalLink,
+  ShieldAlert,
+  ArrowRightLeft
 } from 'lucide-react';
 import { createWorker } from 'tesseract.js';
 
@@ -31,19 +37,28 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   
-  const [orderNumber, setOrderNumber] = useState('');
+  // Flipkart Specific Fields
+  const [orderNumber, setOrderNumber] = useState(''); // e.g. OD328719203910283000
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
-  const [vendorCustomer, setVendorCustomer] = useState('');
-  const [amount, setAmount] = useState('');
-  const [taxAmount, setTaxAmount] = useState('');
-  const [paymentStatus, setPaymentStatus] = useState('Paid');
-  const [paymentMode, setPaymentMode] = useState('UPI');
-  const [category, setCategory] = useState('Purchase');
+  const [deliveryDate, setDeliveryDate] = useState('');
+  const [vendorCustomer, setVendorCustomer] = useState(''); // Buyer / Customer Name
+  const [sellerName, setSellerName] = useState('RetailNet'); // Flipkart Seller
+  
+  const [amount, setAmount] = useState(''); // Net Paid
+  const [subtotalAmount, setSubtotalAmount] = useState('');
+  const [taxAmount, setTaxAmount] = useState(''); // GST
+  const [discountAmount, setDiscountAmount] = useState(''); // Flipkart Discount
+  const [deliveryFee, setDeliveryFee] = useState(''); // Delivery Charge
+
+  const [orderStatus, setOrderStatus] = useState('Delivered'); // Ordered, Shipped, Delivered, Cancelled, Returned
+  const [paymentStatus, setPaymentStatus] = useState('Paid'); // Paid, Pending, Refunded
+  const [paymentMode, setPaymentMode] = useState('UPI / PhonePe');
+  const [category, setCategory] = useState('Flipkart Purchase');
   const [notes, setNotes] = useState('');
   const [receiptImage, setReceiptImage] = useState('');
   
   // Line Items
-  const [items, setItems] = useState([{ description: '', quantity: 1, price: 0, total: 0 }]);
+  const [items, setItems] = useState([{ description: '', fsnSku: '', quantity: 1, price: 0, total: 0 }]);
 
   // OCR Processing States
   const [isScanning, setIsScanning] = useState(false);
@@ -64,17 +79,23 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
 
   const resetForm = () => {
     setEditingId(null);
-    setOrderNumber(`ORD-${Date.now().toString().slice(-6)}`);
+    setOrderNumber(`OD${Date.now()}000`);
     setOrderDate(new Date().toISOString().split('T')[0]);
+    setDeliveryDate('');
     setVendorCustomer('');
+    setSellerName('RetailNet');
     setAmount('');
+    setSubtotalAmount('');
     setTaxAmount('');
+    setDiscountAmount('');
+    setDeliveryFee('0');
+    setOrderStatus('Delivered');
     setPaymentStatus('Paid');
-    setPaymentMode('UPI');
-    setCategory('Purchase');
+    setPaymentMode('UPI / PhonePe');
+    setCategory('Flipkart Purchase');
     setNotes('');
     setReceiptImage('');
-    setItems([{ description: '', quantity: 1, price: 0, total: 0 }]);
+    setItems([{ description: '', fsnSku: '', quantity: 1, price: 0, total: 0 }]);
     setAutoDetectedFields({});
   };
 
@@ -87,50 +108,53 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     setEditingId(order._id);
     setOrderNumber(order.orderNumber || '');
     setOrderDate(order.date ? new Date(order.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+    setDeliveryDate(order.deliveryDate ? new Date(order.deliveryDate).toISOString().split('T')[0] : '');
     setVendorCustomer(order.vendorCustomer || '');
+    setSellerName(order.sellerName || 'RetailNet');
     setAmount(order.amount || '');
+    setSubtotalAmount(order.subtotalAmount || '');
     setTaxAmount(order.taxAmount || '');
+    setDiscountAmount(order.discountAmount || '');
+    setDeliveryFee(order.deliveryFee || '0');
+    setOrderStatus(order.orderStatus || 'Delivered');
     setPaymentStatus(order.paymentStatus || 'Paid');
-    setPaymentMode(order.paymentMode || 'UPI');
-    setCategory(order.category || 'Purchase');
+    setPaymentMode(order.paymentMode || 'UPI / PhonePe');
+    setCategory(order.category || 'Flipkart Purchase');
     setNotes(order.notes || '');
     setReceiptImage(order.receiptImage || '');
-    setItems(order.items && order.items.length > 0 ? order.items : [{ description: '', quantity: 1, price: 0, total: 0 }]);
+    setItems(order.items && order.items.length > 0 ? order.items : [{ description: '', fsnSku: '', quantity: 1, price: 0, total: 0 }]);
     setAutoDetectedFields({});
     setIsFormOpen(true);
   };
 
-  // Smart OCR auto-detection from uploaded screenshot/photo
+  // Smart Flipkart OCR auto-detection from uploaded receipt / order details screenshot
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Convert file to Base64 for local storage & preview
     const reader = new FileReader();
     reader.onload = async (event) => {
       const base64Data = event.target.result;
       setReceiptImage(base64Data);
 
-      // Trigger OCR Analysis
       setIsScanning(true);
-      setScanProgress(10);
+      setScanProgress(15);
 
       try {
         const worker = await createWorker('eng');
-        setScanProgress(40);
+        setScanProgress(45);
 
         const ret = await worker.recognize(base64Data);
-        setScanProgress(80);
+        setScanProgress(85);
         await worker.terminate();
 
         const text = ret.data.text;
-        console.log("OCR Extracted Text:", text);
+        console.log("Flipkart OCR Extracted Text:", text);
 
-        // Run Intelligent Auto-Detection Patterns
-        parseAndAutoFillData(text);
+        parseAndAutoFillFlipkartData(text);
         setScanProgress(100);
       } catch (err) {
-        console.error("OCR Error:", err);
+        console.error("Flipkart OCR Error:", err);
       } finally {
         setIsScanning(false);
       }
@@ -138,20 +162,34 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     reader.readAsDataURL(file);
   };
 
-  // Regex and pattern heuristics to auto-extract fields from text
-  const parseAndAutoFillData = (rawText) => {
+  // Specialized Flipkart OCR Heuristics Parser
+  const parseAndAutoFillFlipkartData = (rawText) => {
     const detected = {};
     const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
 
-    // 1. Detect Order / Invoice Number
-    const orderMatch = rawText.match(/(?:Order|Invoice|Inv|Ord|ID|Ref|#)\s*[:#.-]?\s*([A-Za-z0-9_-]{4,20})/i);
-    if (orderMatch && orderMatch[1]) {
-      const extractedNo = orderMatch[1].toUpperCase();
+    // 1. Detect Flipkart Order ID (e.g., OD328719203910283000 or OD...)
+    const flipkartOrderMatch = rawText.match(/\b(OD\d{14,20})\b/i) || 
+                                rawText.match(/(?:Order ID|Order No|OD)[:\s]*([A-Za-z0-9_-]{10,24})/i);
+    if (flipkartOrderMatch && flipkartOrderMatch[1]) {
+      const extractedNo = flipkartOrderMatch[1].toUpperCase();
       setOrderNumber(extractedNo);
       detected.orderNumber = true;
     }
 
-    // 2. Detect Date
+    // 2. Detect Seller Name (RetailNet, SuperComNet, etc.)
+    const sellerMatch = rawText.match(/(?:Sold By|Seller|Merchant)[:\s]*([A-Za-z0-9\s&.-]{3,30})/i);
+    if (sellerMatch && sellerMatch[1]) {
+      setSellerName(sellerMatch[1].trim());
+      detected.sellerName = true;
+    } else if (rawText.match(/RetailNet/i)) {
+      setSellerName('RetailNet');
+      detected.sellerName = true;
+    } else if (rawText.match(/SuperComNet/i)) {
+      setSellerName('SuperComNet');
+      detected.sellerName = true;
+    }
+
+    // 3. Detect Order Date
     const dateMatch = rawText.match(/\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4})\b/i);
     if (dateMatch) {
       try {
@@ -165,8 +203,20 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       }
     }
 
-    // 3. Detect Amounts (Total, Grand Total, Net Payable, GST, Tax)
-    const totalMatch = rawText.match(/(?:Total|Grand Total|Net Amount|Amount Paid|Payable|Total Amount)\s*[:=]?\s*(?:₹|Rs\.?|\$)?\s*([\d,]+\.?\d*)/i);
+    // 4. Detect Delivery Date
+    const deliveryMatch = rawText.match(/(?:Delivered on|Delivered by|Expected Delivery|Delivery Date)[:\s]*([A-Za-z0-9\s,-]+)/i);
+    if (deliveryMatch && deliveryMatch[1]) {
+      try {
+        const delDateParsed = new Date(deliveryMatch[1]);
+        if (!isNaN(delDateParsed.getTime())) {
+          setDeliveryDate(delDateParsed.toISOString().split('T')[0]);
+          detected.deliveryDate = true;
+        }
+      } catch (e) {}
+    }
+
+    // 5. Detect Net Paid Amount & Price Breakdown
+    const totalMatch = rawText.match(/(?:Total Amount|Amount Paid|Net Payable|Total Paid|Final Price|Grand Total)\s*[:=]?\s*(?:₹|Rs\.?|\$)?\s*([\d,]+\.?\d*)/i);
     if (totalMatch) {
       const cleanAmt = totalMatch[1].replace(/,/g, '');
       const parsedAmt = parseFloat(cleanAmt);
@@ -175,7 +225,6 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
         detected.amount = true;
       }
     } else {
-      // Fallback: look for largest currency pattern in text
       const currencyMatches = rawText.match(/(?:₹|Rs\.?|\$)\s*([\d,]+\.?\d*)/gi);
       if (currencyMatches) {
         const numbers = currencyMatches.map(m => {
@@ -190,56 +239,74 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       }
     }
 
-    // 4. Detect Tax Amount (GST, Tax, VAT)
-    const taxMatch = rawText.match(/(?:GST|Tax|VAT|CGST|SGST)\s*[:=]?\s*(?:₹|Rs\.?|\$)?\s*([\d,]+\.?\d*)/i);
-    if (taxMatch) {
-      const cleanTax = taxMatch[1].replace(/,/g, '');
-      const parsedTax = parseFloat(cleanTax);
-      if (!isNaN(parsedTax)) {
-        setTaxAmount(parsedTax);
-        detected.taxAmount = true;
-      }
+    // 6. Detect Discount & Delivery Fee
+    const discountMatch = rawText.match(/(?:Discount|Offer Discount|Saved)\s*[:=]?\s*(?:₹|Rs\.?|\$)?\s*([\d,]+\.?\d*)/i);
+    if (discountMatch) {
+      setDiscountAmount(parseFloat(discountMatch[1].replace(/,/g, '')));
+      detected.discountAmount = true;
     }
 
-    // 5. Detect Vendor / Company Name (usually first non-trivial line)
-    if (lines.length > 0) {
-      const possibleVendor = lines.find(line => 
-        line.length > 3 && 
-        !line.match(/invoice|receipt|tax|date|total|bill|phone|gst/i)
-      );
-      if (possibleVendor) {
-        setVendorCustomer(possibleVendor.substring(0, 40));
-        detected.vendorCustomer = true;
-      }
+    const deliveryFeeMatch = rawText.match(/(?:Delivery Fee|Delivery Charges|Shipping)\s*[:=]?\s*(?:₹|Rs\.?|\$)?\s*([\d,]+\.?\d*)/i);
+    if (deliveryFeeMatch) {
+      setDeliveryFee(parseFloat(deliveryFeeMatch[1].replace(/,/g, '')));
+      detected.deliveryFee = true;
     }
 
-    // 6. Detect Payment Mode & Status
-    if (rawText.match(/upi|gpay|phonepe|paytm/i)) {
-      setPaymentMode('UPI');
+    // 7. Detect Payment Mode (Flipkart Pay Later, UPI, COD, Card)
+    if (rawText.match(/pay later|flipkart pay later/i)) {
+      setPaymentMode('Flipkart Pay Later');
       detected.paymentMode = true;
-    } else if (rawText.match(/cash/i)) {
-      setPaymentMode('Cash');
+    } else if (rawText.match(/upi|phonepe|gpay|paytm/i)) {
+      setPaymentMode('UPI / PhonePe');
+      detected.paymentMode = true;
+    } else if (rawText.match(/cash on delivery|cod/i)) {
+      setPaymentMode('Cash on Delivery (COD)');
       detected.paymentMode = true;
     } else if (rawText.match(/card|visa|mastercard/i)) {
-      setPaymentMode('Credit Card');
-      detected.paymentMode = true;
-    } else if (rawText.match(/bank|neft|rtgs|transfer/i)) {
-      setPaymentMode('Bank Transfer');
+      setPaymentMode('Credit / Debit Card');
       detected.paymentMode = true;
     }
 
-    if (rawText.match(/paid|completed|success/i)) {
+    // 8. Detect Order Status
+    if (rawText.match(/delivered/i)) {
+      setOrderStatus('Delivered');
       setPaymentStatus('Paid');
-      detected.paymentStatus = true;
-    } else if (rawText.match(/pending|due|unpaid/i)) {
-      setPaymentStatus('Pending');
-      detected.paymentStatus = true;
+      detected.orderStatus = true;
+    } else if (rawText.match(/cancelled/i)) {
+      setOrderStatus('Cancelled');
+      setPaymentStatus('Refunded');
+      detected.orderStatus = true;
+    } else if (rawText.match(/returned|refunded/i)) {
+      setOrderStatus('Returned');
+      setPaymentStatus('Refunded');
+      detected.orderStatus = true;
+    } else if (rawText.match(/shipped|out for delivery/i)) {
+      setOrderStatus('Shipped');
+      setPaymentStatus('Paid');
+      detected.orderStatus = true;
+    }
+
+    // 9. Item title extraction
+    if (lines.length > 0) {
+      const itemTitleLine = lines.find(line => 
+        line.length > 5 && 
+        !line.match(/flipkart|order|invoice|total|price|subtotal|discount|delivery|paid|payment|sold/i)
+      );
+      if (itemTitleLine) {
+        setItems([{
+          description: itemTitleLine.substring(0, 60),
+          fsnSku: '',
+          quantity: 1,
+          price: detected.amount ? amount : 0,
+          total: detected.amount ? amount : 0
+        }]);
+      }
     }
 
     setAutoDetectedFields(detected);
   };
 
-  // Item list handlers
+  // Item List Handlers
   const handleItemChange = (index, field, value) => {
     const updated = [...items];
     updated[index][field] = value;
@@ -252,7 +319,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
   };
 
   const addItemRow = () => {
-    setItems([...items, { description: '', quantity: 1, price: 0, total: 0 }]);
+    setItems([...items, { description: '', fsnSku: '', quantity: 1, price: 0, total: 0 }]);
   };
 
   const removeItemRow = (index) => {
@@ -260,20 +327,27 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     setItems(items.filter((_, i) => i !== index));
   };
 
-  // Submit Order Form
+  // Form Submission
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!amount || parseFloat(amount) < 0) {
-      alert("Please enter a valid order total amount.");
+      alert("Please enter a valid net Flipkart order amount.");
       return;
     }
 
     const payload = {
-      orderNumber: orderNumber || `ORD-${Date.now().toString().slice(-6)}`,
+      orderSource: 'Flipkart',
+      orderNumber: orderNumber || `OD${Date.now()}000`,
       date: orderDate || new Date(),
-      vendorCustomer: vendorCustomer || 'General Order',
+      deliveryDate: deliveryDate || null,
+      vendorCustomer: vendorCustomer || 'Flipkart Customer',
+      sellerName: sellerName || 'RetailNet',
       amount: parseFloat(amount),
+      subtotalAmount: parseFloat(subtotalAmount || amount),
       taxAmount: parseFloat(taxAmount || 0),
+      discountAmount: parseFloat(discountAmount || 0),
+      deliveryFee: parseFloat(deliveryFee || 0),
+      orderStatus,
       paymentStatus,
       paymentMode,
       category,
@@ -291,35 +365,37 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     resetForm();
   };
 
-  // Filtered Orders
+  // Filtered Flipkart Orders
   const filteredOrders = orders.filter(ord => {
     const matchesSearch = 
       (ord.orderNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (ord.sellerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (ord.vendorCustomer || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (ord.category || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' || ord.paymentStatus === statusFilter;
+    const matchesStatus = statusFilter === 'all' || ord.orderStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  // Analytics KPIs
+  // KPI Analytics
   const totalOrdersCount = orders.length;
-  const totalOrdersValue = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
-  const paidOrdersValue = orders.filter(o => o.paymentStatus === 'Paid').reduce((sum, o) => sum + (o.amount || 0), 0);
-  const pendingOrdersValue = orders.filter(o => o.paymentStatus === 'Pending').reduce((sum, o) => sum + (o.amount || 0), 0);
+  const totalSpend = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
+  const deliveredCount = orders.filter(o => o.orderStatus === 'Delivered').length;
+  const cancelledReturnedCount = orders.filter(o => o.orderStatus === 'Cancelled' || o.orderStatus === 'Returned').length;
 
-  // CSV Exporter for Orders
+  // Export Flipkart Orders CSV
   const handleExportCSV = () => {
     if (orders.length === 0) return;
-    const headers = ['Order #', 'Date', 'Vendor/Customer', 'Category', 'Payment Mode', 'Status', 'Tax (INR)', 'Total Amount (INR)', 'Notes'];
+    const headers = ['Flipkart Order #', 'Order Date', 'Delivery Date', 'Seller', 'Buyer / Customer', 'Status', 'Payment Mode', 'Discount (INR)', 'Net Amount (INR)', 'Notes'];
     const rows = orders.map(o => [
       `"${o.orderNumber || ''}"`,
       `"${o.date ? new Date(o.date).toLocaleDateString('en-IN') : ''}"`,
+      `"${o.deliveryDate ? new Date(o.deliveryDate).toLocaleDateString('en-IN') : ''}"`,
+      `"${o.sellerName || ''}"`,
       `"${o.vendorCustomer || ''}"`,
-      `"${o.category || ''}"`,
+      `"${o.orderStatus || ''}"`,
       `"${o.paymentMode || ''}"`,
-      `"${o.paymentStatus || ''}"`,
-      o.taxAmount || 0,
+      o.discountAmount || 0,
       o.amount || 0,
       `"${(o.notes || '').replace(/"/g, '""')}"`
     ]);
@@ -329,7 +405,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `wellmora_orders_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `flipkart_orders_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -338,85 +414,92 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
   return (
     <div className="space-y-6 pb-12 animate-slide-up">
 
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <h2 className="text-xl font-black text-slate-900 dark:text-slate-50 tracking-tight flex items-center gap-2.5">
-            <div className="p-2 bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-xl">
-              <ShoppingBag size={22} />
+      {/* Flipkart Branded Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 bg-gradient-to-r from-blue-600 via-indigo-600 to-amber-500 rounded-3xl text-white shadow-xl relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+        
+        <div className="z-10 flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-900 font-black text-xl flex items-center justify-center shadow-lg shrink-0">
+            F
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-black tracking-tight">Flipkart Order Entries</h2>
+              <span className="px-2.5 py-0.5 bg-amber-400 text-slate-950 font-extrabold text-[10px] rounded-full uppercase tracking-wider">
+                E-Commerce Suite
+              </span>
             </div>
-            Order Details & Receipt Entry
-          </h2>
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
-            Upload order receipts/screenshots for auto-data detection & management.
-          </p>
+            <p className="text-xs text-blue-100 mt-0.5 font-medium">
+              Upload Flipkart screenshots or tax invoices for instant auto-detection & expense auditing.
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="z-10 flex items-center gap-2.5 shrink-0">
           <button
             onClick={handleExportCSV}
-            className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+            className="px-3.5 py-2 bg-white/15 hover:bg-white/25 backdrop-blur-md text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer border border-white/20"
           >
             <Download size={15} />
             Export CSV
           </button>
           <button
             onClick={openNewOrderForm}
-            className="px-4 py-2 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-violet-600/20 transition-all cursor-pointer"
+            className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black rounded-xl flex items-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer active:scale-95"
           >
             <Plus size={16} />
-            New Order Entry
+            New Flipkart Order
           </button>
         </div>
       </div>
 
-      {/* KPI Stats Grid */}
+      {/* Flipkart KPI Analytics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Orders */}
+        {/* Total Flipkart Orders */}
         <div className="glass-panel p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Orders</span>
+            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Flipkart Orders</span>
             <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">{totalOrdersCount}</h3>
-            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Total Entries Recorded</span>
+            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Total Entries Saved</span>
           </div>
-          <div className="p-3 bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-2xl">
-            <ShoppingBag size={22} />
+          <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-2xl">
+            <Package size={22} />
           </div>
         </div>
 
-        {/* Total Order Value */}
+        {/* Total Flipkart Spend */}
         <div className="glass-panel p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Volume</span>
-            <h3 className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">{formatCurrency(totalOrdersValue)}</h3>
-            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Combined Gross Value</span>
+            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Net Spend</span>
+            <h3 className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">{formatCurrency(totalSpend)}</h3>
+            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Combined Order Value</span>
           </div>
           <div className="p-3 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl">
             <DollarSign size={22} />
           </div>
         </div>
 
-        {/* Paid Orders */}
+        {/* Delivered Orders */}
         <div className="glass-panel p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Paid Settlements</span>
-            <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{formatCurrency(paidOrdersValue)}</h3>
-            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Settled Receipts</span>
+            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Delivered Orders</span>
+            <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{deliveredCount}</h3>
+            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Successful Deliveries</span>
           </div>
           <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl">
-            <CheckCircle2 size={22} />
+            <Truck size={22} />
           </div>
         </div>
 
-        {/* Pending Orders */}
+        {/* Returns & Cancellations */}
         <div className="glass-panel p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Pending Due</span>
-            <h3 className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{formatCurrency(pendingOrdersValue)}</h3>
-            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Unsettled Amounts</span>
+            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Returns / Cancelled</span>
+            <h3 className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{cancelledReturnedCount}</h3>
+            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Refund / Return Tracking</span>
           </div>
-          <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-2xl">
-            <Clock size={22} />
+          <div className="p-3 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl">
+            <ArrowRightLeft size={22} />
           </div>
         </div>
       </div>
@@ -427,25 +510,26 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search order #, vendor, category..."
+            placeholder="Search Flipkart Order ID (OD...), seller, buyer..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-100/70 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+            className="w-full pl-9 pr-4 py-2 bg-slate-100/70 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
-          {['all', 'Paid', 'Pending', 'Refunded'].map((st) => (
+        {/* Order Status Filter Buttons */}
+        <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto">
+          {['all', 'Delivered', 'Ordered', 'Shipped', 'Cancelled', 'Returned'].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
                 statusFilter === st
-                  ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
                   : 'bg-slate-100/80 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
-              {st === 'all' ? 'All Status' : st}
+              {st === 'all' ? 'All Statuses' : st}
             </button>
           ))}
         </div>
@@ -455,19 +539,21 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       <div className="glass-panel rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
         {loading ? (
           <div className="py-12 flex flex-col items-center justify-center text-center text-slate-400 space-y-3">
-            <RefreshCw size={24} className="animate-spin text-violet-500" />
-            <span className="text-xs font-semibold">Loading Order Entries...</span>
+            <RefreshCw size={24} className="animate-spin text-blue-500" />
+            <span className="text-xs font-semibold">Loading Flipkart Orders...</span>
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="py-16 text-center text-slate-400 dark:text-slate-500 space-y-3">
-            <ShoppingBag size={36} className="mx-auto text-slate-300 dark:text-slate-700" />
-            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No order entries found</p>
-            <p className="text-xs max-w-sm mx-auto">Upload an order receipt screenshot or create a manual order entry to begin tracking.</p>
+            <div className="w-16 h-16 rounded-2xl bg-amber-400/10 text-amber-500 mx-auto flex items-center justify-center font-black text-2xl">
+              F
+            </div>
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No Flipkart order entries found</p>
+            <p className="text-xs max-w-md mx-auto">Upload a screenshot of your Flipkart Order Details page or tax invoice to auto-detect and save your order entry.</p>
             <button
               onClick={openNewOrderForm}
-              className="mt-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer"
+              className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer"
             >
-              Add First Order
+              Add First Flipkart Order
             </button>
           </div>
         ) : (
@@ -475,13 +561,13 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50/80 dark:bg-slate-900/80 border-b border-slate-200/80 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider text-[9.5px]">
-                  <th className="py-3.5 px-4">Order Details</th>
-                  <th className="py-3.5 px-4">Vendor / Customer</th>
-                  <th className="py-3.5 px-4">Category</th>
+                  <th className="py-3.5 px-4">Flipkart Order ID</th>
+                  <th className="py-3.5 px-4">Seller & Customer</th>
+                  <th className="py-3.5 px-4">Status & Delivery</th>
                   <th className="py-3.5 px-4">Payment</th>
-                  <th className="py-3.5 px-4 text-right">Tax</th>
-                  <th className="py-3.5 px-4 text-right">Total Amount</th>
-                  <th className="py-3.5 px-4 text-center">Receipt Photo</th>
+                  <th className="py-3.5 px-4 text-right">Discount</th>
+                  <th className="py-3.5 px-4 text-right">Net Paid</th>
+                  <th className="py-3.5 px-4 text-center">Receipt Proof</th>
                   <th className="py-3.5 px-4 text-center">Actions</th>
                 </tr>
               </thead>
@@ -489,41 +575,51 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 {filteredOrders.map((ord) => (
                   <tr key={ord._id} className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors">
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-900 dark:text-white">{ord.orderNumber}</div>
+                      <div className="font-black text-blue-600 dark:text-blue-400 font-mono flex items-center gap-1">
+                        <span>{ord.orderNumber}</span>
+                      </div>
                       <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
                         <Calendar size={11} />
                         {ord.date ? new Date(ord.date).toLocaleDateString('en-IN') : 'N/A'}
                       </div>
                     </td>
                     <td className="py-3.5 px-4">
-                      <div className="font-semibold text-slate-800 dark:text-slate-200">{ord.vendorCustomer || 'General'}</div>
-                      {ord.items && ord.items.length > 0 && (
-                        <div className="text-[10px] text-slate-400 truncate max-w-[160px]">
-                          {ord.items.map(i => i.description).join(', ')}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-md text-[10px] font-bold">
-                        {ord.category || 'Purchase'}
-                      </span>
+                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                        <Store size={12} className="text-amber-500" />
+                        <span>{ord.sellerName || 'RetailNet'}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 truncate max-w-[160px]">
+                        Buyer: {ord.vendorCustomer || 'General Customer'}
+                      </div>
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="flex flex-col gap-1">
                         <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-extrabold w-fit ${
-                          ord.paymentStatus === 'Paid'
+                          ord.orderStatus === 'Delivered'
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                            : ord.paymentStatus === 'Pending'
-                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                            : ord.orderStatus === 'Shipped' || ord.orderStatus === 'Ordered'
+                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
                             : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
                         }`}>
-                          {ord.paymentStatus}
+                          {ord.orderStatus}
                         </span>
-                        <span className="text-[9.5px] text-slate-400 font-semibold">{ord.paymentMode}</span>
+                        {ord.deliveryDate && (
+                          <span className="text-[9.5px] text-slate-400 font-semibold flex items-center gap-1">
+                            <Truck size={10} /> {new Date(ord.deliveryDate).toLocaleDateString('en-IN')}
+                          </span>
+                        )}
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 text-right text-slate-500">
-                      {formatCurrency(ord.taxAmount)}
+                    <td className="py-3.5 px-4">
+                      <span className="text-[10.5px] font-bold text-slate-800 dark:text-slate-200">
+                        {ord.paymentMode}
+                      </span>
+                      <span className="block text-[9.5px] text-emerald-600 dark:text-emerald-400 font-bold">
+                        {ord.paymentStatus}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right text-slate-500 font-semibold">
+                      {ord.discountAmount ? formatCurrency(ord.discountAmount) : '-'}
                     </td>
                     <td className="py-3.5 px-4 text-right font-black text-slate-900 dark:text-white text-sm">
                       {formatCurrency(ord.amount)}
@@ -532,7 +628,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                       {ord.receiptImage ? (
                         <button
                           onClick={() => setPreviewImageModal(ord.receiptImage)}
-                          className="p-1 bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-lg hover:bg-violet-500/20 transition-colors inline-flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                          className="p-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-500/20 transition-colors inline-flex items-center gap-1 text-[10px] font-bold cursor-pointer"
                         >
                           <ImageIcon size={14} />
                           <span>View Proof</span>
@@ -545,14 +641,14 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           onClick={() => handleEditClick(ord)}
-                          className="p-1.5 text-slate-400 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors cursor-pointer"
                           title="Edit Order Entry"
                         >
                           <Edit3 size={15} />
                         </button>
                         <button
                           onClick={() => {
-                            if (window.confirm(`Delete order ${ord.orderNumber}?`)) {
+                            if (window.confirm(`Delete Flipkart Order ${ord.orderNumber}?`)) {
                               onDeleteOrder(ord._id);
                             }
                           }}
@@ -572,30 +668,30 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       </div>
 
       {/* =========================================================
-          ORDER ENTRY & AUTO-DETECTION MODAL
+          FLIPKART SPECIALIZED ORDER ENTRY & AUTO-DETECTION MODAL
          ========================================================= */}
       {isFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
             
             {/* Modal Header */}
-            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/50">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-xl">
-                  <Sparkles size={20} />
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 font-black flex items-center justify-center shadow">
+                  F
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
-                    {editingId ? 'Edit Order Entry' : 'Smart Order Entry & Photo Scanner'}
+                  <h3 className="text-base font-black tracking-tight">
+                    {editingId ? 'Edit Flipkart Order Entry' : 'Flipkart Order Auto-Detection & Entry'}
                   </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Upload receipt screenshot for instant AI data auto-detection.
+                  <p className="text-[11px] text-blue-100">
+                    Upload Flipkart screenshot or invoice photo for automatic data extraction.
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsFormOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl cursor-pointer"
+                className="p-2 text-white/80 hover:text-white rounded-xl cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -604,8 +700,8 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
 
-              {/* 1. Photo / Screenshot Upload Banner */}
-              <div className="p-4 bg-violet-500/5 dark:bg-violet-950/20 border border-dashed border-violet-500/30 rounded-2xl relative">
+              {/* 1. Flipkart Photo Upload Banner */}
+              <div className="p-4 bg-blue-500/5 dark:bg-blue-950/20 border border-dashed border-blue-500/30 rounded-2xl relative">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -617,8 +713,8 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     {receiptImage ? (
-                      <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-violet-500/30 shrink-0">
-                        <img src={receiptImage} alt="Receipt" className="w-full h-full object-cover" />
+                      <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-blue-500/30 shrink-0">
+                        <img src={receiptImage} alt="Flipkart Screenshot" className="w-full h-full object-cover" />
                         <button
                           type="button"
                           onClick={() => setReceiptImage('')}
@@ -629,20 +725,20 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                         </button>
                       </div>
                     ) : (
-                      <div className="w-14 h-14 rounded-2xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
+                      <div className="w-14 h-14 rounded-2xl bg-amber-400/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
                         <Upload size={24} />
                       </div>
                     )}
 
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <h4 className="text-xs font-black text-slate-900 dark:text-white">Auto-Detect Order Data from Photo</h4>
-                        <span className="px-2 py-0.5 bg-violet-500 text-white text-[9px] font-bold rounded-md flex items-center gap-1">
-                          <Sparkles size={10} /> AI OCR
+                        <h4 className="text-xs font-black text-slate-900 dark:text-white">Auto-Detect Flipkart Order Screenshot</h4>
+                        <span className="px-2 py-0.5 bg-amber-400 text-slate-950 text-[9px] font-extrabold rounded-md flex items-center gap-1">
+                          <Sparkles size={10} /> Flipkart Scanner
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Upload invoice screenshot or photo (PNG, JPG, WEBP).
+                        Upload screenshot of Flipkart Order Details screen or invoice PDF photo.
                       </p>
                     </div>
                   </div>
@@ -651,40 +747,40 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isScanning}
-                    className="px-4 py-2 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-md transition-all cursor-pointer shrink-0"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-md transition-all cursor-pointer shrink-0"
                   >
                     {isScanning ? (
                       <>
                         <RefreshCw size={14} className="animate-spin" />
-                        <span>Scanning ({scanProgress}%)...</span>
+                        <span>Scanning Flipkart Photo ({scanProgress}%)...</span>
                       </>
                     ) : (
                       <>
                         <Upload size={14} />
-                        <span>{receiptImage ? 'Change Photo' : 'Upload Receipt Photo'}</span>
+                        <span>{receiptImage ? 'Change Screenshot' : 'Upload Flipkart Screenshot'}</span>
                       </>
                     )}
                   </button>
                 </div>
 
-                {/* Detected Notice Badge */}
+                {/* Auto-detected Notice Badge */}
                 {Object.keys(autoDetectedFields).length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-violet-500/20 flex items-center gap-2 text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400">
+                  <div className="mt-3 pt-3 border-t border-blue-500/20 flex items-center gap-2 text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400">
                     <CheckCircle2 size={14} />
-                    <span>Auto-detected: {Object.keys(autoDetectedFields).join(', ')}</span>
+                    <span>Flipkart Fields Auto-Detected: {Object.keys(autoDetectedFields).join(', ')}</span>
                   </div>
                 )}
               </div>
 
-              {/* 2. Interactive Entry Form */}
+              {/* 2. Flipkart Order Form */}
               <form id="orderForm" onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* Order Number */}
+                  {/* Flipkart Order ID */}
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Order / Invoice #</span>
+                      <span>Flipkart Order ID (OD...)</span>
                       {autoDetectedFields.orderNumber && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto-detected)</span>
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
                       )}
                     </label>
                     <input
@@ -692,8 +788,8 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                       required
                       value={orderNumber}
                       onChange={(e) => setOrderNumber(e.target.value)}
-                      placeholder="e.g. ORD-9821"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+                      placeholder="e.g. OD328719203910283000"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-blue-600 dark:text-blue-400"
                     />
                   </div>
 
@@ -702,7 +798,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
                       <span>Order Date</span>
                       {autoDetectedFields.orderDate && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto-detected)</span>
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
                       )}
                     </label>
                     <input
@@ -714,32 +810,62 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                     />
                   </div>
 
-                  {/* Vendor / Customer */}
+                  {/* Delivery Date */}
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Vendor / Customer Name</span>
-                      {autoDetectedFields.vendorCustomer && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto-detected)</span>
+                      <span>Delivery Date</span>
+                      {autoDetectedFields.deliveryDate && (
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
                       )}
                     </label>
                     <input
-                      type="text"
-                      required
-                      value={vendorCustomer}
-                      onChange={(e) => setVendorCustomer(e.target.value)}
-                      placeholder="e.g. Amazon / Tech Supplier"
+                      type="date"
+                      value={deliveryDate}
+                      onChange={(e) => setDeliveryDate(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                  {/* Total Amount */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Seller Name */}
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Total Amount (INR)</span>
+                      <span>Flipkart Seller Name</span>
+                      {autoDetectedFields.sellerName && (
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      value={sellerName}
+                      onChange={(e) => setSellerName(e.target.value)}
+                      placeholder="e.g. RetailNet / SuperComNet"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  {/* Buyer / Customer */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Buyer / Account Name</label>
+                    <input
+                      type="text"
+                      value={vendorCustomer}
+                      onChange={(e) => setVendorCustomer(e.target.value)}
+                      placeholder="e.g. Milan Javiya"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Price Breakdown */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+                  {/* Net Paid */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                      <span>Net Paid Total (INR)</span>
                       {autoDetectedFields.amount && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto-detected)</span>
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
                       )}
                     </label>
                     <input
@@ -749,26 +875,82 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="0.00"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-black text-emerald-600 dark:text-emerald-400"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-black text-emerald-600 dark:text-emerald-400"
                     />
                   </div>
 
-                  {/* Tax Amount */}
+                  {/* Discount */}
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>GST / Tax Amount</span>
-                      {autoDetectedFields.taxAmount && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto-detected)</span>
-                      )}
-                    </label>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Flipkart Discount</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={discountAmount}
+                      onChange={(e) => setDiscountAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  {/* Delivery Charge */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Delivery Charge</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={deliveryFee}
+                      onChange={(e) => setDeliveryFee(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  {/* Tax GST */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">GST Tax</label>
                     <input
                       type="number"
                       step="any"
                       value={taxAmount}
                       onChange={(e) => setTaxAmount(e.target.value)}
                       placeholder="0.00"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
                     />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Order Status */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Order Status</label>
+                    <select
+                      value={orderStatus}
+                      onChange={(e) => setOrderStatus(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+                    >
+                      <option value="Delivered">Delivered</option>
+                      <option value="Ordered">Ordered</option>
+                      <option value="Shipped">Shipped</option>
+                      <option value="Cancelled">Cancelled</option>
+                      <option value="Returned">Returned / Refunded</option>
+                    </select>
+                  </div>
+
+                  {/* Payment Mode */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Payment Method</label>
+                    <select
+                      value={paymentMode}
+                      onChange={(e) => setPaymentMode(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+                    >
+                      <option value="Flipkart Pay Later">Flipkart Pay Later</option>
+                      <option value="UPI / PhonePe">UPI / PhonePe / GPay</option>
+                      <option value="Cash on Delivery (COD)">Cash on Delivery (COD)</option>
+                      <option value="Credit / Debit Card">Credit / Debit Card</option>
+                      <option value="Net Banking">Net Banking</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
 
                   {/* Payment Status */}
@@ -784,65 +966,18 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                       <option value="Refunded">Refunded</option>
                     </select>
                   </div>
-
-                  {/* Payment Mode */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Payment Mode</label>
-                    <select
-                      value={paymentMode}
-                      onChange={(e) => setPaymentMode(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
-                    >
-                      <option value="UPI">UPI / GPay / PhonePe</option>
-                      <option value="Cash">Cash</option>
-                      <option value="Bank Transfer">Bank Transfer</option>
-                      <option value="Credit Card">Credit Card</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Category */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Expense Category</label>
-                    <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
-                    >
-                      <option value="Purchase">Purchase</option>
-                      <option value="Office Expense">Office Expense</option>
-                      <option value="Logistics">Logistics & Shipping</option>
-                      <option value="Marketing">Marketing & Ads</option>
-                      <option value="Sales">Sales Return / Goods</option>
-                      <option value="Others">Others</option>
-                    </select>
-                  </div>
-
-                  {/* Notes */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Notes / Internal Reference</label>
-                    <input
-                      type="text"
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="e.g. Order for office stationery"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Line Items Section */}
+                {/* Line Items */}
                 <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider">Itemized Line Details</label>
+                    <label className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider">Product Items</label>
                     <button
                       type="button"
                       onClick={addItemRow}
-                      className="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline flex items-center gap-1"
+                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                     >
-                      <Plus size={12} /> Add Line Item
+                      <Plus size={12} /> Add Flipkart Product
                     </button>
                   </div>
 
@@ -851,13 +986,22 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                       <div className="col-span-5">
                         <input
                           type="text"
-                          placeholder="Item Description"
+                          placeholder="Product Name / Title"
                           value={item.description}
                           onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
                           className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-medium"
                         />
                       </div>
                       <div className="col-span-2">
+                        <input
+                          type="text"
+                          placeholder="FSN / SKU"
+                          value={item.fsnSku}
+                          onChange={(e) => handleItemChange(idx, 'fsnSku', e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-mono"
+                        />
+                      </div>
+                      <div className="col-span-1">
                         <input
                           type="number"
                           placeholder="Qty"
@@ -867,18 +1011,8 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                           className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-medium text-center"
                         />
                       </div>
-                      <div className="col-span-2">
-                        <input
-                          type="number"
-                          placeholder="Price"
-                          step="any"
-                          value={item.price}
-                          onChange={(e) => handleItemChange(idx, 'price', e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-medium text-right"
-                        />
-                      </div>
-                      <div className="col-span-2 text-right text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {formatCurrency(item.total)}
+                      <div className="col-span-3 text-right text-xs font-bold text-slate-800 dark:text-slate-200">
+                        {formatCurrency(item.total || (item.quantity * item.price))}
                       </div>
                       <div className="col-span-1 text-center">
                         <button
@@ -908,10 +1042,10 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
               <button
                 type="submit"
                 form="orderForm"
-                className="px-5 py-2 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
               >
                 <Check size={15} />
-                <span>{editingId ? 'Update Order Entry' : 'Save Order Entry'}</span>
+                <span>{editingId ? 'Update Flipkart Order' : 'Save Flipkart Order'}</span>
               </button>
             </div>
 
@@ -920,7 +1054,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       )}
 
       {/* =========================================================
-          RECEIPT PHOTO PREVIEW MODAL
+          FLIPKART RECEIPT SCREENSHOT PREVIEW MODAL
          ========================================================= */}
       {previewImageModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
@@ -931,10 +1065,12 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             >
               <X size={16} />
             </button>
-            <h4 className="text-xs font-black uppercase text-slate-400 mb-3 tracking-wider">Original Order Receipt Proof</h4>
+            <h4 className="text-xs font-black uppercase text-amber-500 mb-3 tracking-wider flex items-center gap-1.5">
+              <span>Flipkart Order Details Screenshot</span>
+            </h4>
             <img 
               src={previewImageModal} 
-              alt="Receipt Preview" 
+              alt="Flipkart Screenshot Preview" 
               className="max-h-[70vh] object-contain rounded-xl border border-slate-200 dark:border-slate-800" 
             />
           </div>
