@@ -308,6 +308,7 @@ export default function App() {
           if (op.type === 'ledger') url = `${API_BASE_URL}/transactions`;
           else if (op.type === 'bank') url = `${API_BASE_URL}/bank-transactions`;
           else if (op.type === 'partner') url = `${API_BASE_URL}/partner-flows`;
+          else if (op.type === 'orders') url = `${API_BASE_URL}/orders`;
 
           const response = await fetchWithTimeout(url, {
             method: 'POST',
@@ -323,6 +324,8 @@ export default function App() {
               setBankTransactions(prev => prev.map(t => t._id === op.data._id ? savedItem : t));
             } else if (op.type === 'partner') {
               setPartnerTransactions(prev => prev.map(t => t._id === op.data._id ? savedItem : t));
+            } else if (op.type === 'orders') {
+              setOrders(prev => prev.map(o => o._id === op.data._id ? savedItem : o));
             }
           }
         } else if (op.action === 'EDIT') {
@@ -330,6 +333,7 @@ export default function App() {
           if (op.type === 'ledger') url = `${API_BASE_URL}/transactions/${op.data._id}`;
           else if (op.type === 'bank') url = `${API_BASE_URL}/bank-transactions/${op.data._id}`;
           else if (op.type === 'partner') url = `${API_BASE_URL}/partner-flows/${op.data._id}`;
+          else if (op.type === 'orders') url = `${API_BASE_URL}/orders/${op.data._id}`;
 
           if (op.data._id.startsWith('local_')) continue;
 
@@ -343,6 +347,7 @@ export default function App() {
           if (op.type === 'ledger') url = `${API_BASE_URL}/transactions/${op.data._id}`;
           else if (op.type === 'bank') url = `${API_BASE_URL}/bank-transactions/${op.data._id}`;
           else if (op.type === 'partner') url = `${API_BASE_URL}/partner-flows/${op.data._id}`;
+          else if (op.type === 'orders') url = `${API_BASE_URL}/orders/${op.data._id}`;
 
           if (op.data._id.startsWith('local_')) continue;
 
