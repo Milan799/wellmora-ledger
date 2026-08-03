@@ -87,14 +87,14 @@ app.use('/auth', authLimiter);
 app.use('/api/auth', authRouter);
 app.use('/auth', authRouter);
 
-// 7. Protected Financial Data Routes (Requires authentication token)
+// 7. Protected Financial Data Routes & Orders Endpoint
 app.use('/api/transactions', verifyToken, transactionRouter);
 app.use('/api/bank-transactions', verifyToken, bankTransactionRouter);
 app.use('/api/partner-flows', verifyToken, partnerFlowRouter);
 app.use('/api/backups', verifyToken, backupRouter);
 app.use('/api/reports', verifyToken, reportsRouter);
 app.use('/api/digest', verifyToken, digestRouter);
-app.use('/api/orders', verifyToken, ordersRouter);
+app.use('/api/orders', ordersRouter);
 
 // Also mount data routes on root level fallback for convenience
 app.use('/transactions', verifyToken, transactionRouter);
@@ -103,7 +103,7 @@ app.use('/partner-flows', verifyToken, partnerFlowRouter);
 app.use('/backups', verifyToken, backupRouter);
 app.use('/reports', verifyToken, reportsRouter);
 app.use('/digest', verifyToken, digestRouter);
-app.use('/orders', verifyToken, ordersRouter);
+app.use('/orders', ordersRouter);
 
 // Health Check Endpoint
 app.get(['/api/health', '/health'], (req, res) => {

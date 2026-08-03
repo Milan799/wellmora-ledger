@@ -205,7 +205,6 @@ export default function App() {
 
   // 4. Orders State
   const [orders, setOrders] = useState(() => {
-    if (!localStorage.getItem('authUser')) return [];
     try {
       const cached = localStorage.getItem('cached_orders');
       return cached ? JSON.parse(cached) : [];
@@ -244,19 +243,42 @@ export default function App() {
 
   // Fetch all categories on mount if logged in, otherwise require auth
   useEffect(() => {
+    fetchOrders();
     if (authUser && authToken) {
       fetchTransactions();
       fetchBankTransactions();
       fetchPartnerTransactions();
-      fetchOrders();
     } else {
       setTransactions([]);
       setBankTransactions([]);
       setPartnerTransactions([]);
-      setOrders([]);
       setIsAuthModalOpen(true);
     }
   }, [authUser, authToken]);
+
+  // Always fetch & auto-sync Orders across Mobile & Desktop views
+  useEffect(() => {
+    fetchOrders();
+    const syncInterval = setInterval(() => {
+      fetchOrders();
+    }, 5000);
+
+    const handleFocus = () => {
+      fetchOrders();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchOrders();
+    };
+    window.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(syncInterval);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [activePage]);
 
   const triggerNotification = (message, type = 'success') => {
     setNotification({ message, type });
