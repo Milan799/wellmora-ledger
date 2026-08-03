@@ -24,7 +24,7 @@ import Notification from './components/Notification';
 import ExportDropdown from './components/ExportDropdown';
 import AuthModal from './components/AuthModal';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://wellmora-ledger-1.onrender.com/api');
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://wellmora-ledger-1.onrender.com/api';
 
 const safeJsonFetch = async (response) => {
   if (!response) return null;
@@ -803,6 +803,7 @@ export default function App() {
             });
           }
           triggerNotification("Order entry updated successfully!", "success");
+          fetchOrders();
         }
       } catch (err) {
         console.error("Failed to update order:", err);
@@ -832,6 +833,7 @@ export default function App() {
             });
           }
           triggerNotification("Order entry saved successfully!", "success");
+          fetchOrders();
         }
       } catch (err) {
         console.error("Failed to save order:", err);
@@ -852,6 +854,7 @@ export default function App() {
       });
       if (response.ok) {
         triggerNotification("Order entry deleted successfully!", "info");
+        fetchOrders();
       }
     } catch (err) {
       console.error("Failed to delete order:", err);

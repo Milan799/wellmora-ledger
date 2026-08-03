@@ -447,11 +447,34 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       detected.itemDescription = true;
     }
 
-    // 11. Quantity
+    // 11. Quantity (QTY) - Targeted detection to avoid false matches on SKU/Pincode numbers
     let extractedQuantity = 1;
-    const qtyMatch = text.match(/QTY[\s\S]*?\n[\s\S]*?\b(\d+)\b/i);
-    if (qtyMatch && qtyMatch[1]) {
-      extractedQuantity = parseInt(qtyMatch[1], 10);
+    const qtyDirectMatch = text.match(/\bQTY[:\s|]*([1-9]\d{0,2})\b/i);
+    const qtyHeaderMatch = text.match(/QTY\s*\n\s*([1-9]\d{0,2})\b/i);
+    const qtyEndMatch = text.match(/(?:Description|WE-SEALANT-[0-9]+)[\s\S]*?\b([1-9]\d{0,2})\s*(?:\n|FMPP|HBD|$)/i);
+
+    if (qtyDirectMatch && qtyDirectMatch[1]) {
+      const q = parseInt(qtyDirectMatch[1], 10);
+      if (q > 0 && q <= 500) {
+        extractedQuantity = q;
+        detected.quantity = true;
+      }
+    } else if (qtyHeaderMatch && qtyHeaderMatch[1]) {
+      const q = parseInt(qtyHeaderMatch[1], 10);
+      if (q > 0 && q <= 500) {
+        extractedQuantity = q;
+        detected.quantity = true;
+      }
+    } else if (qtyEndMatch && qtyEndMatch[1]) {
+      const q = parseInt(qtyEndMatch[1], 10);
+      if (q > 0 && q <= 500) {
+        extractedQuantity = q;
+        detected.quantity = true;
+      }
+    }
+
+    if (!detected.quantity) {
+      extractedQuantity = 1;
       detected.quantity = true;
     }
 
