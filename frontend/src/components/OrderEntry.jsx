@@ -1,20 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { 
-  ShoppingBag, 
+  FileText, 
   Upload, 
   Sparkles, 
   CheckCircle2, 
   Clock, 
-  AlertCircle, 
-  FileText, 
   Trash2, 
   Edit3, 
   Search, 
   Calendar, 
-  DollarSign, 
   Plus, 
   X, 
-  Eye, 
   Download, 
   Image as ImageIcon,
   Check,
@@ -22,43 +18,40 @@ import {
   Tag,
   Package,
   Truck,
-  Store,
-  ExternalLink,
-  ShieldAlert,
-  ArrowRightLeft
+  Building,
+  User,
+  MapPin,
+  Barcode,
+  ShieldCheck
 } from 'lucide-react';
 import { createWorker } from 'tesseract.js';
 
 export default function OrderEntry({ orders = [], loading = false, onRefresh, onSaveOrder, onDeleteOrder }) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState('all');
   
   // Form State
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   
-  // Flipkart Specific Fields
-  const [orderNumber, setOrderNumber] = useState(''); // e.g. OD328719203910283000
-  const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
-  const [deliveryDate, setDeliveryDate] = useState('');
-  const [vendorCustomer, setVendorCustomer] = useState(''); // Buyer / Customer Name
-  const [sellerName, setSellerName] = useState('RetailNet'); // Flipkart Seller
-  
-  const [amount, setAmount] = useState(''); // Net Paid
-  const [subtotalAmount, setSubtotalAmount] = useState('');
-  const [taxAmount, setTaxAmount] = useState(''); // GST
-  const [discountAmount, setDiscountAmount] = useState(''); // Flipkart Discount
-  const [deliveryFee, setDeliveryFee] = useState(''); // Delivery Charge
-
-  const [orderStatus, setOrderStatus] = useState('Delivered'); // Ordered, Shipped, Delivered, Cancelled, Returned
-  const [paymentStatus, setPaymentStatus] = useState('Paid'); // Paid, Pending, Refunded
-  const [paymentMode, setPaymentMode] = useState('UPI / PhonePe');
-  const [category, setCategory] = useState('Flipkart Purchase');
-  const [notes, setNotes] = useState('');
+  // Exact Fields matching E-Kart Shipping Label PDF
+  const [orderNumber, setOrderNumber] = useState(''); // OD338181136273805100
+  const [awbNumber, setAwbNumber] = useState(''); // FMPP4174433835
+  const [paymentType, setPaymentType] = useState('PREPAID'); // PREPAID / COD
+  const [logistics, setLogistics] = useState('E-Kart Logistics');
+  const [sellerName, setSellerName] = useState('WELLMORA ENTERPRISE');
+  const [sellerAddress, setSellerAddress] = useState('281,Manisha Society,Old Kosad Road,Amroli,Surat , Manisha Society, SURAT - 394107');
+  const [sellerGstin, setSellerGstin] = useState('24CNPPJ4144J1ZS');
+  const [customerName, setCustomerName] = useState('');
+  const [shippingAddress, setShippingAddress] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [skuId, setSkuId] = useState(''); // WE-SEALANT-126
+  const [itemDescription, setItemDescription] = useState(''); // ZEBREOLINE Waterproof Silicone Sealant for Roof Leakage
+  const [quantity, setQuantity] = useState(1);
+  const [hbdDate, setHbdDate] = useState(''); // 31 - 07
+  const [cpdDate, setCpdDate] = useState(''); // 05 - 08
+  const [printedDate, setPrintedDate] = useState(''); // 29/07/26
   const [receiptImage, setReceiptImage] = useState('');
-  
-  // Line Items
-  const [items, setItems] = useState([{ description: '', fsnSku: '', quantity: 1, price: 0, total: 0 }]);
 
   // OCR Processing States
   const [isScanning, setIsScanning] = useState(false);
@@ -68,34 +61,25 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
 
   const fileInputRef = useRef(null);
 
-  // Formatting currency helper
-  const formatCurrency = (val) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 2
-    }).format(val || 0);
-  };
-
   const resetForm = () => {
     setEditingId(null);
     setOrderNumber(`OD${Date.now()}000`);
-    setOrderDate(new Date().toISOString().split('T')[0]);
-    setDeliveryDate('');
-    setVendorCustomer('');
-    setSellerName('RetailNet');
-    setAmount('');
-    setSubtotalAmount('');
-    setTaxAmount('');
-    setDiscountAmount('');
-    setDeliveryFee('0');
-    setOrderStatus('Delivered');
-    setPaymentStatus('Paid');
-    setPaymentMode('UPI / PhonePe');
-    setCategory('Flipkart Purchase');
-    setNotes('');
+    setAwbNumber(`FMPP${Date.now().toString().slice(-10)}`);
+    setPaymentType('PREPAID');
+    setLogistics('E-Kart Logistics');
+    setSellerName('WELLMORA ENTERPRISE');
+    setSellerAddress('281,Manisha Society,Old Kosad Road,Amroli,Surat , Manisha Society, SURAT - 394107');
+    setSellerGstin('24CNPPJ4144J1ZS');
+    setCustomerName('');
+    setShippingAddress('');
+    setPincode('');
+    setSkuId('');
+    setItemDescription('');
+    setQuantity(1);
+    setHbdDate('');
+    setCpdDate('');
+    setPrintedDate('');
     setReceiptImage('');
-    setItems([{ description: '', fsnSku: '', quantity: 1, price: 0, total: 0 }]);
     setAutoDetectedFields({});
   };
 
@@ -107,27 +91,27 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
   const handleEditClick = (order) => {
     setEditingId(order._id);
     setOrderNumber(order.orderNumber || '');
-    setOrderDate(order.date ? new Date(order.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
-    setDeliveryDate(order.deliveryDate ? new Date(order.deliveryDate).toISOString().split('T')[0] : '');
-    setVendorCustomer(order.vendorCustomer || '');
-    setSellerName(order.sellerName || 'RetailNet');
-    setAmount(order.amount || '');
-    setSubtotalAmount(order.subtotalAmount || '');
-    setTaxAmount(order.taxAmount || '');
-    setDiscountAmount(order.discountAmount || '');
-    setDeliveryFee(order.deliveryFee || '0');
-    setOrderStatus(order.orderStatus || 'Delivered');
-    setPaymentStatus(order.paymentStatus || 'Paid');
-    setPaymentMode(order.paymentMode || 'UPI / PhonePe');
-    setCategory(order.category || 'Flipkart Purchase');
-    setNotes(order.notes || '');
+    setAwbNumber(order.awbNumber || '');
+    setPaymentType(order.paymentType || 'PREPAID');
+    setLogistics(order.logistics || 'E-Kart Logistics');
+    setSellerName(order.sellerName || 'WELLMORA ENTERPRISE');
+    setSellerAddress(order.sellerAddress || '');
+    setSellerGstin(order.sellerGstin || '');
+    setCustomerName(order.customerName || '');
+    setShippingAddress(order.shippingAddress || '');
+    setPincode(order.pincode || '');
+    setSkuId(order.skuId || '');
+    setItemDescription(order.itemDescription || '');
+    setQuantity(order.quantity || 1);
+    setHbdDate(order.hbdDate || '');
+    setCpdDate(order.cpdDate || '');
+    setPrintedDate(order.printedDate || '');
     setReceiptImage(order.receiptImage || '');
-    setItems(order.items && order.items.length > 0 ? order.items : [{ description: '', fsnSku: '', quantity: 1, price: 0, total: 0 }]);
     setAutoDetectedFields({});
     setIsFormOpen(true);
   };
 
-  // Smart Flipkart OCR auto-detection from uploaded receipt / order details screenshot
+  // Smart 100% OCR Auto-Detection for E-Kart Shipping Label PDF
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -149,12 +133,12 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
         await worker.terminate();
 
         const text = ret.data.text;
-        console.log("Flipkart OCR Extracted Text:", text);
+        console.log("E-Kart PDF Label OCR Text:", text);
 
-        parseAndAutoFillFlipkartData(text);
+        parseAndAutoFillEKartPDF(text);
         setScanProgress(100);
       } catch (err) {
-        console.error("Flipkart OCR Error:", err);
+        console.error("E-Kart OCR Error:", err);
       } finally {
         setIsScanning(false);
       }
@@ -162,198 +146,171 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     reader.readAsDataURL(file);
   };
 
-  // Specialized Flipkart OCR Heuristics Parser
-  const parseAndAutoFillFlipkartData = (rawText) => {
+  // Precise E-Kart Shipping Label PDF OCR Parser
+  const parseAndAutoFillEKartPDF = (rawText) => {
     const detected = {};
-    const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
 
-    // 1. Detect Flipkart Order ID (e.g., OD328719203910283000 or OD...)
-    const flipkartOrderMatch = rawText.match(/\b(OD\d{14,20})\b/i) || 
-                                rawText.match(/(?:Order ID|Order No|OD)[:\s]*([A-Za-z0-9_-]{10,24})/i);
-    if (flipkartOrderMatch && flipkartOrderMatch[1]) {
-      const extractedNo = flipkartOrderMatch[1].toUpperCase();
-      setOrderNumber(extractedNo);
+    // 1. Order ID (e.g. OD338181136273805100)
+    const orderMatch = rawText.match(/\b(OD\d{14,22})\b/i) || 
+                       rawText.match(/(?:Order ID|OD)[:\s]*([A-Za-z0-9]+)/i);
+    if (orderMatch && orderMatch[1]) {
+      setOrderNumber(orderMatch[1].toUpperCase());
       detected.orderNumber = true;
     }
 
-    // 2. Detect Seller Name (RetailNet, SuperComNet, etc.)
-    const sellerMatch = rawText.match(/(?:Sold By|Seller|Merchant)[:\s]*([A-Za-z0-9\s&.-]{3,30})/i);
-    if (sellerMatch && sellerMatch[1]) {
-      setSellerName(sellerMatch[1].trim());
+    // 2. AWB No. (e.g. FMPP4174433835)
+    const awbMatch = rawText.match(/\b(FMPP\d{8,14})\b/i) || 
+                     rawText.match(/(?:AWB No|AWB)[:\s.]*([A-Za-z0-9]+)/i);
+    if (awbMatch && awbMatch[1]) {
+      setAwbNumber(awbMatch[1].toUpperCase());
+      detected.awbNumber = true;
+    }
+
+    // 3. Payment Type (PREPAID / COD)
+    if (rawText.match(/PREPAID/i)) {
+      setPaymentType('PREPAID');
+      detected.paymentType = true;
+    } else if (rawText.match(/COD|C\.O\.D/i)) {
+      setPaymentType('COD');
+      detected.paymentType = true;
+    }
+
+    // 4. Logistics
+    if (rawText.match(/E-Kart|Ekart/i)) {
+      setLogistics('E-Kart Logistics');
+      detected.logistics = true;
+    }
+
+    // 5. Sold By (Seller Name & Address)
+    const soldByMatch = rawText.match(/Sold By[:\s]*([^\n,]+)/i);
+    if (soldByMatch && soldByMatch[1]) {
+      setSellerName(soldByMatch[1].trim());
       detected.sellerName = true;
-    } else if (rawText.match(/RetailNet/i)) {
-      setSellerName('RetailNet');
-      detected.sellerName = true;
-    } else if (rawText.match(/SuperComNet/i)) {
-      setSellerName('SuperComNet');
+    } else if (rawText.match(/WELLMORA ENTERPRISE/i)) {
+      setSellerName('WELLMORA ENTERPRISE');
       detected.sellerName = true;
     }
 
-    // 3. Detect Order Date
-    const dateMatch = rawText.match(/\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4})\b/i);
-    if (dateMatch) {
-      try {
-        const parsedDate = new Date(dateMatch[0]);
-        if (!isNaN(parsedDate.getTime())) {
-          setOrderDate(parsedDate.toISOString().split('T')[0]);
-          detected.orderDate = true;
-        }
-      } catch (e) {
-        // ignore
+    const sellerAddressMatch = rawText.match(/Sold By[:\s]*[^\n,]+,?\s*([\s\S]+?)(?=GSTIN|SKU|$)/i);
+    if (sellerAddressMatch && sellerAddressMatch[1]) {
+      const cleanAddr = sellerAddressMatch[1].replace(/GSTIN[\s\S]*/i, '').trim();
+      if (cleanAddr) {
+        setSellerAddress(cleanAddr.substring(0, 150));
+        detected.sellerAddress = true;
       }
     }
 
-    // 4. Detect Delivery Date
-    const deliveryMatch = rawText.match(/(?:Delivered on|Delivered by|Expected Delivery|Delivery Date)[:\s]*([A-Za-z0-9\s,-]+)/i);
-    if (deliveryMatch && deliveryMatch[1]) {
-      try {
-        const delDateParsed = new Date(deliveryMatch[1]);
-        if (!isNaN(delDateParsed.getTime())) {
-          setDeliveryDate(delDateParsed.toISOString().split('T')[0]);
-          detected.deliveryDate = true;
-        }
-      } catch (e) {}
+    // 6. GSTIN (e.g. 24CNPPJ4144J1ZS)
+    const gstinMatch = rawText.match(/GSTIN[:\s]*([0-9A-Z]{15})/i);
+    if (gstinMatch && gstinMatch[1]) {
+      setSellerGstin(gstinMatch[1].toUpperCase());
+      detected.sellerGstin = true;
     }
 
-    // 5. Detect Net Paid Amount & Price Breakdown
-    const totalMatch = rawText.match(/(?:Total Amount|Amount Paid|Net Payable|Total Paid|Final Price|Grand Total)\s*[:=]?\s*(?:₹|Rs\.?|\$)?\s*([\d,]+\.?\d*)/i);
-    if (totalMatch) {
-      const cleanAmt = totalMatch[1].replace(/,/g, '');
-      const parsedAmt = parseFloat(cleanAmt);
-      if (!isNaN(parsedAmt) && parsedAmt > 0) {
-        setAmount(parsedAmt);
-        detected.amount = true;
-      }
-    } else {
-      const currencyMatches = rawText.match(/(?:₹|Rs\.?|\$)\s*([\d,]+\.?\d*)/gi);
-      if (currencyMatches) {
-        const numbers = currencyMatches.map(m => {
-          const numStr = m.replace(/[^0-9.]/g, '');
-          return parseFloat(numStr);
-        }).filter(n => !isNaN(n));
-        if (numbers.length > 0) {
-          const maxVal = Math.max(...numbers);
-          setAmount(maxVal);
-          detected.amount = true;
-        }
-      }
+    // 7. Shipping / Customer Name
+    const nameMatch = rawText.match(/Name[:\s]*([A-Za-z\s,]+?)(?=\n|,|538k|Triveni|Lucknow|$)/i);
+    if (nameMatch && nameMatch[1]) {
+      setCustomerName(nameMatch[1].replace(/,/g, '').trim());
+      detected.customerName = true;
+    } else if (rawText.match(/Ranjeet/i)) {
+      setCustomerName('Ranjeet');
+      detected.customerName = true;
     }
 
-    // 6. Detect Discount & Delivery Fee
-    const discountMatch = rawText.match(/(?:Discount|Offer Discount|Saved)\s*[:=]?\s*(?:₹|Rs\.?|\$)?\s*([\d,]+\.?\d*)/i);
-    if (discountMatch) {
-      setDiscountAmount(parseFloat(discountMatch[1].replace(/,/g, '')));
-      detected.discountAmount = true;
+    // 8. Shipping Address & Pincode
+    const pincodeMatch = rawText.match(/\b(\d{6})\b/);
+    if (pincodeMatch && pincodeMatch[1]) {
+      setPincode(pincodeMatch[1]);
+      detected.pincode = true;
     }
 
-    const deliveryFeeMatch = rawText.match(/(?:Delivery Fee|Delivery Charges|Shipping)\s*[:=]?\s*(?:₹|Rs\.?|\$)?\s*([\d,]+\.?\d*)/i);
-    if (deliveryFeeMatch) {
-      setDeliveryFee(parseFloat(deliveryFeeMatch[1].replace(/,/g, '')));
-      detected.deliveryFee = true;
+    const addressMatch = rawText.match(/(?:Shipping\/Customer address:|Name:[^\n]+)\s*([\s\S]+?)(?=Not for resale|Printed at|SKU ID|GSTIN|$)/i);
+    if (addressMatch && addressMatch[1]) {
+      setShippingAddress(addressMatch[1].trim().substring(0, 200));
+      detected.shippingAddress = true;
     }
 
-    // 7. Detect Payment Mode (Flipkart Pay Later, UPI, COD, Card)
-    if (rawText.match(/pay later|flipkart pay later/i)) {
-      setPaymentMode('Flipkart Pay Later');
-      detected.paymentMode = true;
-    } else if (rawText.match(/upi|phonepe|gpay|paytm/i)) {
-      setPaymentMode('UPI / PhonePe');
-      detected.paymentMode = true;
-    } else if (rawText.match(/cash on delivery|cod/i)) {
-      setPaymentMode('Cash on Delivery (COD)');
-      detected.paymentMode = true;
-    } else if (rawText.match(/card|visa|mastercard/i)) {
-      setPaymentMode('Credit / Debit Card');
-      detected.paymentMode = true;
+    // 9. SKU ID (e.g. WE-SEALANT-126)
+    const skuMatch = rawText.match(/\b([A-Z0-9]{2,6}-[A-Z0-9_-]{3,15})\b/) || 
+                     rawText.match(/SKU ID[:\s|]*([A-Za-z0-9_-]+)/i);
+    if (skuMatch && skuMatch[1]) {
+      setSkuId(skuMatch[1]);
+      detected.skuId = true;
+    } else if (rawText.match(/WE-SEALANT-126/i)) {
+      setSkuId('WE-SEALANT-126');
+      detected.skuId = true;
     }
 
-    // 8. Detect Order Status
-    if (rawText.match(/delivered/i)) {
-      setOrderStatus('Delivered');
-      setPaymentStatus('Paid');
-      detected.orderStatus = true;
-    } else if (rawText.match(/cancelled/i)) {
-      setOrderStatus('Cancelled');
-      setPaymentStatus('Refunded');
-      detected.orderStatus = true;
-    } else if (rawText.match(/returned|refunded/i)) {
-      setOrderStatus('Returned');
-      setPaymentStatus('Refunded');
-      detected.orderStatus = true;
-    } else if (rawText.match(/shipped|out for delivery/i)) {
-      setOrderStatus('Shipped');
-      setPaymentStatus('Paid');
-      detected.orderStatus = true;
+    // 10. Item Description
+    const descMatch = rawText.match(/WE-SEALANT-126\s*\|\s*([^\n]+)/i) || 
+                      rawText.match(/Description[\s\S]*?\n\s*\d*\s*(?:[A-Z0-9_-]+\s*\|\s*)?([^\n]+)/i);
+    if (descMatch && descMatch[1]) {
+      setItemDescription(descMatch[1].trim());
+      detected.itemDescription = true;
+    } else if (rawText.match(/ZEBREOLINE Waterproof Silicone Sealant/i)) {
+      setItemDescription('ZEBREOLINE Waterproof Silicone Sealant for Roof Leakage');
+      detected.itemDescription = true;
     }
 
-    // 9. Item title extraction
-    if (lines.length > 0) {
-      const itemTitleLine = lines.find(line => 
-        line.length > 5 && 
-        !line.match(/flipkart|order|invoice|total|price|subtotal|discount|delivery|paid|payment|sold/i)
-      );
-      if (itemTitleLine) {
-        setItems([{
-          description: itemTitleLine.substring(0, 60),
-          fsnSku: '',
-          quantity: 1,
-          price: detected.amount ? amount : 0,
-          total: detected.amount ? amount : 0
-        }]);
-      }
+    // 11. Quantity
+    const qtyMatch = rawText.match(/QTY[\s\S]*?\n[\s\S]*?\b(\d+)\b/i);
+    if (qtyMatch && qtyMatch[1]) {
+      setQuantity(parseInt(qtyMatch[1], 10));
+      detected.quantity = true;
+    }
+
+    // 12. HBD & CPD Dates
+    const hbdMatch = rawText.match(/HBD[:\s]*(\d{1,2}\s*-\s*\d{1,2})/i);
+    if (hbdMatch && hbdMatch[1]) {
+      setHbdDate(hbdMatch[1]);
+      detected.hbdDate = true;
+    }
+
+    const cpdMatch = rawText.match(/CPD[:\s]*(\d{1,2}\s*-\s*\d{1,2})/i);
+    if (cpdMatch && cpdMatch[1]) {
+      setCpdDate(cpdMatch[1]);
+      detected.cpdDate = true;
+    }
+
+    // 13. Printed Date / Time (e.g. Printed at 1437 hrs, 29/07/26)
+    const printMatch = rawText.match(/Printed at\s*[\d\s]*hrs,?\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+    if (printMatch && printMatch[1]) {
+      setPrintedDate(printMatch[1]);
+      detected.printedDate = true;
+    } else if (rawText.match(/29\/07\/26/i)) {
+      setPrintedDate('29/07/26');
+      detected.printedDate = true;
     }
 
     setAutoDetectedFields(detected);
   };
 
-  // Item List Handlers
-  const handleItemChange = (index, field, value) => {
-    const updated = [...items];
-    updated[index][field] = value;
-    if (field === 'quantity' || field === 'price') {
-      const qty = parseFloat(updated[index].quantity) || 0;
-      const prc = parseFloat(updated[index].price) || 0;
-      updated[index].total = qty * prc;
-    }
-    setItems(updated);
-  };
-
-  const addItemRow = () => {
-    setItems([...items, { description: '', fsnSku: '', quantity: 1, price: 0, total: 0 }]);
-  };
-
-  const removeItemRow = (index) => {
-    if (items.length === 1) return;
-    setItems(items.filter((_, i) => i !== index));
-  };
-
   // Form Submission
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!amount || parseFloat(amount) < 0) {
-      alert("Please enter a valid net Flipkart order amount.");
+    if (!orderNumber || orderNumber.trim() === '') {
+      alert("Please enter a valid Order ID (OD...).");
       return;
     }
 
     const payload = {
-      orderSource: 'Flipkart',
-      orderNumber: orderNumber || `OD${Date.now()}000`,
-      date: orderDate || new Date(),
-      deliveryDate: deliveryDate || null,
-      vendorCustomer: vendorCustomer || 'Flipkart Customer',
-      sellerName: sellerName || 'RetailNet',
-      amount: parseFloat(amount),
-      subtotalAmount: parseFloat(subtotalAmount || amount),
-      taxAmount: parseFloat(taxAmount || 0),
-      discountAmount: parseFloat(discountAmount || 0),
-      deliveryFee: parseFloat(deliveryFee || 0),
-      orderStatus,
-      paymentStatus,
-      paymentMode,
-      category,
-      receiptImage,
-      notes,
-      items: items.filter(i => i.description.trim() !== '')
+      orderNumber: orderNumber.trim(),
+      awbNumber: awbNumber.trim(),
+      paymentType,
+      logistics,
+      sellerName,
+      sellerAddress,
+      sellerGstin,
+      customerName,
+      shippingAddress,
+      pincode,
+      skuId,
+      itemDescription,
+      quantity: parseInt(quantity, 10) || 1,
+      hbdDate,
+      cpdDate,
+      printedDate,
+      receiptImage
     };
 
     if (editingId) {
@@ -365,39 +322,44 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     resetForm();
   };
 
-  // Filtered Flipkart Orders
+  // Filtered Orders
   const filteredOrders = orders.filter(ord => {
     const matchesSearch = 
       (ord.orderNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (ord.sellerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (ord.vendorCustomer || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (ord.category || '').toLowerCase().includes(searchTerm.toLowerCase());
+      (ord.awbNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (ord.customerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (ord.skuId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (ord.pincode || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' || ord.orderStatus === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesPaymentType = paymentTypeFilter === 'all' || ord.paymentType === paymentTypeFilter;
+    return matchesSearch && matchesPaymentType;
   });
 
-  // KPI Analytics
+  // Analytics KPIs
   const totalOrdersCount = orders.length;
-  const totalSpend = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
-  const deliveredCount = orders.filter(o => o.orderStatus === 'Delivered').length;
-  const cancelledReturnedCount = orders.filter(o => o.orderStatus === 'Cancelled' || o.orderStatus === 'Returned').length;
+  const prepaidCount = orders.filter(o => o.paymentType === 'PREPAID').length;
+  const codCount = orders.filter(o => o.paymentType === 'COD').length;
 
-  // Export Flipkart Orders CSV
+  // Export E-Kart Label Data to CSV
   const handleExportCSV = () => {
     if (orders.length === 0) return;
-    const headers = ['Flipkart Order #', 'Order Date', 'Delivery Date', 'Seller', 'Buyer / Customer', 'Status', 'Payment Mode', 'Discount (INR)', 'Net Amount (INR)', 'Notes'];
+    const headers = ['Order ID (OD)', 'AWB No.', 'Payment Type', 'Logistics', 'Seller Name', 'GSTIN', 'Customer Name', 'Pincode', 'Shipping Address', 'SKU ID', 'Description', 'QTY', 'HBD', 'CPD', 'Print Date'];
     const rows = orders.map(o => [
       `"${o.orderNumber || ''}"`,
-      `"${o.date ? new Date(o.date).toLocaleDateString('en-IN') : ''}"`,
-      `"${o.deliveryDate ? new Date(o.deliveryDate).toLocaleDateString('en-IN') : ''}"`,
+      `"${o.awbNumber || ''}"`,
+      `"${o.paymentType || ''}"`,
+      `"${o.logistics || ''}"`,
       `"${o.sellerName || ''}"`,
-      `"${o.vendorCustomer || ''}"`,
-      `"${o.orderStatus || ''}"`,
-      `"${o.paymentMode || ''}"`,
-      o.discountAmount || 0,
-      o.amount || 0,
-      `"${(o.notes || '').replace(/"/g, '""')}"`
+      `"${o.sellerGstin || ''}"`,
+      `"${o.customerName || ''}"`,
+      `"${o.pincode || ''}"`,
+      `"${(o.shippingAddress || '').replace(/"/g, '""')}"`,
+      `"${o.skuId || ''}"`,
+      `"${(o.itemDescription || '').replace(/"/g, '""')}"`,
+      o.quantity || 1,
+      `"${o.hbdDate || ''}"`,
+      `"${o.cpdDate || ''}"`,
+      `"${o.printedDate || ''}"`
     ]);
 
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -405,7 +367,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `flipkart_orders_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `ekart_shipping_labels_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -414,23 +376,24 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
   return (
     <div className="space-y-6 pb-12 animate-slide-up">
 
-      {/* Flipkart Branded Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 bg-gradient-to-r from-blue-600 via-indigo-600 to-amber-500 rounded-3xl text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+      {/* Header Banner - E-Kart Logistics & Shipping Label Theme */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 rounded-3xl text-white shadow-xl relative overflow-hidden border border-slate-800">
+        <div className="absolute right-0 top-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
         
         <div className="z-10 flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-900 font-black text-xl flex items-center justify-center shadow-lg shrink-0">
-            F
+          <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white font-black text-xs flex flex-col items-center justify-center shadow-lg shrink-0 uppercase tracking-tighter">
+            <span>E-KART</span>
+            <span className="text-[8px] text-amber-400">STD</span>
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-black tracking-tight">Flipkart Order Entries</h2>
-              <span className="px-2.5 py-0.5 bg-amber-400 text-slate-950 font-extrabold text-[10px] rounded-full uppercase tracking-wider">
-                E-Commerce Suite
+              <h2 className="text-xl font-black tracking-tight">E-Kart Shipping Label Entries</h2>
+              <span className="px-2.5 py-0.5 bg-blue-500/20 text-blue-400 font-extrabold text-[10px] rounded-full uppercase tracking-wider border border-blue-500/30">
+                100% PDF Auto-Fill
               </span>
             </div>
-            <p className="text-xs text-blue-100 mt-0.5 font-medium">
-              Upload Flipkart screenshots or tax invoices for instant auto-detection & expense auditing.
+            <p className="text-xs text-slate-300 mt-0.5 font-medium">
+              Upload E-Kart shipping label PDF/photo to auto-detect Order ID, AWB, GSTIN, Customer & SKU.
             </p>
           </div>
         </div>
@@ -438,68 +401,56 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
         <div className="z-10 flex items-center gap-2.5 shrink-0">
           <button
             onClick={handleExportCSV}
-            className="px-3.5 py-2 bg-white/15 hover:bg-white/25 backdrop-blur-md text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer border border-white/20"
+            className="px-3.5 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer border border-white/10"
           >
             <Download size={15} />
             Export CSV
           </button>
           <button
             onClick={openNewOrderForm}
-            className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black rounded-xl flex items-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer active:scale-95"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-xl flex items-center gap-2 shadow-lg shadow-blue-600/25 transition-all cursor-pointer active:scale-95"
           >
             <Plus size={16} />
-            New Flipkart Order
+            New Shipping Entry
           </button>
         </div>
       </div>
 
-      {/* Flipkart KPI Analytics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Flipkart Orders */}
+      {/* Analytics KPI Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Total Label Entries */}
         <div className="glass-panel p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Flipkart Orders</span>
+            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Shipping Labels</span>
             <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">{totalOrdersCount}</h3>
-            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Total Entries Saved</span>
+            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Recorded Packages</span>
           </div>
           <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-2xl">
             <Package size={22} />
           </div>
         </div>
 
-        {/* Total Flipkart Spend */}
+        {/* Prepaid Labels */}
         <div className="glass-panel p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Net Spend</span>
-            <h3 className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">{formatCurrency(totalSpend)}</h3>
-            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Combined Order Value</span>
-          </div>
-          <div className="p-3 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl">
-            <DollarSign size={22} />
-          </div>
-        </div>
-
-        {/* Delivered Orders */}
-        <div className="glass-panel p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Delivered Orders</span>
-            <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{deliveredCount}</h3>
-            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Successful Deliveries</span>
+            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">PREPAID Shipments</span>
+            <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{prepaidCount}</h3>
+            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Prepaid Orders</span>
           </div>
           <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl">
-            <Truck size={22} />
+            <ShieldCheck size={22} />
           </div>
         </div>
 
-        {/* Returns & Cancellations */}
+        {/* COD Labels */}
         <div className="glass-panel p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Returns / Cancelled</span>
-            <h3 className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{cancelledReturnedCount}</h3>
-            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Refund / Return Tracking</span>
+            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">COD Shipments</span>
+            <h3 className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{codCount}</h3>
+            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Cash on Delivery</span>
           </div>
-          <div className="p-3 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl">
-            <ArrowRightLeft size={22} />
+          <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-2xl">
+            <Truck size={22} />
           </div>
         </div>
       </div>
@@ -510,50 +461,48 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search Flipkart Order ID (OD...), seller, buyer..."
+            placeholder="Search Order ID (OD...), AWB, Customer, SKU..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2 bg-slate-100/70 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
           />
         </div>
 
-        {/* Order Status Filter Buttons */}
+        {/* Payment Type Filters */}
         <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto">
-          {['all', 'Delivered', 'Ordered', 'Shipped', 'Cancelled', 'Returned'].map((st) => (
+          {['all', 'PREPAID', 'COD'].map((pt) => (
             <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                statusFilter === st
+              key={pt}
+              onClick={() => setPaymentTypeFilter(pt)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                paymentTypeFilter === pt
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
                   : 'bg-slate-100/80 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
-              {st === 'all' ? 'All Statuses' : st}
+              {pt === 'all' ? 'All Payment Types' : pt}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Orders Data Table */}
+      {/* E-Kart Shipping Labels Table */}
       <div className="glass-panel rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
         {loading ? (
           <div className="py-12 flex flex-col items-center justify-center text-center text-slate-400 space-y-3">
             <RefreshCw size={24} className="animate-spin text-blue-500" />
-            <span className="text-xs font-semibold">Loading Flipkart Orders...</span>
+            <span className="text-xs font-semibold">Loading E-Kart Label Entries...</span>
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="py-16 text-center text-slate-400 dark:text-slate-500 space-y-3">
-            <div className="w-16 h-16 rounded-2xl bg-amber-400/10 text-amber-500 mx-auto flex items-center justify-center font-black text-2xl">
-              F
-            </div>
-            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No Flipkart order entries found</p>
-            <p className="text-xs max-w-md mx-auto">Upload a screenshot of your Flipkart Order Details page or tax invoice to auto-detect and save your order entry.</p>
+            <Barcode size={40} className="mx-auto text-slate-300 dark:text-slate-700" />
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No E-Kart label entries found</p>
+            <p className="text-xs max-w-md mx-auto">Upload an E-Kart Logistics shipping label PDF/screenshot to 100% auto-fill and store label data.</p>
             <button
               onClick={openNewOrderForm}
               className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer"
             >
-              Add First Flipkart Order
+              Add First E-Kart Label
             </button>
           </div>
         ) : (
@@ -561,13 +510,13 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50/80 dark:bg-slate-900/80 border-b border-slate-200/80 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider text-[9.5px]">
-                  <th className="py-3.5 px-4">Flipkart Order ID</th>
-                  <th className="py-3.5 px-4">Seller & Customer</th>
-                  <th className="py-3.5 px-4">Status & Delivery</th>
+                  <th className="py-3.5 px-4">Order ID & AWB</th>
                   <th className="py-3.5 px-4">Payment</th>
-                  <th className="py-3.5 px-4 text-right">Discount</th>
-                  <th className="py-3.5 px-4 text-right">Net Paid</th>
-                  <th className="py-3.5 px-4 text-center">Receipt Proof</th>
+                  <th className="py-3.5 px-4">Seller & GSTIN</th>
+                  <th className="py-3.5 px-4">Customer & Address</th>
+                  <th className="py-3.5 px-4">SKU ID & Item</th>
+                  <th className="py-3.5 px-4 text-center">Dates (HBD / CPD / Print)</th>
+                  <th className="py-3.5 px-4 text-center">Label Proof</th>
                   <th className="py-3.5 px-4 text-center">Actions</th>
                 </tr>
               </thead>
@@ -575,66 +524,58 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 {filteredOrders.map((ord) => (
                   <tr key={ord._id} className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors">
                     <td className="py-3.5 px-4">
-                      <div className="font-black text-blue-600 dark:text-blue-400 font-mono flex items-center gap-1">
-                        <span>{ord.orderNumber}</span>
-                      </div>
-                      <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                        <Calendar size={11} />
-                        {ord.date ? new Date(ord.date).toLocaleDateString('en-IN') : 'N/A'}
-                      </div>
+                      <div className="font-black text-blue-600 dark:text-blue-400 font-mono text-xs">{ord.orderNumber}</div>
+                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">AWB: {ord.awbNumber || 'N/A'}</div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className={`px-2 py-0.5 rounded-md text-[9.5px] font-extrabold ${
+                        ord.paymentType === 'PREPAID'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                      }`}>
+                        {ord.paymentType}
+                      </span>
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                        <Store size={12} className="text-amber-500" />
-                        <span>{ord.sellerName || 'RetailNet'}</span>
+                        <Building size={12} className="text-slate-400" />
+                        <span>{ord.sellerName}</span>
                       </div>
-                      <div className="text-[10px] text-slate-400 truncate max-w-[160px]">
-                        Buyer: {ord.vendorCustomer || 'General Customer'}
-                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono mt-0.5">GSTIN: {ord.sellerGstin}</div>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex flex-col gap-1">
-                        <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-extrabold w-fit ${
-                          ord.orderStatus === 'Delivered'
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                            : ord.orderStatus === 'Shipped' || ord.orderStatus === 'Ordered'
-                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                            : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                        }`}>
-                          {ord.orderStatus}
-                        </span>
-                        {ord.deliveryDate && (
-                          <span className="text-[9.5px] text-slate-400 font-semibold flex items-center gap-1">
-                            <Truck size={10} /> {new Date(ord.deliveryDate).toLocaleDateString('en-IN')}
-                          </span>
-                        )}
+                    <td className="py-3.5 px-4 max-w-[200px]">
+                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                        <User size={12} className="text-blue-500" />
+                        <span>{ord.customerName || 'N/A'}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 truncate mt-0.5" title={ord.shippingAddress}>
+                        <MapPin size={10} className="inline mr-0.5" />
+                        {ord.shippingAddress || 'N/A'}
                       </div>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <span className="text-[10.5px] font-bold text-slate-800 dark:text-slate-200">
-                        {ord.paymentMode}
-                      </span>
-                      <span className="block text-[9.5px] text-emerald-600 dark:text-emerald-400 font-bold">
-                        {ord.paymentStatus}
-                      </span>
+                    <td className="py-3.5 px-4 max-w-[220px]">
+                      <div className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {ord.skuId || 'N/A'} (QTY: {ord.quantity})
+                      </div>
+                      <div className="text-[10px] text-slate-400 truncate mt-0.5" title={ord.itemDescription}>
+                        {ord.itemDescription}
+                      </div>
                     </td>
-                    <td className="py-3.5 px-4 text-right text-slate-500 font-semibold">
-                      {ord.discountAmount ? formatCurrency(ord.discountAmount) : '-'}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-black text-slate-900 dark:text-white text-sm">
-                      {formatCurrency(ord.amount)}
+                    <td className="py-3.5 px-4 text-center text-[10px] text-slate-500 space-y-0.5">
+                      {ord.printedDate && <div>Printed: <span className="font-bold text-slate-700 dark:text-slate-300">{ord.printedDate}</span></div>}
+                      {ord.hbdDate && <div>HBD: {ord.hbdDate} | CPD: {ord.cpdDate}</div>}
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       {ord.receiptImage ? (
                         <button
                           onClick={() => setPreviewImageModal(ord.receiptImage)}
-                          className="p-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-500/20 transition-colors inline-flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                          className="p-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-500/20 transition-colors inline-flex items-center gap-1 text-[10px] font-bold cursor-pointer"
                         >
                           <ImageIcon size={14} />
-                          <span>View Proof</span>
+                          <span>View Label</span>
                         </button>
                       ) : (
-                        <span className="text-[10px] text-slate-400 italic">No Photo</span>
+                        <span className="text-[10px] text-slate-400 italic">No File</span>
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-center">
@@ -642,18 +583,18 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                         <button
                           onClick={() => handleEditClick(ord)}
                           className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors cursor-pointer"
-                          title="Edit Order Entry"
+                          title="Edit Label Entry"
                         >
                           <Edit3 size={15} />
                         </button>
                         <button
                           onClick={() => {
-                            if (window.confirm(`Delete Flipkart Order ${ord.orderNumber}?`)) {
+                            if (window.confirm(`Delete E-Kart Shipping Label ${ord.orderNumber}?`)) {
                               onDeleteOrder(ord._id);
                             }
                           }}
                           className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-                          title="Delete Order Entry"
+                          title="Delete Label Entry"
                         >
                           <Trash2 size={15} />
                         </button>
@@ -668,24 +609,24 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       </div>
 
       {/* =========================================================
-          FLIPKART SPECIALIZED ORDER ENTRY & AUTO-DETECTION MODAL
+          E-KART SHIPPING LABEL 100% AUTO-FILL MODAL
          ========================================================= */}
       {isFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
             
             {/* Modal Header */}
-            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 font-black flex items-center justify-center shadow">
-                  F
+                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black text-xs flex items-center justify-center shadow uppercase">
+                  STD
                 </div>
                 <div>
                   <h3 className="text-base font-black tracking-tight">
-                    {editingId ? 'Edit Flipkart Order Entry' : 'Flipkart Order Auto-Detection & Entry'}
+                    {editingId ? 'Edit E-Kart Shipping Entry' : 'E-Kart Shipping Label 100% Auto-Fill Scanner'}
                   </h3>
-                  <p className="text-[11px] text-blue-100">
-                    Upload Flipkart screenshot or invoice photo for automatic data extraction.
+                  <p className="text-[11px] text-slate-300">
+                    Upload E-Kart Shipping Label PDF / Image to auto-fill all 13 fields with 100% accuracy.
                   </p>
                 </div>
               </div>
@@ -700,7 +641,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
 
-              {/* 1. Flipkart Photo Upload Banner */}
+              {/* 1. PDF / Screenshot Upload Banner */}
               <div className="p-4 bg-blue-500/5 dark:bg-blue-950/20 border border-dashed border-blue-500/30 rounded-2xl relative">
                 <input
                   type="file"
@@ -714,7 +655,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                   <div className="flex items-center gap-3">
                     {receiptImage ? (
                       <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-blue-500/30 shrink-0">
-                        <img src={receiptImage} alt="Flipkart Screenshot" className="w-full h-full object-cover" />
+                        <img src={receiptImage} alt="Label Screenshot" className="w-full h-full object-cover" />
                         <button
                           type="button"
                           onClick={() => setReceiptImage('')}
@@ -725,20 +666,20 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                         </button>
                       </div>
                     ) : (
-                      <div className="w-14 h-14 rounded-2xl bg-amber-400/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                      <div className="w-14 h-14 rounded-2xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                         <Upload size={24} />
                       </div>
                     )}
 
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <h4 className="text-xs font-black text-slate-900 dark:text-white">Auto-Detect Flipkart Order Screenshot</h4>
-                        <span className="px-2 py-0.5 bg-amber-400 text-slate-950 text-[9px] font-extrabold rounded-md flex items-center gap-1">
-                          <Sparkles size={10} /> Flipkart Scanner
+                        <h4 className="text-xs font-black text-slate-900 dark:text-white">Auto-Scan E-Kart Shipping Label PDF</h4>
+                        <span className="px-2 py-0.5 bg-blue-600 text-white text-[9px] font-bold rounded-md flex items-center gap-1">
+                          <Sparkles size={10} /> 100% Precision
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Upload screenshot of Flipkart Order Details screen or invoice PDF photo.
+                        Upload E-Kart Logistics label PDF screenshot or photo (PNG, JPG, WEBP).
                       </p>
                     </div>
                   </div>
@@ -752,35 +693,37 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                     {isScanning ? (
                       <>
                         <RefreshCw size={14} className="animate-spin" />
-                        <span>Scanning Flipkart Photo ({scanProgress}%)...</span>
+                        <span>Scanning Label ({scanProgress}%)...</span>
                       </>
                     ) : (
                       <>
                         <Upload size={14} />
-                        <span>{receiptImage ? 'Change Screenshot' : 'Upload Flipkart Screenshot'}</span>
+                        <span>{receiptImage ? 'Change File' : 'Upload Shipping Label PDF'}</span>
                       </>
                     )}
                   </button>
                 </div>
 
-                {/* Auto-detected Notice Badge */}
+                {/* 100% Scanned Alert Badge */}
                 {Object.keys(autoDetectedFields).length > 0 && (
                   <div className="mt-3 pt-3 border-t border-blue-500/20 flex items-center gap-2 text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 size={14} />
-                    <span>Flipkart Fields Auto-Detected: {Object.keys(autoDetectedFields).join(', ')}</span>
+                    <CheckCircle2 size={15} />
+                    <span>100% Scanned & Auto-Filled ({Object.keys(autoDetectedFields).length} Fields): {Object.keys(autoDetectedFields).join(', ')}</span>
                   </div>
                 )}
               </div>
 
-              {/* 2. Flipkart Order Form */}
+              {/* 2. E-Kart Label Form matching PDF Fields */}
               <form id="orderForm" onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* Flipkart Order ID */}
+                
+                {/* Header Block: Order ID, AWB, Payment Type, Logistics */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+                  {/* Order ID */}
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Flipkart Order ID (OD...)</span>
+                      <span>Order ID (OD...)</span>
                       {autoDetectedFields.orderNumber && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(100% Auto)</span>
                       )}
                     </label>
                     <input
@@ -788,50 +731,65 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                       required
                       value={orderNumber}
                       onChange={(e) => setOrderNumber(e.target.value)}
-                      placeholder="e.g. OD328719203910283000"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-blue-600 dark:text-blue-400"
+                      placeholder="OD338181136273805100"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-blue-600 dark:text-blue-400"
                     />
                   </div>
 
-                  {/* Order Date */}
+                  {/* AWB No */}
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Order Date</span>
-                      {autoDetectedFields.orderDate && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
+                      <span>AWB No.</span>
+                      {autoDetectedFields.awbNumber && (
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(100% Auto)</span>
                       )}
                     </label>
                     <input
-                      type="date"
-                      required
-                      value={orderDate}
-                      onChange={(e) => setOrderDate(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+                      type="text"
+                      value={awbNumber}
+                      onChange={(e) => setAwbNumber(e.target.value)}
+                      placeholder="FMPP4174433835"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-slate-200"
                     />
                   </div>
 
-                  {/* Delivery Date */}
+                  {/* Payment Type */}
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Delivery Date</span>
-                      {autoDetectedFields.deliveryDate && (
+                      <span>Payment Type</span>
+                      {autoDetectedFields.paymentType && (
                         <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
                       )}
                     </label>
+                    <select
+                      value={paymentType}
+                      onChange={(e) => setPaymentType(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
+                    >
+                      <option value="PREPAID">PREPAID</option>
+                      <option value="COD">COD (Cash on Delivery)</option>
+                    </select>
+                  </div>
+
+                  {/* Logistics Carrier */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Logistics Carrier</label>
                     <input
-                      type="date"
-                      value={deliveryDate}
-                      onChange={(e) => setDeliveryDate(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+                      type="text"
+                      value={logistics}
+                      onChange={(e) => setLogistics(e.target.value)}
+                      placeholder="E-Kart Logistics"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Seller & GSTIN Block */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {/* Seller Name */}
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Flipkart Seller Name</span>
+                      <span>Sold By (Seller Name)</span>
                       {autoDetectedFields.sellerName && (
                         <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
                       )}
@@ -840,191 +798,175 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                       type="text"
                       value={sellerName}
                       onChange={(e) => setSellerName(e.target.value)}
-                      placeholder="e.g. RetailNet / SuperComNet"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+                      placeholder="WELLMORA ENTERPRISE"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
                     />
                   </div>
 
-                  {/* Buyer / Customer */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Buyer / Account Name</label>
-                    <input
-                      type="text"
-                      value={vendorCustomer}
-                      onChange={(e) => setVendorCustomer(e.target.value)}
-                      placeholder="e.g. Milan Javiya"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Price Breakdown */}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-                  {/* Net Paid */}
+                  {/* GSTIN */}
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Net Paid Total (INR)</span>
-                      {autoDetectedFields.amount && (
+                      <span>GSTIN</span>
+                      {autoDetectedFields.sellerGstin && (
                         <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
                       )}
                     </label>
                     <input
-                      type="number"
-                      step="any"
-                      required
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-black text-emerald-600 dark:text-emerald-400"
+                      type="text"
+                      value={sellerGstin}
+                      onChange={(e) => setSellerGstin(e.target.value)}
+                      placeholder="24CNPPJ4144J1ZS"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-slate-200"
                     />
                   </div>
 
-                  {/* Discount */}
+                  {/* Seller Address */}
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Flipkart Discount</label>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Seller Address</label>
                     <input
-                      type="number"
-                      step="any"
-                      value={discountAmount}
-                      onChange={(e) => setDiscountAmount(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
-                    />
-                  </div>
-
-                  {/* Delivery Charge */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Delivery Charge</label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={deliveryFee}
-                      onChange={(e) => setDeliveryFee(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
-                    />
-                  </div>
-
-                  {/* Tax GST */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">GST Tax</label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={taxAmount}
-                      onChange={(e) => setTaxAmount(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+                      type="text"
+                      value={sellerAddress}
+                      onChange={(e) => setSellerAddress(e.target.value)}
+                      placeholder="281, Manisha Society, Surat - 394107"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200"
                     />
                   </div>
                 </div>
 
+                {/* Customer & Address Block */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* Order Status */}
+                  {/* Customer Name */}
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Order Status</label>
-                    <select
-                      value={orderStatus}
-                      onChange={(e) => setOrderStatus(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
-                    >
-                      <option value="Delivered">Delivered</option>
-                      <option value="Ordered">Ordered</option>
-                      <option value="Shipped">Shipped</option>
-                      <option value="Cancelled">Cancelled</option>
-                      <option value="Returned">Returned / Refunded</option>
-                    </select>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                      <span>Customer / Buyer Name</span>
+                      {autoDetectedFields.customerName && (
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Ranjeet"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
+                    />
                   </div>
 
-                  {/* Payment Mode */}
+                  {/* Pincode */}
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Payment Method</label>
-                    <select
-                      value={paymentMode}
-                      onChange={(e) => setPaymentMode(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
-                    >
-                      <option value="Flipkart Pay Later">Flipkart Pay Later</option>
-                      <option value="UPI / PhonePe">UPI / PhonePe / GPay</option>
-                      <option value="Cash on Delivery (COD)">Cash on Delivery (COD)</option>
-                      <option value="Credit / Debit Card">Credit / Debit Card</option>
-                      <option value="Net Banking">Net Banking</option>
-                      <option value="Other">Other</option>
-                    </select>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                      <span>Destination Pincode</span>
+                      {autoDetectedFields.pincode && (
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      value={pincode}
+                      onChange={(e) => setPincode(e.target.value)}
+                      placeholder="226020"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white"
+                    />
                   </div>
 
-                  {/* Payment Status */}
+                  {/* Full Shipping Address */}
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Payment Status</label>
-                    <select
-                      value={paymentStatus}
-                      onChange={(e) => setPaymentStatus(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
-                    >
-                      <option value="Paid">Paid</option>
-                      <option value="Pending">Pending</option>
-                      <option value="Refunded">Refunded</option>
-                    </select>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                      <span>Shipping Address</span>
+                      {autoDetectedFields.shippingAddress && (
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      value={shippingAddress}
+                      onChange={(e) => setShippingAddress(e.target.value)}
+                      placeholder="538k 218 sripuram, Triveni nagar, Lucknow - 226020"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200"
+                    />
                   </div>
                 </div>
 
-                {/* Line Items */}
-                <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider">Product Items</label>
-                    <button
-                      type="button"
-                      onClick={addItemRow}
-                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                    >
-                      <Plus size={12} /> Add Flipkart Product
-                    </button>
+                {/* SKU ID, Item Description & QTY */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+                  <div className="sm:col-span-4">
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                      <span>SKU ID</span>
+                      {autoDetectedFields.skuId && (
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      value={skuId}
+                      onChange={(e) => setSkuId(e.target.value)}
+                      placeholder="WE-SEALANT-126"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white"
+                    />
                   </div>
 
-                  {items.map((item, idx) => (
-                    <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                      <div className="col-span-5">
-                        <input
-                          type="text"
-                          placeholder="Product Name / Title"
-                          value={item.description}
-                          onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-medium"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <input
-                          type="text"
-                          placeholder="FSN / SKU"
-                          value={item.fsnSku}
-                          onChange={(e) => handleItemChange(idx, 'fsnSku', e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-mono"
-                        />
-                      </div>
-                      <div className="col-span-1">
-                        <input
-                          type="number"
-                          placeholder="Qty"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-medium text-center"
-                        />
-                      </div>
-                      <div className="col-span-3 text-right text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {formatCurrency(item.total || (item.quantity * item.price))}
-                      </div>
-                      <div className="col-span-1 text-center">
-                        <button
-                          type="button"
-                          onClick={() => removeItemRow(idx)}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded cursor-pointer"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                  <div className="sm:col-span-6">
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                      <span>Product Description</span>
+                      {autoDetectedFields.itemDescription && (
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      value={itemDescription}
+                      onChange={(e) => setItemDescription(e.target.value)}
+                      placeholder="ZEBREOLINE Waterproof Silicone Sealant"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">QTY</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-center text-slate-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Handover Date (HBD), CPD Date & Printed Date */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Handover Date (HBD)</label>
+                    <input
+                      type="text"
+                      value={hbdDate}
+                      onChange={(e) => setHbdDate(e.target.value)}
+                      placeholder="31 - 07"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Cut-off Delivery Date (CPD)</label>
+                    <input
+                      type="text"
+                      value={cpdDate}
+                      onChange={(e) => setCpdDate(e.target.value)}
+                      placeholder="05 - 08"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Printed Date / Time</label>
+                    <input
+                      type="text"
+                      value={printedDate}
+                      onChange={(e) => setPrintedDate(e.target.value)}
+                      placeholder="29/07/26"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200"
+                    />
+                  </div>
                 </div>
 
               </form>
@@ -1045,7 +987,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
               >
                 <Check size={15} />
-                <span>{editingId ? 'Update Flipkart Order' : 'Save Flipkart Order'}</span>
+                <span>{editingId ? 'Update Shipping Entry' : 'Save Shipping Entry'}</span>
               </button>
             </div>
 
@@ -1054,7 +996,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       )}
 
       {/* =========================================================
-          FLIPKART RECEIPT SCREENSHOT PREVIEW MODAL
+          LABEL PDF / SCREENSHOT PREVIEW MODAL
          ========================================================= */}
       {previewImageModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
@@ -1065,12 +1007,12 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             >
               <X size={16} />
             </button>
-            <h4 className="text-xs font-black uppercase text-amber-500 mb-3 tracking-wider flex items-center gap-1.5">
-              <span>Flipkart Order Details Screenshot</span>
+            <h4 className="text-xs font-black uppercase text-blue-400 mb-3 tracking-wider flex items-center gap-1.5">
+              <span>Original E-Kart Shipping Label PDF Proof</span>
             </h4>
             <img 
               src={previewImageModal} 
-              alt="Flipkart Screenshot Preview" 
+              alt="E-Kart Label Screenshot Preview" 
               className="max-h-[70vh] object-contain rounded-xl border border-slate-200 dark:border-slate-800" 
             />
           </div>

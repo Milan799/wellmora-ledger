@@ -3,145 +3,141 @@ import Order from '../models/Order.js';
 
 const router = express.Router();
 
-// GET all Flipkart orders (newest first)
+// GET all E-Kart shipping label order entries (newest first)
 router.get('/', async (req, res) => {
   try {
-    const orders = await Order.find().sort({ date: -1, createdAt: -1 });
+    const orders = await Order.find().sort({ createdAt: -1 });
     res.json(orders);
   } catch (error) {
-    res.status(500).json({ message: 'Error retrieving Flipkart orders', error: error.message });
+    res.status(500).json({ message: 'Error retrieving E-Kart order entries', error: error.message });
   }
 });
 
-// POST a new Flipkart order entry
+// POST a new E-Kart shipping label order entry
 router.post('/', async (req, res) => {
   try {
     const { 
-      orderSource,
       orderNumber, 
-      date, 
-      deliveryDate,
-      vendorCustomer, 
-      sellerName,
-      items, 
-      amount, 
-      subtotalAmount,
-      taxAmount, 
-      discountAmount,
-      deliveryFee,
-      orderStatus,
-      paymentStatus, 
-      paymentMode, 
-      category, 
-      receiptImage, 
-      notes 
+      awbNumber, 
+      paymentType, 
+      logistics, 
+      sellerName, 
+      sellerAddress, 
+      sellerGstin, 
+      customerName, 
+      shippingAddress, 
+      pincode, 
+      skuId, 
+      itemDescription, 
+      quantity, 
+      hbdDate, 
+      cpdDate, 
+      printedDate, 
+      receiptImage 
     } = req.body;
     
-    if (amount === undefined || amount === null || Number(amount) < 0) {
-      return res.status(400).json({ message: 'Valid net order amount is required' });
+    if (!orderNumber || orderNumber.trim() === '') {
+      return res.status(400).json({ message: 'Order ID (OD...) is required' });
     }
     
     const newOrder = new Order({
-      orderSource: orderSource || 'Flipkart',
-      orderNumber: orderNumber || `OD${Date.now()}000`,
-      date: date || new Date(),
-      deliveryDate: deliveryDate || null,
-      vendorCustomer: vendorCustomer || 'Flipkart Customer',
-      sellerName: sellerName || 'Flipkart Seller',
-      items: Array.isArray(items) ? items : [],
-      amount: Number(amount),
-      subtotalAmount: Number(subtotalAmount || amount),
-      taxAmount: Number(taxAmount || 0),
-      discountAmount: Number(discountAmount || 0),
-      deliveryFee: Number(deliveryFee || 0),
-      orderStatus: orderStatus || 'Delivered',
-      paymentStatus: paymentStatus || 'Paid',
-      paymentMode: paymentMode || 'UPI / PhonePe',
-      category: category || 'Flipkart Purchase',
-      receiptImage: receiptImage || '',
-      notes: notes || ''
+      orderNumber: orderNumber.trim(),
+      awbNumber: awbNumber || '',
+      paymentType: paymentType || 'PREPAID',
+      logistics: logistics || 'E-Kart Logistics',
+      sellerName: sellerName || 'WELLMORA ENTERPRISE',
+      sellerAddress: sellerAddress || '281,Manisha Society,Old Kosad Road,Amroli,Surat , Manisha Society, SURAT - 394107',
+      sellerGstin: sellerGstin || '24CNPPJ4144J1ZS',
+      customerName: customerName || '',
+      shippingAddress: shippingAddress || '',
+      pincode: pincode || '',
+      skuId: skuId || '',
+      itemDescription: itemDescription || '',
+      quantity: Number(quantity || 1),
+      hbdDate: hbdDate || '',
+      cpdDate: cpdDate || '',
+      printedDate: printedDate || '',
+      receiptImage: receiptImage || ''
     });
     
     const savedOrder = await newOrder.save();
     res.status(201).json(savedOrder);
   } catch (error) {
-    res.status(400).json({ message: 'Error saving Flipkart order entry', error: error.message });
+    res.status(400).json({ message: 'Error saving E-Kart order entry', error: error.message });
   }
 });
 
-// PUT (update) an existing Flipkart order entry
+// PUT (update) an existing E-Kart shipping label order entry
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { 
-      orderSource,
       orderNumber, 
-      date, 
-      deliveryDate,
-      vendorCustomer, 
-      sellerName,
-      items, 
-      amount, 
-      subtotalAmount,
-      taxAmount, 
-      discountAmount,
-      deliveryFee,
-      orderStatus,
-      paymentStatus, 
-      paymentMode, 
-      category, 
-      receiptImage, 
-      notes 
+      awbNumber, 
+      paymentType, 
+      logistics, 
+      sellerName, 
+      sellerAddress, 
+      sellerGstin, 
+      customerName, 
+      shippingAddress, 
+      pincode, 
+      skuId, 
+      itemDescription, 
+      quantity, 
+      hbdDate, 
+      cpdDate, 
+      printedDate, 
+      receiptImage 
     } = req.body;
 
     const updatedOrder = await Order.findByIdAndUpdate(
       id,
       { 
-        orderSource,
         orderNumber, 
-        date, 
-        deliveryDate,
-        vendorCustomer, 
-        sellerName,
-        items, 
-        amount: Number(amount), 
-        subtotalAmount: Number(subtotalAmount || amount),
-        taxAmount: Number(taxAmount || 0), 
-        discountAmount: Number(discountAmount || 0),
-        deliveryFee: Number(deliveryFee || 0),
-        orderStatus,
-        paymentStatus, 
-        paymentMode, 
-        category, 
-        receiptImage, 
-        notes 
+        awbNumber, 
+        paymentType, 
+        logistics, 
+        sellerName, 
+        sellerAddress, 
+        sellerGstin, 
+        customerName, 
+        shippingAddress, 
+        pincode, 
+        skuId, 
+        itemDescription, 
+        quantity: Number(quantity || 1), 
+        hbdDate, 
+        cpdDate, 
+        printedDate, 
+        receiptImage 
       },
       { new: true, runValidators: true }
     );
 
     if (!updatedOrder) {
-      return res.status(404).json({ message: 'Flipkart order entry not found' });
+      return res.status(404).json({ message: 'E-Kart order entry not found' });
     }
 
     res.json(updatedOrder);
   } catch (error) {
-    res.status(400).json({ message: 'Error updating Flipkart order entry', error: error.message });
+    res.status(400).json({ message: 'Error updating E-Kart order entry', error: error.message });
   }
 });
 
-// DELETE a Flipkart order entry
+// DELETE an E-Kart shipping label order entry
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const deletedOrder = await Order.findByIdAndDelete(id);
 
     if (!deletedOrder) {
-      return res.status(404).json({ message: 'Flipkart order entry not found' });
+      return res.status(404).json({ message: 'E-Kart order entry not found' });
     }
 
-    res.json({ message: 'Flipkart order entry successfully deleted', id });
+    res.json({ message: 'E-Kart order entry successfully deleted', id });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting Flipkart order entry', error: error.message });
+    res.status(500).json({ message: 'Error deleting E-Kart order entry', error: error.message });
   }
 });
 
