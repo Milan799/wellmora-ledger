@@ -826,6 +826,42 @@ export default function App() {
     }
   };
 
+  const handleSaveBatchOrders = async (batchList) => {
+    if (!Array.isArray(batchList) || batchList.length === 0) return;
+
+    setOrders(prev => {
+      const orderMap = new Map();
+      batchList.forEach(o => {
+        if (o.orderNumber) orderMap.set(o.orderNumber.trim(), { ...o, _id: o._id || `local_${Date.now()}_${Math.random()}` });
+      });
+      prev.forEach(o => {
+        if (o.orderNumber && !orderMap.has(o.orderNumber.trim())) {
+          orderMap.set(o.orderNumber.trim(), o);
+        }
+      });
+      const updatedList = Array.from(orderMap.values());
+      localStorage.setItem('cached_orders', JSON.stringify(updatedList));
+      return updatedList;
+    });
+
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/orders/batch`, {
+        method: 'POST',
+        body: JSON.stringify({ orders: batchList })
+      });
+      if (response.ok) {
+        const resData = await safeJsonFetch(response);
+        if (resData && resData.orders) {
+          fetchOrders();
+        }
+        triggerNotification(`Saved ${batchList.length} unique orders from PDF!`, 'success');
+      }
+    } catch (err) {
+      console.error("Batch order save warning:", err);
+      triggerNotification(`Saved ${batchList.length} orders locally (Offline)`, 'info');
+    }
+  };
+
   // ==========================================
   // Global Delete Handlers
   // ==========================================
@@ -1172,6 +1208,7 @@ export default function App() {
                   loading={loadingOrders}
                   onRefresh={fetchOrders}
                   onSaveOrder={handleSaveOrder}
+                  onSaveBatchOrders={handleSaveBatchOrders}
                   onDeleteOrder={handleDeleteOrder}
                 />
               </div>

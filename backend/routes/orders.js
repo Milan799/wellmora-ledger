@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST a new E-Kart shipping label order entry
+// POST a new E-Kart shipping label order entry (Enforces Unique Order ID via Upsert)
 router.post('/', async (req, res) => {
   try {
     const { 
@@ -40,7 +40,8 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: 'Order ID (OD...) is required' });
     }
     
-    const newOrder = new Order({
+    const filter = { orderNumber: orderNumber.trim() };
+    const updateData = {
       orderNumber: orderNumber.trim(),
       awbNumber: awbNumber || '',
       paymentType: paymentType || 'PREPAID',
@@ -58,12 +59,54 @@ router.post('/', async (req, res) => {
       cpdDate: cpdDate || '',
       printedDate: printedDate || '',
       receiptImage: receiptImage || ''
-    });
+    };
     
-    const savedOrder = await newOrder.save();
-    res.status(201).json(savedOrder);
+    // Upsert guarantees unique order entries by Order ID
+    const savedOrder = await Order.findOneAndUpdate(filter, updateData, { new: true, upsert: true, runValidators: true });
+    res.status(200).json(savedOrder);
   } catch (error) {
     res.status(400).json({ message: 'Error saving E-Kart order entry', error: error.message });
+  }
+});
+
+// POST batch/multi-page E-Kart shipping label order entries
+router.post('/batch', async (req, res) => {
+  try {
+    const { orders: batchOrders } = req.body;
+    if (!Array.isArray(batchOrders) || batchOrders.length === 0) {
+      return res.status(400).json({ message: 'No orders provided for batch save' });
+    }
+
+    const savedResults = [];
+    for (const item of batchOrders) {
+      if (!item.orderNumber || !item.orderNumber.trim()) continue;
+      const filter = { orderNumber: item.orderNumber.trim() };
+      const updateData = {
+        orderNumber: item.orderNumber.trim(),
+        awbNumber: item.awbNumber || '',
+        paymentType: item.paymentType || 'PREPAID',
+        logistics: item.logistics || 'E-Kart Logistics',
+        sellerName: item.sellerName || 'WELLMORA ENTERPRISE',
+        sellerAddress: item.sellerAddress || '',
+        sellerGstin: item.sellerGstin || '24CNPPJ4144J1ZS',
+        customerName: item.customerName || '',
+        shippingAddress: item.shippingAddress || '',
+        pincode: item.pincode || '',
+        skuId: item.skuId || '',
+        itemDescription: item.itemDescription || '',
+        quantity: Number(item.quantity || 1),
+        hbdDate: item.hbdDate || '',
+        cpdDate: item.cpdDate || '',
+        printedDate: item.printedDate || '',
+        receiptImage: item.receiptImage || ''
+      };
+      const saved = await Order.findOneAndUpdate(filter, updateData, { new: true, upsert: true });
+      savedResults.push(saved);
+    }
+
+    res.status(200).json({ message: 'Batch orders saved successfully', savedCount: savedResults.length, orders: savedResults });
+  } catch (error) {
+    res.status(400).json({ message: 'Error processing batch order entries', error: error.message });
   }
 });
 
