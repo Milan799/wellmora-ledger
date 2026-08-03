@@ -23,7 +23,11 @@ import {
   MapPin,
   Barcode,
   ShieldCheck,
-  Layers
+  Layers,
+  ArrowRight,
+  Zap,
+  Eye,
+  ChevronRight
 } from 'lucide-react';
 import { createWorker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -63,13 +67,14 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
   const [printedDate, setPrintedDate] = useState(''); // 29/07/26
   const [receiptImage, setReceiptImage] = useState('');
 
-  // Multi-Page Batch States
+  // Multi-Page Batch & Drag-Drop States
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [scanStatusMessage, setScanStatusMessage] = useState('');
   const [autoDetectedFields, setAutoDetectedFields] = useState({});
   const [batchSummary, setBatchSummary] = useState(null);
   const [previewImageModal, setPreviewImageModal] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const fileInputRef = useRef(null);
 
@@ -171,9 +176,8 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     return { dataUrl, pdfText };
   };
 
-  // Multi-Page PDF & Image File Processor with Unique Deduplication
-  const handleFileUpload = async (e) => {
-    const file = e.target.files && e.target.files[0];
+  // Process selected or dropped file (PDF or Image)
+  const processFile = async (file) => {
     if (!file) return;
 
     setIsScanning(true);
@@ -202,7 +206,6 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
         }
 
         const totalPages = pdf.numPages;
-        console.log(`Processing Multi-Page PDF: ${totalPages} Pages Found`);
 
         const uniqueOrdersMap = new Map();
         let firstPageImage = '';
@@ -216,7 +219,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
           const pageRes = await renderPdfPageToCanvas(pdf, pageNum);
           if (pageNum === 1) firstPageImage = pageRes.dataUrl;
 
-          // OCR on canvas
+          // OCR on rendered canvas
           let ocrText = '';
           try {
             const worker = await createWorker('eng');
@@ -251,7 +254,6 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
               receiptImage: pageRes.dataUrl
             };
 
-            // Deduplicate by Order Number to guarantee 100% uniqueness
             if (!uniqueOrdersMap.has(orderObj.orderNumber)) {
               uniqueOrdersMap.set(orderObj.orderNumber, orderObj);
             }
@@ -268,7 +270,6 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
           applyFieldsToForm(firstPageFields ? firstPageFields.parsedData : extractFieldsFromText(''));
           setAutoDetectedFields(firstPageFields ? firstPageFields.parsedData.detected : {});
 
-          // Auto-save batch orders to ensure all unique multi-page orders are stored
           if (onSaveBatchOrders) {
             onSaveBatchOrders(uniqueOrdersList);
           }
@@ -292,7 +293,24 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
           reader.readAsDataURL(file);
         });
 
-        setReceiptImage(imageDataUrl);
+        // Compress image Data URL
+        const tempImg = new Image();
+        tempImg.onload = () => {
+          const compCanvas = document.createElement('canvas');
+          let w = tempImg.width;
+          let h = tempImg.height;
+          if (w > 800) {
+            h = Math.round((h * 800) / w);
+            w = 800;
+          }
+          compCanvas.width = w;
+          compCanvas.height = h;
+          const ctx = compCanvas.getContext('2d');
+          ctx.drawImage(tempImg, 0, 0, w, h);
+          setReceiptImage(compCanvas.toDataURL('image/jpeg', 0.6));
+        };
+        tempImg.src = imageDataUrl;
+
         setScanProgress(50);
         setScanStatusMessage('Running Precision OCR Extraction...');
 
@@ -312,10 +330,33 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
         setScanStatusMessage('Single Image Scanned & Auto-Filled!');
       }
     } catch (err) {
-      console.error("Multi-Page PDF Processing Error:", err);
+      console.error("PDF/Image Processing Error:", err);
       alert("Error processing file: " + err.message);
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) processFile(file);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0]);
     }
   };
 
@@ -609,6 +650,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
   const totalOrdersCount = uniqueOrdersList.length;
   const prepaidCount = uniqueOrdersList.filter(o => o.paymentType === 'PREPAID').length;
   const codCount = uniqueOrdersList.filter(o => o.paymentType === 'COD').length;
+  const uniqueSkusCount = new Set(uniqueOrdersList.map(o => o.skuId).filter(Boolean)).size;
 
   // Export E-Kart Label Data to CSV
   const handleExportCSV = () => {
@@ -637,7 +679,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `ekart_unique_shipping_labels_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `ekart_shipping_labels_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -646,108 +688,145 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
   return (
     <div className="space-y-6 pb-12 animate-slide-up">
 
-      {/* Header Banner - E-Kart Logistics & Multi-Page PDF Scanner Theme */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 rounded-3xl text-white shadow-xl relative overflow-hidden border border-slate-800">
-        <div className="absolute right-0 top-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
-        
-        <div className="z-10 flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white font-black text-xs flex flex-col items-center justify-center shadow-lg shrink-0 uppercase tracking-tighter">
-            <span>E-KART</span>
-            <span className="text-[8px] text-amber-400">MULTI</span>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-black tracking-tight">E-Kart Unique Order Entries</h2>
-              <span className="px-2.5 py-0.5 bg-blue-500/20 text-blue-400 font-extrabold text-[10px] rounded-full uppercase tracking-wider border border-blue-500/30 flex items-center gap-1">
-                <Layers size={11} /> Multi-Page PDF Scanner
-              </span>
-            </div>
-            <p className="text-xs text-slate-300 mt-0.5 font-medium">
-              Scans all pages in multi-page PDFs to auto-fill multiple unique orders with zero duplicates.
-            </p>
-          </div>
-        </div>
+      {/* =========================================================
+          HERO DASHBOARD BANNER - RICH GLASSMORPHISM & GRADIENTS
+         ========================================================= */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-blue-950 to-slate-900 border border-slate-800/80 p-6 text-white shadow-2xl">
+        {/* Ambient Glowing Background Orbs */}
+        <div className="absolute -right-16 -top-16 h-72 w-72 rounded-full bg-blue-600/20 blur-3xl pointer-events-none" />
+        <div className="absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-indigo-600/15 blur-3xl pointer-events-none" />
 
-        <div className="z-10 flex items-center gap-2.5 shrink-0">
-          <button
-            onClick={handleExportCSV}
-            className="px-3.5 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer border border-white/10"
-          >
-            <Download size={15} />
-            Export CSV
-          </button>
-          <button
-            onClick={openNewOrderForm}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-xl flex items-center gap-2 shadow-lg shadow-blue-600/25 transition-all cursor-pointer active:scale-95"
-          >
-            <Plus size={16} />
-            New Unique Order
-          </button>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs flex flex-col items-center justify-center shadow-lg shadow-blue-600/30 shrink-0 uppercase tracking-tighter border border-white/20">
+              <span className="text-sm font-extrabold">E-KART</span>
+              <span className="text-[9px] text-amber-300 font-black">STD</span>
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="text-2xl font-black tracking-tight text-white">E-Kart Shipping Labels</h1>
+                <span className="px-3 py-0.5 bg-blue-500/20 text-blue-300 font-extrabold text-[10.5px] rounded-full uppercase tracking-wider border border-blue-400/30 flex items-center gap-1.5 backdrop-blur-md">
+                  <Zap size={12} className="text-amber-400 animate-pulse" />
+                  100% PDF Auto-Fill Scanner
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
+                Scan single or multi-page E-Kart shipping label PDFs to auto-fill Order ID, AWB, GSTIN, Customer details, and SKU itemized data.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={handleExportCSV}
+              className="px-4 py-2.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs font-bold rounded-2xl flex items-center gap-2 backdrop-blur-md transition-all cursor-pointer border border-white/10 shadow-sm"
+            >
+              <Download size={15} />
+              Export CSV
+            </button>
+            <button
+              onClick={openNewOrderForm}
+              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center gap-2 shadow-xl shadow-blue-600/30 transition-all cursor-pointer border border-blue-400/30"
+            >
+              <Plus size={18} />
+              <span>New Entry / PDF Upload</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Analytics KPI Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Total Unique Label Entries */}
-        <div className="glass-panel p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+      {/* =========================================================
+          ANALYTICS KPI GRID (4 COLUMNS)
+         ========================================================= */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI 1: Total Orders */}
+        <div className="glass-panel p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between hover:border-blue-500/40 transition-all duration-300 shadow-sm group">
           <div>
             <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Unique Orders</span>
-            <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">{totalOrdersCount}</h3>
-            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">100% Unique Recorded</span>
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1 group-hover:text-blue-600 transition-colors">{totalOrdersCount}</h3>
+            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+              <CheckCircle2 size={12} className="text-emerald-500" />
+              Recorded Packages
+            </span>
           </div>
-          <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-2xl">
+          <div className="p-3.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-2xl group-hover:scale-110 transition-transform">
             <Package size={22} />
           </div>
         </div>
 
-        {/* Prepaid Labels */}
-        <div className="glass-panel p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+        {/* KPI 2: Prepaid Shipments */}
+        <div className="glass-panel p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between hover:border-emerald-500/40 transition-all duration-300 shadow-sm group">
           <div>
             <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">PREPAID Orders</span>
             <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{prepaidCount}</h3>
-            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Prepaid Shipments</span>
+            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">
+              {totalOrdersCount > 0 ? Math.round((prepaidCount / totalOrdersCount) * 100) : 0}% of Total
+            </span>
           </div>
-          <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl">
+          <div className="p-3.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl group-hover:scale-110 transition-transform">
             <ShieldCheck size={22} />
           </div>
         </div>
 
-        {/* COD Labels */}
-        <div className="glass-panel p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+        {/* KPI 3: COD Shipments */}
+        <div className="glass-panel p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between hover:border-amber-500/40 transition-all duration-300 shadow-sm group">
           <div>
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">COD Orders</span>
+            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">COD Shipments</span>
             <h3 className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{codCount}</h3>
             <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Cash on Delivery</span>
           </div>
-          <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-2xl">
+          <div className="p-3.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-2xl group-hover:scale-110 transition-transform">
             <Truck size={22} />
+          </div>
+        </div>
+
+        {/* KPI 4: Unique SKUs */}
+        <div className="glass-panel p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between hover:border-indigo-500/40 transition-all duration-300 shadow-sm group">
+          <div>
+            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Unique SKUs</span>
+            <h3 className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">{uniqueSkusCount}</h3>
+            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Product Variants</span>
+          </div>
+          <div className="p-3.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl group-hover:scale-110 transition-transform">
+            <Tag size={22} />
           </div>
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="glass-panel p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-80">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      {/* =========================================================
+          TOOLBAR & QUICK FILTERS
+         ========================================================= */}
+      <div className="glass-panel p-4 rounded-3xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+        {/* Search Input */}
+        <div className="relative w-full sm:w-96">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search Order ID (OD...), AWB, Customer, SKU..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-100/70 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            className="w-full pl-10 pr-9 py-2.5 bg-slate-100/70 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
-        {/* Payment Type Filters */}
-        <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto">
+        {/* Payment Type Segmented Controls */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 dark:bg-slate-950/80 rounded-2xl border border-slate-200/80 dark:border-slate-800 w-full sm:w-auto overflow-x-auto">
           {['all', 'PREPAID', 'COD'].map((pt) => (
             <button
               key={pt}
               onClick={() => setPaymentTypeFilter(pt)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
                 paymentTypeFilter === pt
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                  : 'bg-slate-100/80 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               {pt === 'all' ? 'All Payment Types' : pt}
@@ -756,103 +835,114 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
         </div>
       </div>
 
-      {/* E-Kart Unique Shipping Labels Table */}
-      <div className="glass-panel rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+      {/* =========================================================
+          DATA TABLE VIEW - E-KART ORDERS LIST
+         ========================================================= */}
+      <div className="glass-panel rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
         {loading ? (
-          <div className="py-12 flex flex-col items-center justify-center text-center text-slate-400 space-y-3">
-            <RefreshCw size={24} className="animate-spin text-blue-500" />
-            <span className="text-xs font-semibold">Loading Unique E-Kart Orders...</span>
+          <div className="py-16 flex flex-col items-center justify-center text-center text-slate-400 space-y-3">
+            <RefreshCw size={28} className="animate-spin text-blue-500" />
+            <span className="text-xs font-semibold">Loading E-Kart Order Entries...</span>
           </div>
         ) : filteredOrders.length === 0 ? (
-          <div className="py-16 text-center text-slate-400 dark:text-slate-500 space-y-3">
-            <Barcode size={40} className="mx-auto text-slate-300 dark:text-slate-700" />
-            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No unique E-Kart order entries found</p>
-            <p className="text-xs max-w-md mx-auto">Upload a single or multi-page E-Kart PDF to auto-detect and save all unique order entries.</p>
+          <div className="py-20 text-center text-slate-400 dark:text-slate-500 space-y-4">
+            <div className="w-16 h-16 rounded-3xl bg-blue-500/10 text-blue-500 flex items-center justify-center mx-auto">
+              <Barcode size={36} />
+            </div>
+            <div>
+              <p className="text-base font-black text-slate-800 dark:text-slate-200">No E-Kart Shipping Labels Found</p>
+              <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">Upload an E-Kart Logistics shipping label PDF screenshot or photo to 100% auto-fill and store label data.</p>
+            </div>
             <button
               onClick={openNewOrderForm}
-              className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer"
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-2xl shadow-lg transition-all cursor-pointer inline-flex items-center gap-2"
             >
-              Add First Order
+              <Plus size={16} />
+              Add First E-Kart Label
             </button>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50/80 dark:bg-slate-900/80 border-b border-slate-200/80 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider text-[9.5px]">
-                  <th className="py-3.5 px-4">Order ID & AWB</th>
-                  <th className="py-3.5 px-4">Payment</th>
-                  <th className="py-3.5 px-4">Seller & GSTIN</th>
-                  <th className="py-3.5 px-4">Customer & Address</th>
-                  <th className="py-3.5 px-4">SKU ID & Item</th>
-                  <th className="py-3.5 px-4 text-center">Dates (HBD / CPD / Print)</th>
-                  <th className="py-3.5 px-4 text-center">Label Proof</th>
-                  <th className="py-3.5 px-4 text-center">Actions</th>
+                <tr className="bg-slate-50/90 dark:bg-slate-950/80 border-b border-slate-200/80 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider text-[9.5px]">
+                  <th className="py-4 px-5">Order ID & AWB</th>
+                  <th className="py-4 px-5">Payment</th>
+                  <th className="py-4 px-5">Seller & GSTIN</th>
+                  <th className="py-4 px-5">Customer & Shipping Address</th>
+                  <th className="py-4 px-5">SKU ID & Item</th>
+                  <th className="py-4 px-5 text-center">Dates (HBD / CPD / Print)</th>
+                  <th className="py-4 px-5 text-center">Label Proof</th>
+                  <th className="py-4 px-5 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium text-slate-750 dark:text-slate-300">
                 {filteredOrders.map((ord) => (
-                  <tr key={ord._id || ord.orderNumber} className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors">
-                    <td className="py-3.5 px-4">
-                      <div className="font-black text-blue-600 dark:text-blue-400 font-mono text-xs">{ord.orderNumber}</div>
+                  <tr key={ord._id || ord.orderNumber} className="hover:bg-slate-50/70 dark:hover:bg-slate-900/50 transition-colors">
+                    <td className="py-4 px-5">
+                      <div className="font-black text-blue-600 dark:text-blue-400 font-mono text-xs flex items-center gap-1.5">
+                        <span>{ord.orderNumber}</span>
+                      </div>
                       <div className="text-[10px] text-slate-500 font-mono mt-0.5">AWB: {ord.awbNumber || 'N/A'}</div>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <span className={`px-2 py-0.5 rounded-md text-[9.5px] font-extrabold ${
+                    <td className="py-4 px-5">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase border ${
                         ord.paymentType === 'PREPAID'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
                       }`}>
                         {ord.paymentType}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                        <Building size={12} className="text-slate-400" />
-                        <span>{ord.sellerName}</span>
+                    <td className="py-4 px-5">
+                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <Building size={13} className="text-slate-400 shrink-0" />
+                        <span className="truncate max-w-[140px]">{ord.sellerName}</span>
                       </div>
                       <div className="text-[10px] text-slate-400 font-mono mt-0.5">GSTIN: {ord.sellerGstin}</div>
                     </td>
-                    <td className="py-3.5 px-4 max-w-[200px]">
-                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                        <User size={12} className="text-blue-500" />
-                        <span>{ord.customerName || 'N/A'}</span>
+                    <td className="py-4 px-5 max-w-[220px]">
+                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <User size={13} className="text-blue-500 shrink-0" />
+                        <span className="truncate">{ord.customerName || 'N/A'}</span>
                       </div>
-                      <div className="text-[10px] text-slate-400 truncate mt-0.5" title={ord.shippingAddress}>
-                        <MapPin size={10} className="inline mr-0.5" />
-                        {ord.shippingAddress || 'N/A'}
+                      <div className="text-[10px] text-slate-400 truncate mt-0.5 flex items-center gap-1" title={ord.shippingAddress}>
+                        <MapPin size={11} className="shrink-0 text-slate-400" />
+                        <span className="truncate">{ord.shippingAddress || 'N/A'}</span>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 max-w-[220px]">
-                      <div className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                        {ord.skuId || 'N/A'} (QTY: {ord.quantity})
+                    <td className="py-4 px-5 max-w-[220px]">
+                      <div className="font-mono font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <Tag size={12} className="text-indigo-500 shrink-0" />
+                        <span>{ord.skuId || 'N/A'}</span>
+                        <span className="text-[10px] px-1.5 py-0.2 bg-slate-200 dark:bg-slate-800 rounded font-sans">QTY: {ord.quantity}</span>
                       </div>
                       <div className="text-[10px] text-slate-400 truncate mt-0.5" title={ord.itemDescription}>
                         {ord.itemDescription}
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 text-center text-[10px] text-slate-500 space-y-0.5">
+                    <td className="py-4 px-5 text-center text-[10px] text-slate-500 space-y-0.5">
                       {ord.printedDate && <div>Printed: <span className="font-bold text-slate-700 dark:text-slate-300">{ord.printedDate}</span></div>}
                       {ord.hbdDate && <div>HBD: {ord.hbdDate} | CPD: {ord.cpdDate}</div>}
                     </td>
-                    <td className="py-3.5 px-4 text-center">
+                    <td className="py-4 px-5 text-center">
                       {ord.receiptImage ? (
                         <button
                           onClick={() => setPreviewImageModal(ord.receiptImage)}
-                          className="p-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-500/20 transition-colors inline-flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                          className="px-2.5 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-500/20 transition-all inline-flex items-center gap-1 text-[10.5px] font-bold cursor-pointer"
                         >
-                          <ImageIcon size={14} />
-                          <span>View Label</span>
+                          <Eye size={13} />
+                          <span>View Proof</span>
                         </button>
                       ) : (
                         <span className="text-[10px] text-slate-400 italic">No File</span>
                       )}
                     </td>
-                    <td className="py-3.5 px-4 text-center">
+                    <td className="py-4 px-5 text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           onClick={() => handleEditClick(ord)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-colors cursor-pointer"
                           title="Edit Label Entry"
                         >
                           <Edit3 size={15} />
@@ -863,7 +953,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                               onDeleteOrder(ord._id);
                             }
                           }}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer"
                           title="Delete Label Entry"
                         >
                           <Trash2 size={15} />
@@ -879,40 +969,53 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       </div>
 
       {/* =========================================================
-          E-KART MULTI-PAGE PDF & SINGLE IMAGE SCANNER MODAL
+          RECREATED EDIT & ENTRY POPUP MODAL - RICH DESIGN
          ========================================================= */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-md overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
             
-            {/* Modal Header */}
-            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black text-xs flex items-center justify-center shadow uppercase">
-                  STD
+            {/* Modal Premium Header */}
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-950 via-blue-950 to-slate-900 text-white relative">
+              <div className="flex items-center gap-3.5 z-10">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs flex flex-col items-center justify-center shadow-lg uppercase tracking-tighter border border-white/20">
+                  <span>E-KART</span>
+                  <span className="text-[8px] text-amber-300">STD</span>
                 </div>
                 <div>
-                  <h3 className="text-base font-black tracking-tight">
-                    {editingId ? 'Edit E-Kart Shipping Entry' : 'Multi-Page PDF & Image Auto-Fill Scanner'}
+                  <h3 className="text-base font-black tracking-tight text-white flex items-center gap-2">
+                    <span>{editingId ? 'Edit E-Kart Shipping Entry' : 'E-Kart Shipping Label PDF Scanner'}</span>
+                    <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-[9px] font-extrabold rounded-md uppercase border border-blue-400/30">
+                      100% Auto-Fill
+                    </span>
                   </h3>
-                  <p className="text-[11px] text-slate-300">
-                    Upload single or multi-page PDF files to automatically scan and save all unique orders.
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    Upload single or multi-page E-Kart PDF files to auto-detect and populate all shipping fields.
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsFormOpen(false)}
-                className="p-2 text-white/80 hover:text-white rounded-xl cursor-pointer"
+                className="p-2.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-2xl transition-all cursor-pointer z-10"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+            {/* Modal Scrollable Body */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-50/50 dark:bg-slate-950/30">
 
-              {/* 1. PDF / Image Multi-Page Upload Banner */}
-              <div className="p-4 bg-blue-500/5 dark:bg-blue-950/20 border border-dashed border-blue-500/30 rounded-2xl relative">
+              {/* 1. Drag & Drop File Upload Banner */}
+              <div 
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`p-5 rounded-3xl border-2 border-dashed transition-all duration-300 relative overflow-hidden ${
+                  isDragging
+                    ? 'border-blue-500 bg-blue-500/10 scale-[1.01]'
+                    : 'border-blue-500/30 hover:border-blue-500/50 bg-gradient-to-br from-blue-500/5 via-indigo-500/5 to-transparent'
+                }`}
+              >
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -921,35 +1024,35 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                   className="hidden"
                 />
 
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-5">
+                  <div className="flex items-center gap-4">
                     {receiptImage ? (
-                      <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-blue-500/30 shrink-0 bg-white">
+                      <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-blue-500/40 shrink-0 bg-white shadow-md group">
                         <img src={receiptImage} alt="Label Rendered Preview" className="w-full h-full object-contain" />
                         <button
                           type="button"
                           onClick={() => setReceiptImage('')}
-                          className="absolute top-1 right-1 p-0.5 bg-rose-600 text-white rounded-full shadow"
+                          className="absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full shadow hover:scale-110 transition-transform cursor-pointer"
                           title="Remove File"
                         >
-                          <X size={10} />
+                          <X size={12} />
                         </button>
                       </div>
                     ) : (
-                      <div className="w-14 h-14 rounded-2xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                        <Upload size={24} />
+                      <div className="w-16 h-16 rounded-3xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20 shadow-inner">
+                        <Upload size={28} />
                       </div>
                     )}
 
                     <div>
-                      <div className="flex items-center gap-1.5">
-                        <h4 className="text-xs font-black text-slate-900 dark:text-white">Upload Multi-Page PDF or Image File</h4>
-                        <span className="px-2 py-0.5 bg-blue-600 text-white text-[9px] font-bold rounded-md flex items-center gap-1">
-                          <Layers size={10} /> Multi-Order Scanner
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-black text-slate-900 dark:text-white">Drag & Drop PDF or Image File Here</h4>
+                        <span className="px-2 py-0.5 bg-blue-600 text-white text-[9px] font-extrabold rounded-md flex items-center gap-1 shadow-sm">
+                          <Sparkles size={10} /> Auto-Scan
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Scans all pages in multi-page PDFs. Deduplicates every order to ensure 100% unique entries.
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                        Supports E-Kart PDF files (`.pdf`) and label screenshots (`.png`, `.jpg`, `.webp`) on Mobile & Desktop.
                       </p>
                     </div>
                   </div>
@@ -958,30 +1061,46 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isScanning}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-md transition-all cursor-pointer shrink-0"
+                    className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center gap-2 shadow-lg shadow-blue-600/25 transition-all cursor-pointer shrink-0 border border-blue-400/30"
                   >
                     {isScanning ? (
                       <>
-                        <RefreshCw size={14} className="animate-spin" />
-                        <span>{scanStatusMessage || 'Scanning PDF Pages...'}</span>
+                        <RefreshCw size={15} className="animate-spin text-amber-300" />
+                        <span>{scanStatusMessage || 'Scanning File...'}</span>
                       </>
                     ) : (
                       <>
-                        <Upload size={14} />
-                        <span>{receiptImage ? 'Change Multi-Page PDF' : 'Upload PDF File'}</span>
+                        <Upload size={15} />
+                        <span>{receiptImage ? 'Change File' : 'Browse PDF / Image'}</span>
                       </>
                     )}
                   </button>
                 </div>
 
+                {/* Progress Bar during Scanning */}
+                {isScanning && (
+                  <div className="mt-4 space-y-1.5">
+                    <div className="flex items-center justify-between text-[10.5px] font-bold text-blue-600 dark:text-blue-400">
+                      <span>{scanStatusMessage}</span>
+                      <span>{scanProgress}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300 rounded-full"
+                        style={{ width: `${scanProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Batch Multi-Page Summary Banner */}
                 {batchSummary && (
-                  <div className="mt-3 pt-3 border-t border-blue-500/20 flex items-center justify-between gap-2 text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400">
+                  <div className="mt-4 pt-3 border-t border-blue-500/20 flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
                     <div className="flex items-center gap-1.5">
-                      <CheckCircle2 size={16} />
-                      <span>Scanned {batchSummary.totalPages} PDF Pages: Successfully Auto-Filled & Saved {batchSummary.uniqueOrdersCount} Unique Orders!</span>
+                      <CheckCircle2 size={17} />
+                      <span>Multi-Page PDF Scanned: Saved {batchSummary.uniqueOrdersCount} Unique Orders from {batchSummary.totalPages} Pages!</span>
                     </div>
-                    <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-md text-[9.5px]">
+                    <span className="px-2.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full text-[9.5px] uppercase font-black tracking-wider">
                       Zero Duplicates
                     </span>
                   </div>
@@ -989,287 +1108,322 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
 
                 {/* Single Page Auto-Detect Badge */}
                 {!batchSummary && Object.keys(autoDetectedFields).length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-blue-500/20 flex items-center gap-2 text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 size={15} />
-                    <span>100% Auto-Filled ({Object.keys(autoDetectedFields).length} Fields): {Object.keys(autoDetectedFields).join(', ')}</span>
+                  <div className="mt-4 pt-3 border-t border-blue-500/20 flex items-center gap-2 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 size={16} />
+                    <span>100% Scanned & Auto-Filled ({Object.keys(autoDetectedFields).length} Fields Detected)</span>
                   </div>
                 )}
               </div>
 
-              {/* 2. E-Kart Form matching Shipping Label PDF */}
-              <form id="orderForm" onSubmit={handleSubmit} className="space-y-4">
+              {/* 2. Form Card Sections */}
+              <form id="orderForm" onSubmit={handleSubmit} className="space-y-5">
                 
-                {/* Header Block: Order ID, AWB, Payment Type, Logistics */}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-                  {/* Order ID */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Order ID (OD...)</span>
-                      {autoDetectedFields.orderNumber && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={orderNumber}
-                      onChange={(e) => setOrderNumber(e.target.value)}
-                      placeholder="OD338181136273805100"
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-blue-600 dark:text-blue-400"
-                    />
+                {/* SECTION 1: Shipping Header Info */}
+                <div className="glass-panel p-4 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-800">
+                    <Barcode size={16} className="text-blue-500" />
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">1. Shipping Header & Identifier</h4>
                   </div>
 
-                  {/* AWB No */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>AWB No.</span>
-                      {autoDetectedFields.awbNumber && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      value={awbNumber}
-                      onChange={(e) => setAwbNumber(e.target.value)}
-                      placeholder="FMPP4174433835"
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-slate-200"
-                    />
-                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    {/* Order ID */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                        <span>Order ID (OD...)</span>
+                        {autoDetectedFields.orderNumber && (
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">(Auto)</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={orderNumber}
+                        onChange={(e) => setOrderNumber(e.target.value)}
+                        placeholder="OD338181136273805100"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-mono font-bold text-blue-600 dark:text-blue-400 focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
 
-                  {/* Payment Type */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Payment Type</span>
-                      {autoDetectedFields.paymentType && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
-                      )}
-                    </label>
-                    <select
-                      value={paymentType}
-                      onChange={(e) => setPaymentType(e.target.value)}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
-                    >
-                      <option value="PREPAID">PREPAID</option>
-                      <option value="COD">COD (Cash on Delivery)</option>
-                    </select>
-                  </div>
+                    {/* AWB No */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                        <span>AWB No.</span>
+                        {autoDetectedFields.awbNumber && (
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">(Auto)</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={awbNumber}
+                        onChange={(e) => setAwbNumber(e.target.value)}
+                        placeholder="FMPP4174433835"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-mono font-bold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
 
-                  {/* Logistics Carrier */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Logistics Carrier</label>
-                    <input
-                      type="text"
-                      value={logistics}
-                      onChange={(e) => setLogistics(e.target.value)}
-                      placeholder="E-Kart Logistics"
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200"
-                    />
-                  </div>
-                </div>
+                    {/* Payment Type */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                        <span>Payment Type</span>
+                        {autoDetectedFields.paymentType && (
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">(Auto)</span>
+                        )}
+                      </label>
+                      <select
+                        value={paymentType}
+                        onChange={(e) => setPaymentType(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:outline-none cursor-pointer"
+                      >
+                        <option value="PREPAID">PREPAID</option>
+                        <option value="COD">COD (Cash on Delivery)</option>
+                      </select>
+                    </div>
 
-                {/* Seller & GSTIN Block */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* Seller Name */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Sold By (Seller Name)</span>
-                      {autoDetectedFields.sellerName && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      value={sellerName}
-                      onChange={(e) => setSellerName(e.target.value)}
-                      placeholder="WELLMORA ENTERPRISE"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
-                    />
-                  </div>
-
-                  {/* GSTIN */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>GSTIN</span>
-                      {autoDetectedFields.sellerGstin && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      value={sellerGstin}
-                      onChange={(e) => setSellerGstin(e.target.value)}
-                      placeholder="24CNPPJ4144J1ZS"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-slate-200"
-                    />
-                  </div>
-
-                  {/* Seller Address */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Seller Address</label>
-                    <input
-                      type="text"
-                      value={sellerAddress}
-                      onChange={(e) => setSellerAddress(e.target.value)}
-                      placeholder="281, Manisha Society, Surat - 394107"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200"
-                    />
+                    {/* Logistics Carrier */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Logistics Carrier</label>
+                      <input
+                        type="text"
+                        value={logistics}
+                        onChange={(e) => setLogistics(e.target.value)}
+                        placeholder="E-Kart Logistics"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Customer & Address Block */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* Customer Name */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Customer / Buyer Name</span>
-                      {autoDetectedFields.customerName && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Ranjeet"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
-                    />
+                {/* SECTION 2: Seller & Tax Info */}
+                <div className="glass-panel p-4 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-800">
+                    <Building size={16} className="text-indigo-500" />
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">2. Seller & Tax Information</h4>
                   </div>
 
-                  {/* Pincode */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Destination Pincode</span>
-                      {autoDetectedFields.pincode && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      value={pincode}
-                      onChange={(e) => setPincode(e.target.value)}
-                      placeholder="226020"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white"
-                    />
-                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Seller Name */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                        <span>Sold By (Seller Name)</span>
+                        {autoDetectedFields.sellerName && (
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">(Auto)</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={sellerName}
+                        onChange={(e) => setSellerName(e.target.value)}
+                        placeholder="WELLMORA ENTERPRISE"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
 
-                  {/* Full Shipping Address */}
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Shipping Address</span>
-                      {autoDetectedFields.shippingAddress && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      value={shippingAddress}
-                      onChange={(e) => setShippingAddress(e.target.value)}
-                      placeholder="538k 218 sripuram, Triveni nagar, Lucknow - 226020"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200"
-                    />
-                  </div>
-                </div>
+                    {/* GSTIN */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                        <span>GSTIN</span>
+                        {autoDetectedFields.sellerGstin && (
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">(Auto)</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={sellerGstin}
+                        onChange={(e) => setSellerGstin(e.target.value)}
+                        placeholder="24CNPPJ4144J1ZS"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-mono font-bold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
 
-                {/* SKU ID, Item Description & QTY */}
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-                  <div className="sm:col-span-4">
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>SKU ID</span>
-                      {autoDetectedFields.skuId && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      value={skuId}
-                      onChange={(e) => setSkuId(e.target.value)}
-                      placeholder="WE-SEALANT-126"
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-6">
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                      <span>Product Description</span>
-                      {autoDetectedFields.itemDescription && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold">(Auto)</span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      value={itemDescription}
-                      onChange={(e) => setItemDescription(e.target.value)}
-                      placeholder="ZEBREOLINE Waterproof Silicone Sealant"
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">QTY</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={quantity}
-                      onChange={(e) => setQuantity(e.target.value)}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-center text-slate-900 dark:text-white"
-                    />
+                    {/* Seller Address */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Seller Address</label>
+                      <input
+                        type="text"
+                        value={sellerAddress}
+                        onChange={(e) => setSellerAddress(e.target.value)}
+                        placeholder="281, Manisha Society, Surat - 394107"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-medium text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Handover Date (HBD), CPD Date & Printed Date */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Handover Date (HBD)</label>
-                    <input
-                      type="text"
-                      value={hbdDate}
-                      onChange={(e) => setHbdDate(e.target.value)}
-                      placeholder="31 - 07"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200"
-                    />
+                {/* SECTION 3: Customer & Shipping Destination */}
+                <div className="glass-panel p-4 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-800">
+                    <User size={16} className="text-emerald-500" />
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">3. Customer & Delivery Address</h4>
                   </div>
 
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Cut-off Delivery Date (CPD)</label>
-                    <input
-                      type="text"
-                      value={cpdDate}
-                      onChange={(e) => setCpdDate(e.target.value)}
-                      placeholder="05 - 08"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Customer Name */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                        <span>Customer / Buyer Name</span>
+                        {autoDetectedFields.customerName && (
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">(Auto)</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="Ranjeet"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Pincode */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                        <span>Destination Pincode</span>
+                        {autoDetectedFields.pincode && (
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">(Auto)</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={pincode}
+                        onChange={(e) => setPincode(e.target.value)}
+                        placeholder="226020"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Full Shipping Address */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                        <span>Full Shipping Address</span>
+                        {autoDetectedFields.shippingAddress && (
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">(Auto)</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={shippingAddress}
+                        onChange={(e) => setShippingAddress(e.target.value)}
+                        placeholder="538k 218 sripuram, Triveni nagar, Lucknow - 226020"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-medium text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION 4: SKU ID, Item Description & QTY */}
+                <div className="glass-panel p-4 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-800">
+                    <Tag size={16} className="text-amber-500" />
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">4. Itemized SKU & Product Details</h4>
                   </div>
 
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Printed Date / Time</label>
-                    <input
-                      type="text"
-                      value={printedDate}
-                      onChange={(e) => setPrintedDate(e.target.value)}
-                      placeholder="29/07/26"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
+                    <div className="sm:col-span-4">
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                        <span>SKU ID</span>
+                        {autoDetectedFields.skuId && (
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">(Auto)</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={skuId}
+                        onChange={(e) => setSkuId(e.target.value)}
+                        placeholder="WE-SEALANT-126"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-6">
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                        <span>Product Description</span>
+                        {autoDetectedFields.itemDescription && (
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">(Auto)</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={itemDescription}
+                        onChange={(e) => setItemDescription(e.target.value)}
+                        placeholder="ZEBREOLINE Waterproof Silicone Sealant"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">QTY</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={quantity}
+                        onChange={(e) => setQuantity(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold text-center text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION 5: Handover Date (HBD), CPD Date & Printed Date */}
+                <div className="glass-panel p-4 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-200/80 dark:border-slate-800">
+                    <Calendar size={16} className="text-sky-500" />
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">5. Handover, Cut-off & Print Dates</h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Handover Date (HBD)</label>
+                      <input
+                        type="text"
+                        value={hbdDate}
+                        onChange={(e) => setHbdDate(e.target.value)}
+                        placeholder="31 - 07"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Cut-off Delivery Date (CPD)</label>
+                      <input
+                        type="text"
+                        value={cpdDate}
+                        onChange={(e) => setCpdDate(e.target.value)}
+                        placeholder="05 - 08"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Printed Date / Time</label>
+                      <input
+                        type="text"
+                        value={printedDate}
+                        onChange={(e) => setPrintedDate(e.target.value)}
+                        placeholder="29/07/26"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
 
               </form>
             </div>
 
-            {/* Modal Footer */}
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 flex items-center justify-end gap-2.5">
+            {/* Modal Sticky Footer */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-950/80 flex items-center justify-end gap-3 backdrop-blur-md">
               <button
                 type="button"
                 onClick={() => setIsFormOpen(false)}
-                className="px-4 py-2 bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl cursor-pointer"
+                className="px-5 py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 form="orderForm"
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-2xl shadow-xl shadow-blue-600/30 transition-all cursor-pointer flex items-center gap-2 border border-blue-400/30"
               >
-                <Check size={15} />
+                <Check size={16} />
                 <span>{editingId ? 'Update Shipping Entry' : 'Save Unique Entry'}</span>
               </button>
             </div>
@@ -1282,21 +1436,22 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
           LABEL PDF / SCREENSHOT PREVIEW MODAL
          ========================================================= */}
       {previewImageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
-          <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl max-h-[85vh] p-4 shadow-2xl flex flex-col items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl max-h-[85vh] p-5 shadow-2xl flex flex-col items-center animate-slide-up">
             <button
               onClick={() => setPreviewImageModal(null)}
-              className="absolute top-3 right-3 p-2 bg-slate-900/80 text-white rounded-full hover:bg-slate-800 cursor-pointer"
+              className="absolute top-4 right-4 p-2 bg-slate-900/80 text-white rounded-full hover:bg-slate-800 cursor-pointer shadow"
             >
               <X size={16} />
             </button>
-            <h4 className="text-xs font-black uppercase text-blue-400 mb-3 tracking-wider flex items-center gap-1.5">
+            <h4 className="text-xs font-black uppercase text-blue-500 mb-3 tracking-wider flex items-center gap-1.5">
+              <Eye size={14} />
               <span>Original E-Kart Shipping Label PDF Proof</span>
             </h4>
             <img 
               src={previewImageModal} 
               alt="E-Kart Label Screenshot Preview" 
-              className="max-h-[70vh] object-contain rounded-xl border border-slate-200 dark:border-slate-800" 
+              className="max-h-[70vh] object-contain rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md" 
             />
           </div>
         </div>
