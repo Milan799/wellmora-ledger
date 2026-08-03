@@ -17,6 +17,7 @@ import PartnerForm from './components/PartnerForm';
 import FinancialSummary from './components/FinancialSummary';
 import CentralDashboard from './components/CentralDashboard';
 import CustomReportBuilder from './components/CustomReportBuilder';
+import OrderEntry from './components/OrderEntry';
 
 import DeleteConfirmation from './components/DeleteConfirmation';
 import Notification from './components/Notification';
@@ -202,6 +203,19 @@ export default function App() {
   const [loadingPartner, setLoadingPartner] = useState(false);
   const [errorPartner, setErrorPartner] = useState(null);
 
+  // 4. Orders State
+  const [orders, setOrders] = useState(() => {
+    if (!localStorage.getItem('authUser')) return [];
+    try {
+      const cached = localStorage.getItem('cached_orders');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [errorOrders, setErrorOrders] = useState(null);
+
   // General Search / Filter for main ledger
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
@@ -234,10 +248,12 @@ export default function App() {
       fetchTransactions();
       fetchBankTransactions();
       fetchPartnerTransactions();
+      fetchOrders();
     } else {
       setTransactions([]);
       setBankTransactions([]);
       setPartnerTransactions([]);
+      setOrders([]);
       setIsAuthModalOpen(true);
     }
   }, [authUser, authToken]);
@@ -709,6 +725,108 @@ export default function App() {
   };
 
   // ==========================================
+  // API Operations: Order Entries
+  // ==========================================
+  const fetchOrders = async () => {
+    if (!localStorage.getItem('cached_orders')) {
+      setLoadingOrders(true);
+    }
+    setErrorOrders(null);
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/orders`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await safeJsonFetch(response);
+      if (data) {
+        setOrders(data);
+        localStorage.setItem('cached_orders', JSON.stringify(data));
+      }
+    } catch (err) {
+      console.warn("Failed to fetch orders:", err);
+      setErrorOrders(err.message);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const handleSaveOrder = async (orderData) => {
+    const isEdit = !!orderData._id;
+    if (isEdit) {
+      setOrders(prev => {
+        const updatedList = prev.map(o => o._id === orderData._id ? orderData : o);
+        localStorage.setItem('cached_orders', JSON.stringify(updatedList));
+        return updatedList;
+      });
+      try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/orders/${orderData._id}`, {
+          method: 'PUT',
+          body: JSON.stringify(orderData)
+        });
+        if (response.ok) {
+          const updated = await safeJsonFetch(response);
+          if (updated) {
+            setOrders(prev => {
+              const updatedList = prev.map(o => o._id === updated._id ? updated : o);
+              localStorage.setItem('cached_orders', JSON.stringify(updatedList));
+              return updatedList;
+            });
+          }
+          triggerNotification("Order entry updated successfully!", "success");
+        }
+      } catch (err) {
+        console.error("Failed to update order:", err);
+        triggerNotification("Order entry saved locally (Offline)", "info");
+      }
+    } else {
+      const tempId = `local_${Date.now()}`;
+      const tempItem = { ...orderData, _id: tempId };
+      setOrders(prev => {
+        const updatedList = [tempItem, ...prev];
+        localStorage.setItem('cached_orders', JSON.stringify(updatedList));
+        return updatedList;
+      });
+
+      try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/orders`, {
+          method: 'POST',
+          body: JSON.stringify(orderData)
+        });
+        if (response.ok) {
+          const saved = await safeJsonFetch(response);
+          if (saved) {
+            setOrders(prev => {
+              const updatedList = prev.map(o => o._id === tempId ? saved : o);
+              localStorage.setItem('cached_orders', JSON.stringify(updatedList));
+              return updatedList;
+            });
+          }
+          triggerNotification("Order entry saved successfully!", "success");
+        }
+      } catch (err) {
+        console.error("Failed to save order:", err);
+        triggerNotification("Order entry saved locally (Offline)", "info");
+      }
+    }
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    setOrders(prev => {
+      const updatedList = prev.filter(o => o._id !== orderId);
+      localStorage.setItem('cached_orders', JSON.stringify(updatedList));
+      return updatedList;
+    });
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/orders/${orderId}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        triggerNotification("Order entry deleted successfully!", "info");
+      }
+    } catch (err) {
+      console.error("Failed to delete order:", err);
+    }
+  };
+
+  // ==========================================
   // Global Delete Handlers
   // ==========================================
   const handleDeleteTrigger = (transaction, type) => {
@@ -1046,7 +1164,20 @@ export default function App() {
               </div>
             )}
 
-            {/* Render PAGE 2: BANK */}
+            {/* Render PAGE 2: ORDERS */}
+            {activePage === 'orders' && (
+              <div className="animate-slide-up">
+                <OrderEntry
+                  orders={orders}
+                  loading={loadingOrders}
+                  onRefresh={fetchOrders}
+                  onSaveOrder={handleSaveOrder}
+                  onDeleteOrder={handleDeleteOrder}
+                />
+              </div>
+            )}
+
+            {/* Render PAGE 3: BANK */}
             {activePage === 'bank' && (
               <div className="animate-slide-up">
                 <BankLedger

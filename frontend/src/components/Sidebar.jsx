@@ -13,7 +13,8 @@ import {
   BarChart2, 
   Menu,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  ShoppingBag
 } from 'lucide-react';
 import Logo from './Logo';
 
@@ -31,6 +32,7 @@ export default function Sidebar({
   const menuItems = [
     { id: 'central', label: 'Main Dashboard', shortLabel: 'Dashboard', icon: LayoutDashboard, color: 'text-violet-500 bg-violet-500/10' },
     { id: 'ledger', label: 'Expenses & Cash', shortLabel: 'Expenses', icon: BookOpen, color: 'text-emerald-500 bg-emerald-500/10' },
+    { id: 'orders', label: 'Order Entries & OCR', shortLabel: 'Orders', icon: ShoppingBag, color: 'text-fuchsia-500 bg-fuchsia-500/10' },
     { id: 'bank', label: 'Bank Accounts', shortLabel: 'Banks', icon: Building2, color: 'text-sky-500 bg-sky-500/10' },
     { id: 'partner', label: 'Partner Investments', shortLabel: 'Partners', icon: Users2, color: 'text-indigo-500 bg-indigo-500/10' },
     { id: 'summary', label: 'Financial Overview', shortLabel: 'Overview', icon: BarChart3, color: 'text-amber-500 bg-amber-500/10' },
@@ -283,6 +285,7 @@ export default function Sidebar({
         {[
           { id: 'central', label: 'Home', icon: LayoutDashboard },
           { id: 'ledger', label: 'Expenses', icon: BookOpen },
+          { id: 'orders', label: 'Orders', icon: ShoppingBag },
           { id: 'bank', label: 'Banks', icon: Building2 },
           { id: 'partner', label: 'Partners', icon: Users2 },
           { id: 'summary', label: 'Overview', icon: BarChart3 },
