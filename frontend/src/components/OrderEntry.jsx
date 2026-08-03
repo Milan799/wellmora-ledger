@@ -28,9 +28,10 @@ import {
 import { createWorker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure pdfjs worker URL for PDF rendering
+// Configure pdfjs worker URL dynamically matching installed pdfjs-dist version
 try {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+  const ver = pdfjsLib.version || '3.11.174';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${ver}/build/pdf.worker.min.mjs`;
 } catch (e) {
   console.warn("PDF.js worker setup warning:", e);
 }
@@ -126,7 +127,25 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
   // Render PDF to High-Res PNG Canvas Data URL
   const renderPdfToCanvasDataUrl = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    // Ensure workerSrc version matches current pdfjsLib.version exactly
+    try {
+      const ver = pdfjsLib.version || '3.11.174';
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${ver}/build/pdf.worker.min.mjs`;
+    } catch (e) {
+      console.warn("PDF worker setting warning:", e);
+    }
+
+    let pdf;
+    try {
+      pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    } catch (err) {
+      console.warn("Primary PDF worker failed, retrying with unpkg worker:", err);
+      const ver = pdfjsLib.version || '3.11.174';
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${ver}/build/pdf.worker.min.mjs`;
+      pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    }
+
     const page = await pdf.getPage(1);
 
     // Extract raw text directly from PDF page if available
