@@ -34,7 +34,8 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
-  ArrowRight
+  ArrowRight,
+  AlertOctagon
 } from 'lucide-react';
 import { createWorker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -711,26 +712,26 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     <div className="space-y-5 pb-24 md:pb-12 animate-slide-up">
 
       {/* =========================================================
-          1. HERO DASHBOARD BANNER - STUNNING & RESPONSIVE
+          1. HERO DASHBOARD BANNER - MATCHING WEBSITE UI
          ========================================================= */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-blue-950 to-indigo-950 border border-slate-800/80 p-5 sm:p-6 text-white shadow-2xl">
-        <div className="absolute -right-16 -top-16 h-72 w-72 rounded-full bg-blue-600/20 blur-3xl pointer-events-none" />
-        <div className="absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-indigo-600/15 blur-3xl pointer-events-none" />
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 border border-blue-500/30 dark:border-slate-800 p-5 sm:p-6 text-white shadow-xl">
+        <div className="absolute -right-16 -top-16 h-72 w-72 rounded-full bg-white/10 dark:bg-blue-600/20 blur-3xl pointer-events-none" />
+        <div className="absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-indigo-400/20 dark:bg-indigo-600/15 blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
           <div className="flex items-start gap-3.5 sm:gap-4">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black flex items-center justify-center shadow-lg shadow-blue-600/30 shrink-0 border border-white/20">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/20 dark:bg-blue-600/30 text-white font-black flex items-center justify-center shadow-lg shrink-0 border border-white/30 backdrop-blur-md">
               <Box size={24} className="text-amber-300" />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">Order Entry</h1>
-                <span className="px-2.5 py-0.5 bg-blue-500/20 text-blue-300 font-extrabold text-[10px] sm:text-[10.5px] rounded-full uppercase tracking-wider border border-blue-400/30 flex items-center gap-1 backdrop-blur-md">
-                  <Sparkles size={11} className="text-amber-400 animate-pulse" />
+                <span className="px-2.5 py-0.5 bg-white/20 text-white font-extrabold text-[10px] sm:text-[10.5px] rounded-full uppercase tracking-wider border border-white/30 flex items-center gap-1 backdrop-blur-md">
+                  <Sparkles size={11} className="text-amber-300 animate-pulse" />
                   Real-Time Auto-Sync
                 </span>
               </div>
-              <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
+              <p className="text-xs text-blue-50 dark:text-slate-300 mt-1 max-w-xl leading-relaxed">
                 Scan multi-page PDFs or photos to auto-detect Order ID, Product Name, SKU ID, and track financial settlement margins.
               </p>
             </div>
@@ -739,14 +740,14 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
           <div className="flex items-center gap-2.5 shrink-0 pt-2 sm:pt-0">
             <button
               onClick={handleExportCSV}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs font-bold rounded-2xl flex items-center justify-center gap-2 backdrop-blur-md transition-all cursor-pointer border border-white/10 shadow-sm"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-white text-xs font-bold rounded-2xl flex items-center justify-center gap-2 backdrop-blur-md transition-all cursor-pointer border border-white/20 shadow-sm"
             >
               <Download size={15} />
               <span>Export CSV</span>
             </button>
             <button
               onClick={openNewOrderForm}
-              className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-blue-600/30 transition-all cursor-pointer border border-blue-400/30"
+              className="flex-1 sm:flex-none px-5 py-2.5 bg-white text-blue-600 hover:bg-blue-50 active:scale-95 text-xs font-black rounded-2xl flex items-center justify-center gap-2 shadow-xl transition-all cursor-pointer border border-white/40"
             >
               <Plus size={18} />
               <span>New Order</span>
@@ -756,11 +757,11 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       </div>
 
       {/* =========================================================
-          2. RESPONSIVE ANALYTICS KPI CARDS (2 COLUMNS MOBILE / 4 DESKTOP)
+          2. RESPONSIVE ANALYTICS KPI CARDS
          ========================================================= */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         {/* KPI 1: Total Orders */}
-        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-blue-500/40 transition-all duration-300 shadow-sm group">
+        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-blue-500/40 transition-all duration-300 shadow-sm group bg-white dark:bg-slate-900">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Orders</span>
             <div className="p-2 sm:p-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl group-hover:scale-110 transition-transform">
@@ -777,7 +778,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
         </div>
 
         {/* KPI 2: Bank Settlement Payout */}
-        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-sky-500/40 transition-all duration-300 shadow-sm group">
+        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-sky-500/40 transition-all duration-300 shadow-sm group bg-white dark:bg-slate-900">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Bank Payout</span>
             <div className="p-2 sm:p-2.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-xl group-hover:scale-110 transition-transform">
@@ -791,7 +792,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
         </div>
 
         {/* KPI 3: Total Expense */}
-        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-rose-500/40 transition-all duration-300 shadow-sm group">
+        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-rose-500/40 transition-all duration-300 shadow-sm group bg-white dark:bg-slate-900">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Expense</span>
             <div className="p-2 sm:p-2.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl group-hover:scale-110 transition-transform">
@@ -805,7 +806,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
         </div>
 
         {/* KPI 4: Net Profit */}
-        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-emerald-500/40 transition-all duration-300 shadow-sm group">
+        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-emerald-500/40 transition-all duration-300 shadow-sm group bg-white dark:bg-slate-900">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Net Margin</span>
             <div className={`p-2 sm:p-2.5 rounded-xl group-hover:scale-110 transition-transform ${totalNetProfitAccumulated >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'}`}>
@@ -827,7 +828,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       {/* =========================================================
           3. RESPONSIVE TOOLBAR, VIEW SWITCHER & FILTERS
          ========================================================= */}
-      <div className="glass-panel p-3.5 sm:p-4 rounded-3xl border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3.5 shadow-sm">
+      <div className="glass-panel p-3.5 sm:p-4 rounded-3xl border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3.5 shadow-sm bg-white dark:bg-slate-900">
         
         {/* Search Bar */}
         <div className="relative w-full md:w-80">
@@ -837,7 +838,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             placeholder="Search Order ID, Product, SKU ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-9 py-2.5 bg-slate-100/70 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
+            className="w-full pl-10 pr-9 py-2.5 bg-slate-100/70 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
           />
           {searchTerm && (
             <button
@@ -897,18 +898,17 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
 
       {/* =========================================================
           VIEW MODE 1: INDIVIDUAL ORDERS
-          (Desktop Table + Touch-Optimized Mobile Cards)
          ========================================================= */}
       {viewMode === 'individual' && (
         <div className="space-y-4">
           
           {loading ? (
-            <div className="glass-panel rounded-3xl p-16 text-center border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center">
+            <div className="glass-panel rounded-3xl p-16 text-center border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center bg-white dark:bg-slate-900">
               <RefreshCw size={28} className="animate-spin text-blue-500 mb-3" />
               <span className="text-xs font-semibold text-slate-500">Loading Order Entries...</span>
             </div>
           ) : filteredOrders.length === 0 ? (
-            <div className="glass-panel rounded-3xl p-12 text-center border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="glass-panel rounded-3xl p-12 text-center border border-slate-200 dark:border-slate-800 space-y-4 bg-white dark:bg-slate-900">
               <div className="w-16 h-16 rounded-3xl bg-blue-500/10 text-blue-500 flex items-center justify-center mx-auto">
                 <Barcode size={36} />
               </div>
@@ -926,14 +926,12 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             </div>
           ) : (
             <>
-              {/* ----------------------------------------------------
-                  DESKTOP DATA TABLE VIEW (hidden md:block)
-                 ---------------------------------------------------- */}
-              <div className="hidden md:block glass-panel rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+              {/* DESKTOP DATA TABLE VIEW */}
+              <div className="hidden md:block glass-panel rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm bg-white dark:bg-slate-900">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="bg-slate-50/90 dark:bg-slate-950/80 border-b border-slate-200/80 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider text-[9.5px]">
+                      <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                         <th className="py-4 px-5">Order ID & AWB</th>
                         <th className="py-4 px-5">Product & SKU ID</th>
                         <th className="py-4 px-5 text-center">QTY</th>
@@ -958,7 +956,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                         const netProfit = bSettlement - totCost;
 
                         return (
-                          <tr key={ord._id || ord.orderNumber} className="hover:bg-slate-50/70 dark:hover:bg-slate-900/50 transition-colors">
+                          <tr key={ord._id || ord.orderNumber} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                             <td className="py-4 px-5">
                               <div className="font-black text-blue-600 dark:text-blue-400 font-mono text-xs">
                                 {ord.orderNumber}
@@ -995,7 +993,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                             <td className="py-4 px-5 text-right font-mono font-bold text-rose-600 dark:text-rose-400 text-xs">
                               ₹{totCost.toLocaleString('en-IN')}
                             </td>
-                            <td className="py-4 px-5 text-right font-mono font-black text-sky-600 dark:text-sky-400 text-xs bg-sky-500/5">
+                            <td className="py-4 px-5 text-right font-mono font-black text-sky-600 dark:text-sky-400 text-xs bg-sky-500/5 dark:bg-sky-500/10">
                               ₹{bSettlement.toLocaleString('en-IN')}
                             </td>
                             
@@ -1056,9 +1054,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 </div>
               </div>
 
-              {/* ----------------------------------------------------
-                  NATIVE TOUCH-OPTIMIZED MOBILE ORDER CARDS (md:hidden)
-                 ---------------------------------------------------- */}
+              {/* NATIVE TOUCH-OPTIMIZED MOBILE ORDER CARDS */}
               <div className="md:hidden space-y-3">
                 {filteredOrders.map((ord) => {
                   const unitQty = ord.quantity || 1;
@@ -1289,39 +1285,39 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       )}
 
       {/* =========================================================
-          4. FULL PAGE ORDER ENTRY POPUP MODAL UI
+          4. ORDER ENTRY FORM POPUP MODAL (WEBSITE STANDARD THEME)
          ========================================================= */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 w-screen h-screen bg-slate-950/90 backdrop-blur-xl flex flex-col p-0 sm:p-4 overflow-hidden animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border-0 sm:border border-slate-200 dark:border-slate-800 rounded-none sm:rounded-3xl w-full h-full max-w-5xl mx-auto flex flex-col shadow-2xl overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-md animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
             
-            {/* Modal Full-Page Header */}
-            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-950 via-blue-950 to-slate-900 text-white relative shrink-0">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 dark:from-slate-950 dark:via-blue-950 dark:to-slate-900 text-white relative shrink-0">
               <div className="flex items-center gap-3 z-10">
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-lg shrink-0 border border-white/20">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white/20 dark:bg-blue-600/30 text-white font-black text-xs flex items-center justify-center shadow-lg shrink-0 border border-white/20 backdrop-blur-md">
                   <Box size={20} className="text-amber-300" />
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-2">
                     <span>{editingId ? 'Edit Order Entry' : 'Order Entry'}</span>
-                    <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-[9px] font-extrabold rounded-md uppercase border border-blue-400/30">
+                    <span className="px-2 py-0.5 bg-white/20 text-white text-[9px] font-extrabold rounded-md uppercase border border-white/30">
                       OCR Scan
                     </span>
                   </h3>
-                  <p className="text-[10.5px] sm:text-[11px] text-slate-300 mt-0.5 line-clamp-1">
+                  <p className="text-[10.5px] sm:text-[11px] text-blue-100 dark:text-slate-300 mt-0.5 line-clamp-1">
                     Auto-detect fields via OCR or manually enter financial settlement details.
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsFormOpen(false)}
-                className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-2xl transition-all cursor-pointer z-10"
+                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-2xl transition-all cursor-pointer z-10"
               >
                 <X size={20} />
               </button>
             </div>
 
-            {/* Mobile Tab Step Switcher (sm:hidden) */}
+            {/* Mobile Tab Step Switcher */}
             <div className="sm:hidden flex items-center justify-around border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 p-1.5 text-xs font-bold shrink-0">
               {[
                 { step: 1, label: '1. Specs', icon: Tag },
@@ -1354,7 +1350,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`p-4 sm:p-5 rounded-3xl border-2 border-dashed transition-all duration-300 relative overflow-hidden ${
+                className={`p-4 sm:p-5 rounded-3xl border-2 border-dashed transition-all duration-300 relative overflow-hidden bg-white dark:bg-slate-900 ${
                   isDragging
                     ? 'border-blue-500 bg-blue-500/10 scale-[1.01]'
                     : 'border-blue-500/30 hover:border-blue-500/50 bg-gradient-to-br from-blue-500/5 via-indigo-500/5 to-transparent'
@@ -1441,10 +1437,8 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
               {/* 3-BOX SETTLEMENT FORM */}
               <form id="orderForm" onSubmit={handleSubmit} className="space-y-5">
                 
-                {/* =========================================================
-                    BOX 1: ORDER & PRODUCT IDENTIFICATION
-                   ========================================================= */}
-                <div className={`${(formStep === 1 || window.innerWidth >= 640) ? 'block' : 'hidden'} glass-panel p-4 sm:p-5 rounded-3xl border border-blue-500/30 bg-blue-500/5 space-y-4`}>
+                {/* BOX 1: ORDER & PRODUCT IDENTIFICATION */}
+                <div className={`${(formStep === 1 || window.innerWidth >= 640) ? 'block' : 'hidden'} p-4 sm:p-5 rounded-3xl border border-blue-500/30 bg-blue-500/5 dark:bg-blue-950/20 space-y-4`}>
                   <div className="flex items-center justify-between pb-3 border-b border-blue-500/20">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
@@ -1560,10 +1554,8 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                   </div>
                 </div>
 
-                {/* =========================================================
-                    BOX 2: FINANCIAL SETTLEMENT COST BREAKDOWN (EXPENSES)
-                   ========================================================= */}
-                <div className={`${(formStep === 2 || window.innerWidth >= 640) ? 'block' : 'hidden'} glass-panel p-4 sm:p-5 rounded-3xl border border-rose-500/30 bg-rose-500/5 space-y-4`}>
+                {/* BOX 2: FINANCIAL SETTLEMENT COST BREAKDOWN (EXPENSES) */}
+                <div className={`${(formStep === 2 || window.innerWidth >= 640) ? 'block' : 'hidden'} p-4 sm:p-5 rounded-3xl border border-rose-500/30 bg-rose-500/5 dark:bg-rose-950/20 space-y-4`}>
                   <div className="flex items-center justify-between pb-3 border-b border-rose-500/20">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold text-xs">
@@ -1639,10 +1631,8 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                   </div>
                 </div>
 
-                {/* =========================================================
-                    BOX 3: BANK SETTLEMENT & NET PROFIT PAYOUT (INCOME)
-                   ========================================================= */}
-                <div className={`${(formStep === 3 || window.innerWidth >= 640) ? 'block' : 'hidden'} glass-panel p-4 sm:p-5 rounded-3xl border border-sky-500/30 bg-sky-500/5 space-y-4`}>
+                {/* BOX 3: BANK SETTLEMENT & NET PROFIT PAYOUT (INCOME) */}
+                <div className={`${(formStep === 3 || window.innerWidth >= 640) ? 'block' : 'hidden'} p-4 sm:p-5 rounded-3xl border border-sky-500/30 bg-sky-500/5 dark:bg-sky-950/20 space-y-4`}>
                   <div className="flex items-center justify-between pb-3 border-b border-sky-500/20">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-sky-600 text-white flex items-center justify-center font-bold text-xs">
@@ -1699,11 +1689,11 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             </div>
 
             {/* Modal Sticky Footer */}
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-950/80 flex items-center justify-between sm:justify-end gap-3 backdrop-blur-md shrink-0">
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between sm:justify-end gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsFormOpen(false)}
-                className="px-5 py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl transition-all cursor-pointer"
+                className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl transition-all cursor-pointer"
               >
                 Cancel
               </button>
@@ -1722,10 +1712,10 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       )}
 
       {/* =========================================================
-          5. BULK SKU EDIT PRICE & SETTLEMENT MODAL (RESPONSIVE)
+          5. BULK SKU EDIT PRICE & SETTLEMENT MODAL
          ========================================================= */}
       {bulkSkuModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-md animate-fade-in">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 animate-slide-up">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
               <div className="flex items-center gap-3">
@@ -1746,7 +1736,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
               </div>
               <button
                 onClick={() => setBulkSkuModal({ ...bulkSkuModal, isOpen: false })}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl"
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -1823,7 +1813,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 <button
                   type="button"
                   onClick={() => setBulkSkuModal({ ...bulkSkuModal, isOpen: false })}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1840,49 +1830,60 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       )}
 
       {/* =========================================================
-          6. FULL PAGE DELETE ORDER ENTRY CONFIRMATION MODAL UI
+          6. WEBSITE-STANDARD DELETE CONFIRMATION POPUP MODAL
          ========================================================= */}
       {deletingOrder && (
-        <div className="fixed inset-0 z-50 w-screen h-screen bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-6 animate-slide-up my-auto">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 border border-rose-500/30 shadow-md">
-                <AlertTriangle size={28} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-md animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-modal relative overflow-hidden">
+            
+            {/* Header Close button */}
+            <button 
+              onClick={() => setDeletingOrder(null)}
+              className="absolute top-4 right-4 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded-lg transition-all duration-200 cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+
+            {/* Pulsing Warning Icon */}
+            <div className="flex flex-col items-center text-center mt-1 mb-2">
+              <div className="w-12 h-12 bg-rose-500/10 dark:bg-rose-500/15 rounded-full flex items-center justify-center text-rose-600 dark:text-rose-400 mb-2.5 border border-rose-500/20 relative">
+                <span className="absolute inset-0 rounded-full bg-rose-500/10 dark:bg-rose-500/20 animate-ping"></span>
+                <AlertOctagon size={22} className="relative z-10" />
               </div>
-              <div>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">Delete Order Entry</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                  Are you sure you want to permanently delete this order entry? This action cannot be undone and will be synced across all devices.
-                </p>
-              </div>
+              <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-slate-50 tracking-tight">Delete Order Entry</h3>
+              <p className="text-slate-400 dark:text-slate-500 text-[11px] mt-1 max-w-[280px]">
+                This operation is permanent. Are you sure you want to delete this order record?
+              </p>
             </div>
 
-            <div className="p-4.5 bg-rose-500/5 dark:bg-slate-950/80 rounded-2xl border border-rose-500/20 space-y-2.5 text-xs">
+            {/* High Fidelity Order Details Panel */}
+            <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-2 text-xs relative overflow-hidden">
               <div className="flex justify-between items-center text-slate-900 dark:text-white font-mono">
-                <span className="text-[11px] font-sans font-bold text-slate-500">Order ID:</span>
-                <span className="font-black text-blue-600 dark:text-blue-400 text-sm">{deletingOrder.orderNumber}</span>
+                <span className="text-[10px] font-sans font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Order ID</span>
+                <span className="font-black text-blue-600 dark:text-blue-400">{deletingOrder.orderNumber}</span>
               </div>
               <div className="flex justify-between items-center text-slate-700 dark:text-slate-300">
-                <span className="text-[11px] font-sans font-bold text-slate-500">Product Name:</span>
-                <span className="font-bold truncate max-w-[220px] text-right">{deletingOrder.productName || 'Standard Item'}</span>
+                <span className="text-[10px] font-sans font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Product Name</span>
+                <span className="font-bold truncate max-w-[200px] text-right">{deletingOrder.productName || 'Standard Item'}</span>
               </div>
               {deletingOrder.skuId && (
                 <div className="flex justify-between items-center text-slate-700 dark:text-slate-300">
-                  <span className="text-[11px] font-sans font-bold text-slate-500">SKU Variant:</span>
+                  <span className="text-[10px] font-sans font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">SKU Variant</span>
                   <span className="font-mono font-bold text-indigo-500">{deletingOrder.skuId}</span>
                 </div>
               )}
-              <div className="flex justify-between items-center text-slate-700 dark:text-slate-300 pt-1 border-t border-rose-500/10">
-                <span className="text-[11px] font-sans font-bold text-slate-500">Bank Settlement:</span>
+              <div className="flex justify-between items-center text-slate-700 dark:text-slate-300 pt-1.5 border-t border-slate-200 dark:border-slate-800">
+                <span className="text-[10px] font-sans font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Bank Settlement</span>
                 <span className="font-mono font-black text-sky-600 dark:text-sky-400">₹{(deletingOrder.bankSettlement || 0).toLocaleString('en-IN')}</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setDeletingOrder(null)}
-                className="flex-1 sm:flex-none px-5 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-2xl transition-all cursor-pointer"
+                className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition-all cursor-pointer"
               >
                 Cancel
               </button>
@@ -1892,19 +1893,20 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                   onDeleteOrder(deletingOrder._id);
                   setDeletingOrder(null);
                 }}
-                className="flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-95 text-white text-xs font-black rounded-2xl shadow-xl shadow-rose-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 border border-rose-400/30"
+                className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-lg shadow-rose-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 border border-rose-400/30"
               >
-                <Trash2 size={16} />
+                <Trash2 size={15} />
                 <span>Confirm Delete Order Entry</span>
               </button>
             </div>
+
           </div>
         </div>
       )}
 
       {/* Preview Modal */}
       {previewImageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
           <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl max-h-[85vh] p-5 shadow-2xl flex flex-col items-center animate-slide-up">
             <button
               onClick={() => setPreviewImageModal(null)}
