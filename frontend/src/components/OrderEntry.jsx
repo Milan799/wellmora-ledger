@@ -727,7 +727,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">Order Entry & 3-Box Settlement</h1>
                 <span className="px-2.5 py-0.5 bg-blue-500/20 text-blue-300 font-extrabold text-[10px] sm:text-[10.5px] rounded-full uppercase tracking-wider border border-blue-400/30 flex items-center gap-1 backdrop-blur-md">
                   <Sparkles size={11} className="text-amber-400 animate-pulse" />
-                  PDF & Image Auto-OCR
+                  Real-Time Auto-Sync
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
@@ -1021,20 +1021,22 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                               )}
                             </td>
                             <td className="py-4 px-5 text-center">
-                              <div className="flex items-center justify-center gap-1.5">
+                              <div className="flex items-center justify-center gap-2">
                                 <button
                                   onClick={() => handleEditClick(ord)}
-                                  className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-colors cursor-pointer"
+                                  className="px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-600 text-blue-600 dark:text-blue-400 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-blue-500/20 shadow-sm active:scale-95 cursor-pointer"
                                   title="Edit Order Entry"
                                 >
-                                  <Edit3 size={15} />
+                                  <Edit3 size={13} />
+                                  <span>Edit</span>
                                 </button>
                                 <button
                                   onClick={() => setDeletingOrder(ord)}
-                                  className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer"
+                                  className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-rose-500/20 shadow-sm active:scale-95 cursor-pointer"
                                   title="Delete Order Entry"
                                 >
-                                  <Trash2 size={15} />
+                                  <Trash2 size={13} />
+                                  <span>Delete</span>
                                 </button>
                               </div>
                             </td>
@@ -1081,18 +1083,21 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                           <p className="text-[10px] text-slate-400 font-mono mt-0.5">AWB: {ord.awbNumber || 'N/A'}</p>
                         </div>
 
-                        <div className="flex items-center gap-1">
+                        {/* IMPROVED PROMINENT DELETE & EDIT ACTION BUTTONS */}
+                        <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => handleEditClick(ord)}
-                            className="p-1.5 text-slate-400 hover:text-blue-600 rounded-xl cursor-pointer"
+                            className="px-2.5 py-1 bg-blue-500/10 hover:bg-blue-600 text-blue-600 dark:text-blue-400 hover:text-white rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 border border-blue-500/20 cursor-pointer"
                           >
-                            <Edit3 size={15} />
+                            <Edit3 size={12} />
+                            <span>Edit</span>
                           </button>
                           <button
                             onClick={() => setDeletingOrder(ord)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-xl cursor-pointer"
+                            className="px-2.5 py-1 bg-rose-500/10 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 border border-rose-500/20 cursor-pointer"
                           >
-                            <Trash2 size={15} />
+                            <Trash2 size={12} />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </div>
@@ -1276,10 +1281,10 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       )}
 
       {/* =========================================================
-          4. 3-BOX SETTLEMENT EDIT & ENTRY POPUP MODAL (FULLY RESPONSIVE)
+          4. RECREATED 3-BOX SETTLEMENT EDIT & ENTRY POPUP MODAL
          ========================================================= */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-fade-in">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-4xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
             
             {/* Modal Header */}
@@ -1826,32 +1831,44 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
         </div>
       )}
 
-      {/* CUSTOM DELETE CONFIRMATION MODAL */}
+      {/* =========================================================
+          6. RECREATED HIGH-VISIBILITY DELETE CONFIRMATION MODAL
+         ========================================================= */}
       {deletingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 animate-slide-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-slide-up">
             <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center shrink-0 border border-rose-500/20">
-                <AlertTriangle size={22} />
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 border border-rose-500/30 shadow-md">
+                <AlertTriangle size={24} />
               </div>
               <div>
                 <h3 className="text-base font-black text-slate-900 dark:text-white">Delete Order Entry?</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">This action cannot be undone.</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">This entry will be permanently removed from all devices.</p>
               </div>
             </div>
 
-            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-1 font-mono text-xs">
-              <div className="flex justify-between items-center text-slate-900 dark:text-white">
-                <span className="text-[11px] font-sans text-slate-400">Order ID:</span>
-                <span className="font-bold text-blue-600 dark:text-blue-400">{deletingOrder.orderNumber}</span>
+            <div className="p-4 bg-rose-500/5 dark:bg-slate-950/80 rounded-2xl border border-rose-500/20 space-y-2 text-xs">
+              <div className="flex justify-between items-center text-slate-900 dark:text-white font-mono">
+                <span className="text-[11px] font-sans font-bold text-slate-500">Order ID:</span>
+                <span className="font-black text-blue-600 dark:text-blue-400">{deletingOrder.orderNumber}</span>
               </div>
+              <div className="flex justify-between items-center text-slate-700 dark:text-slate-300">
+                <span className="text-[11px] font-sans font-bold text-slate-500">Product:</span>
+                <span className="font-bold truncate max-w-[200px]">{deletingOrder.productName || 'Standard Item'}</span>
+              </div>
+              {deletingOrder.skuId && (
+                <div className="flex justify-between items-center text-slate-700 dark:text-slate-300">
+                  <span className="text-[11px] font-sans font-bold text-slate-500">SKU Variant:</span>
+                  <span className="font-mono font-bold text-indigo-500">{deletingOrder.skuId}</span>
+                </div>
+              )}
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <button
                 type="button"
                 onClick={() => setDeletingOrder(null)}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-2xl transition-all cursor-pointer"
+                className="px-4.5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-2xl transition-all cursor-pointer"
               >
                 Cancel
               </button>
@@ -1861,10 +1878,10 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                   onDeleteOrder(deletingOrder._id);
                   setDeletingOrder(null);
                 }}
-                className="px-5 py-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-95 text-white text-xs font-black rounded-2xl shadow-lg shadow-rose-600/30 transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-95 text-white text-xs font-black rounded-2xl shadow-xl shadow-rose-600/30 transition-all cursor-pointer flex items-center gap-1.5 border border-rose-400/30"
               >
-                <Trash2 size={14} />
-                <span>Delete Entry</span>
+                <Trash2 size={15} />
+                <span>Confirm Delete</span>
               </button>
             </div>
           </div>

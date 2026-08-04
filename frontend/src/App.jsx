@@ -239,13 +239,36 @@ export default function App() {
   });
   const [loadingOrders, setLoadingOrders] = useState(false);
 
-  // Fetch all categories on mount if logged in, otherwise require auth
+  // Fetch all categories on mount & run real-time auto-sync polling
   useEffect(() => {
     if (authUser && authToken) {
       fetchTransactions();
       fetchBankTransactions();
       fetchPartnerTransactions();
       fetchOrders();
+
+      // Real-time cross-device auto-sync polling (every 12 seconds)
+      const syncInterval = setInterval(() => {
+        fetchOrders();
+        fetchTransactions();
+        fetchBankTransactions();
+        fetchPartnerTransactions();
+      }, 12000);
+
+      // Multi-tab storage sync listener
+      const handleStorageChange = (e) => {
+        if (e.key === 'cached_orders' && e.newValue) {
+          try {
+            setOrders(JSON.parse(e.newValue));
+          } catch (err) {}
+        }
+      };
+      window.addEventListener('storage', handleStorageChange);
+
+      return () => {
+        clearInterval(syncInterval);
+        window.removeEventListener('storage', handleStorageChange);
+      };
     } else {
       setTransactions([]);
       setBankTransactions([]);
@@ -759,11 +782,13 @@ export default function App() {
       if (data && Array.isArray(data)) {
         setOrders(prev => {
           const mergedMap = new Map();
+          // Server state is authoritative
           data.forEach(o => {
             if (o.orderNumber) mergedMap.set(o.orderNumber.trim(), o);
           });
+          // Retain only unsynced draft entries created locally offline
           prev.forEach(o => {
-            if (o.orderNumber && !mergedMap.has(o.orderNumber.trim())) {
+            if (o._id && String(o._id).startsWith('local_') && o.orderNumber && !mergedMap.has(o.orderNumber.trim())) {
               mergedMap.set(o.orderNumber.trim(), o);
             }
           });
