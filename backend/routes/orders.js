@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 
 const router = express.Router();
@@ -233,23 +234,31 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE an Order entry
+// DELETE an Order entry (by ObjectId or orderNumber)
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    let deletedOrder = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      deletedOrder = await Order.findByIdAndDelete(id);
-    }
-    if (!deletedOrder && id && id.trim()) {
-      deletedOrder = await Order.findOneAndDelete({ orderNumber: id.trim() });
+    const trimmedId = id ? decodeURIComponent(id).trim() : '';
+
+    if (!trimmedId) {
+      return res.status(400).json({ message: 'Order ID parameter is required' });
     }
 
-    if (!deletedOrder) {
+    const query = [];
+    if (mongoose.Types.ObjectId.isValid(trimmedId)) {
+      query.push({ _id: trimmedId });
+    }
+    query.push({ orderNumber: trimmedId });
+    const escapedStr = trimmedId.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    query.push({ orderNumber: new RegExp(`^${escapedStr}$`, 'i') });
+
+    const deletedResult = await Order.deleteMany({ $or: query });
+
+    if (deletedResult.deletedCount === 0) {
       return res.status(404).json({ message: 'Order entry not found' });
     }
 
-    res.json({ message: 'Order entry successfully deleted', id });
+    res.json({ message: 'Order entry successfully deleted', deletedCount: deletedResult.deletedCount, id: trimmedId });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting order entry', error: error.message });
   }

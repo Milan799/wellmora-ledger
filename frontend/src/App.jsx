@@ -857,16 +857,14 @@ export default function App() {
     });
 
     try {
-      const targetId = (orderId && !String(orderId).startsWith('local_')) ? orderId : orderNumber;
-      if (targetId) {
-        const response = await fetchWithTimeout(`${API_BASE_URL}/orders/${encodeURIComponent(targetId)}`, {
-          method: 'DELETE'
-        });
-        if (response.ok) {
-          triggerNotification("Order entry deleted successfully!", "info");
-          fetchOrders();
-        }
+      if (orderId && !String(orderId).startsWith('local_')) {
+        await fetchWithTimeout(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}`, { method: 'DELETE' }).catch(() => null);
       }
+      if (orderNumber && orderNumber.trim()) {
+        await fetchWithTimeout(`${API_BASE_URL}/orders/${encodeURIComponent(orderNumber.trim())}`, { method: 'DELETE' }).catch(() => null);
+      }
+      triggerNotification("Order entry deleted successfully!", "info");
+      fetchOrders();
     } catch (err) {
       console.warn("Delete order request warning:", err);
     }
