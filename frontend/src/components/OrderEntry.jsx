@@ -30,7 +30,11 @@ import {
   FileText,
   Landmark,
   Sliders,
-  DollarSign
+  DollarSign,
+  ChevronDown,
+  ChevronUp,
+  Zap,
+  ArrowRight
 } from 'lucide-react';
 import { createWorker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -51,6 +55,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
   // Modal Form State
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [formStep, setFormStep] = useState(1); // Mobile step switcher: 1, 2, 3
   
   // 3-BOX SETTLEMENT FIELDS
   // Box 1: Order & Product Identification
@@ -75,6 +80,9 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
   const [shippingAddress, setShippingAddress] = useState('');
   const [pincode, setPincode] = useState('');
   const [labelImage, setLabelImage] = useState('');
+
+  // Mobile card expand state
+  const [expandedCardId, setExpandedCardId] = useState(null);
 
   // Bulk SKU Edit Modal State
   const [bulkSkuModal, setBulkSkuModal] = useState({
@@ -120,6 +128,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     setAutoDetectedFields({});
     setBatchSummary(null);
     setScanStatusMessage('');
+    setFormStep(1);
   };
 
   const openNewOrderForm = () => {
@@ -147,6 +156,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     setAutoDetectedFields({});
     setBatchSummary(null);
     setScanStatusMessage('');
+    setFormStep(1);
     setIsFormOpen(true);
   };
 
@@ -255,7 +265,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
               orderNumber: parsedData.orderNumber,
               awbNumber: parsedData.awbNumber || `FMPP${Date.now().toString().slice(-10)}`,
               paymentType: parsedData.paymentType || 'PREPAID',
-              productName: parsedData.productName || 'Standard Item',
+              productName: parsedData.productName || 'Standard Product Item',
               skuId: parsedData.skuId || '',
               quantity: parsedData.quantity || 1,
               purchaseCost: Number(purchaseCost || 0),
@@ -698,125 +708,133 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
   };
 
   return (
-    <div className="space-y-6 pb-12 animate-slide-up">
+    <div className="space-y-5 pb-24 md:pb-12 animate-slide-up">
 
       {/* =========================================================
-          HERO DASHBOARD BANNER - 3-BOX SETTLEMENT & OCR ANALYTICS
+          1. HERO DASHBOARD BANNER - STUNNING & RESPONSIVE
          ========================================================= */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-blue-950 to-indigo-950 border border-slate-800/80 p-6 text-white shadow-2xl">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-blue-950 to-indigo-950 border border-slate-800/80 p-5 sm:p-6 text-white shadow-2xl">
         <div className="absolute -right-16 -top-16 h-72 w-72 rounded-full bg-blue-600/20 blur-3xl pointer-events-none" />
         <div className="absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-indigo-600/15 blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs flex flex-col items-center justify-center shadow-lg shadow-blue-600/30 shrink-0 uppercase tracking-tighter border border-white/20">
-              <Box size={22} className="text-amber-300" />
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+          <div className="flex items-start gap-3.5 sm:gap-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black flex items-center justify-center shadow-lg shadow-blue-600/30 shrink-0 border border-white/20">
+              <Box size={24} className="text-amber-300" />
             </div>
             <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-2xl font-black tracking-tight text-white">Order Entry & 3-Box Settlement</h1>
-                <span className="px-3 py-0.5 bg-blue-500/20 text-blue-300 font-extrabold text-[10.5px] rounded-full uppercase tracking-wider border border-blue-400/30 flex items-center gap-1.5 backdrop-blur-md">
-                  <Sparkles size={12} className="text-amber-400 animate-pulse" />
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">Order Entry & 3-Box Settlement</h1>
+                <span className="px-2.5 py-0.5 bg-blue-500/20 text-blue-300 font-extrabold text-[10px] sm:text-[10.5px] rounded-full uppercase tracking-wider border border-blue-400/30 flex items-center gap-1 backdrop-blur-md">
+                  <Sparkles size={11} className="text-amber-400 animate-pulse" />
                   PDF & Image Auto-OCR
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
-                Auto-detect Product Name & Order ID. Manage Purchase, Packaging, and Bank Settlement with real-time Net Profit tracking and Bulk SKU price editing.
+                Scan multi-page PDFs or photos to auto-detect Order ID, Product Name, SKU ID, and track 3-Box financial settlement margins.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0 pt-2 sm:pt-0">
             <button
               onClick={handleExportCSV}
-              className="px-4 py-2.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs font-bold rounded-2xl flex items-center gap-2 backdrop-blur-md transition-all cursor-pointer border border-white/10 shadow-sm"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs font-bold rounded-2xl flex items-center justify-center gap-2 backdrop-blur-md transition-all cursor-pointer border border-white/10 shadow-sm"
             >
               <Download size={15} />
-              Export CSV
+              <span>Export CSV</span>
             </button>
             <button
               onClick={openNewOrderForm}
-              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center gap-2 shadow-xl shadow-blue-600/30 transition-all cursor-pointer border border-blue-400/30"
+              className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-blue-600/30 transition-all cursor-pointer border border-blue-400/30"
             >
               <Plus size={18} />
-              <span>New Order Entry</span>
+              <span>New Order</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* =========================================================
-          ANALYTICS KPI GRID (4 COLUMNS INCLUDING BANK SETTLEMENT & PROFIT)
+          2. RESPONSIVE ANALYTICS KPI CARDS (2 COLUMNS MOBILE / 4 DESKTOP)
          ========================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Total Orders & Units */}
-        <div className="glass-panel p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between hover:border-blue-500/40 transition-all duration-300 shadow-sm group">
-          <div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+        {/* KPI 1: Total Orders */}
+        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-blue-500/40 transition-all duration-300 shadow-sm group">
+          <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Orders</span>
-            <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1 group-hover:text-blue-600 transition-colors">{totalOrdersCount}</h3>
-            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-              <Package size={12} className="text-blue-500" />
-              {totalUnitsSold} Units Dispatched
+            <div className="p-2 sm:p-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl group-hover:scale-110 transition-transform">
+              <Box size={18} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">{totalOrdersCount}</h3>
+            <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+              <Package size={11} className="text-blue-500" />
+              {totalUnitsSold} Dispatched
             </span>
           </div>
-          <div className="p-3.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-2xl group-hover:scale-110 transition-transform">
-            <Box size={22} />
+        </div>
+
+        {/* KPI 2: Bank Settlement Payout */}
+        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-sky-500/40 transition-all duration-300 shadow-sm group">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Bank Payout</span>
+            <div className="p-2 sm:p-2.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-xl group-hover:scale-110 transition-transform">
+              <Landmark size={18} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className="text-xl sm:text-2xl font-black text-sky-600 dark:text-sky-400 font-mono">₹{totalBankSettlementAccumulated.toLocaleString('en-IN')}</h3>
+            <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Bank Credited</span>
           </div>
         </div>
 
-        {/* KPI 2: Total Bank Settlement (Payout Credited) */}
-        <div className="glass-panel p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between hover:border-sky-500/40 transition-all duration-300 shadow-sm group">
-          <div>
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Bank Settlement Payout</span>
-            <h3 className="text-2xl font-black text-sky-600 dark:text-sky-400 mt-1">₹{totalBankSettlementAccumulated.toLocaleString('en-IN')}</h3>
-            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Total Net Bank Payout</span>
-          </div>
-          <div className="p-3.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-2xl group-hover:scale-110 transition-transform">
-            <Landmark size={22} />
-          </div>
-        </div>
-
-        {/* KPI 3: Total Settlement Expense */}
-        <div className="glass-panel p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between hover:border-rose-500/40 transition-all duration-300 shadow-sm group">
-          <div>
+        {/* KPI 3: Total Expense */}
+        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-rose-500/40 transition-all duration-300 shadow-sm group">
+          <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Expense</span>
-            <h3 className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">₹{totalExpenseAccumulated.toLocaleString('en-IN')}</h3>
-            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Purchase + Packaging</span>
+            <div className="p-2 sm:p-2.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl group-hover:scale-110 transition-transform">
+              <IndianRupee size={18} />
+            </div>
           </div>
-          <div className="p-3.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl group-hover:scale-110 transition-transform">
-            <IndianRupee size={22} />
+          <div className="mt-2">
+            <h3 className="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400 font-mono">₹{totalExpenseAccumulated.toLocaleString('en-IN')}</h3>
+            <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Purchase + Packaging</span>
           </div>
         </div>
 
-        {/* KPI 4: Net Profit Accumulated */}
-        <div className="glass-panel p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between hover:border-emerald-500/40 transition-all duration-300 shadow-sm group">
-          <div>
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Net Profit / Margin</span>
-            <h3 className={`text-2xl font-black mt-1 ${totalNetProfitAccumulated >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
+        {/* KPI 4: Net Profit */}
+        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-emerald-500/40 transition-all duration-300 shadow-sm group">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Net Margin</span>
+            <div className={`p-2 sm:p-2.5 rounded-xl group-hover:scale-110 transition-transform ${totalNetProfitAccumulated >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'}`}>
+              <TrendingUp size={18} />
+            </div>
+          </div>
+          <div className="mt-2">
+            <h3 className={`text-xl sm:text-2xl font-black font-mono ${totalNetProfitAccumulated >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
               ₹{totalNetProfitAccumulated.toLocaleString('en-IN')}
             </h3>
-            <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              {totalNetProfitAccumulated >= 0 ? <TrendingUp size={12} className="text-emerald-500" /> : <TrendingDown size={12} className="text-rose-500" />}
+            <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              {totalNetProfitAccumulated >= 0 ? <TrendingUp size={11} className="text-emerald-500" /> : <TrendingDown size={11} className="text-rose-500" />}
               {uniqueSkusCount} SKU Variants
             </span>
-          </div>
-          <div className={`p-3.5 rounded-2xl group-hover:scale-110 transition-transform ${totalNetProfitAccumulated >= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600'}`}>
-            <TrendingUp size={22} />
           </div>
         </div>
       </div>
 
       {/* =========================================================
-          TOOLBAR, VIEW MODES & QUICK FILTERS
+          3. RESPONSIVE TOOLBAR, VIEW SWITCHER & FILTERS
          ========================================================= */}
-      <div className="glass-panel p-4 rounded-3xl border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+      <div className="glass-panel p-3.5 sm:p-4 rounded-3xl border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3.5 shadow-sm">
         
-        {/* Search Input */}
+        {/* Search Bar */}
         <div className="relative w-full md:w-80">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search Order ID, Product Name, SKU ID..."
+            placeholder="Search Order ID, Product, SKU ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-9 py-2.5 bg-slate-100/70 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
@@ -831,12 +849,12 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-          {/* View Mode Switch (Individual Orders vs SKU Grouped) */}
-          <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
+          {/* View Mode Switcher */}
+          <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 w-full sm:w-auto justify-center">
             <button
               onClick={() => setViewMode('individual')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 viewMode === 'individual'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
@@ -846,14 +864,14 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             </button>
             <button
               onClick={() => setViewMode('sku_grouped')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 viewMode === 'sku_grouped'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               <Layers size={13} />
-              <span>SKU ID Grouping & Bulk Edit</span>
+              <span>SKU Grouping</span>
             </button>
           </div>
 
@@ -878,23 +896,25 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       </div>
 
       {/* =========================================================
-          VIEW MODE 1: INDIVIDUAL ORDERS TABLE
+          VIEW MODE 1: INDIVIDUAL ORDERS
+          (Desktop Table + Touch-Optimized Mobile Cards)
          ========================================================= */}
       {viewMode === 'individual' && (
-        <div className="glass-panel rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+        <div className="space-y-4">
+          
           {loading ? (
-            <div className="py-16 flex flex-col items-center justify-center text-center text-slate-400 space-y-3">
-              <RefreshCw size={28} className="animate-spin text-blue-500" />
-              <span className="text-xs font-semibold">Loading Order Entries...</span>
+            <div className="glass-panel rounded-3xl p-16 text-center border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center">
+              <RefreshCw size={28} className="animate-spin text-blue-500 mb-3" />
+              <span className="text-xs font-semibold text-slate-500">Loading Order Entries...</span>
             </div>
           ) : filteredOrders.length === 0 ? (
-            <div className="py-20 text-center text-slate-400 dark:text-slate-500 space-y-4">
+            <div className="glass-panel rounded-3xl p-12 text-center border border-slate-200 dark:border-slate-800 space-y-4">
               <div className="w-16 h-16 rounded-3xl bg-blue-500/10 text-blue-500 flex items-center justify-center mx-auto">
                 <Barcode size={36} />
               </div>
               <div>
                 <p className="text-base font-black text-slate-800 dark:text-slate-200">No Orders Found</p>
-                <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">Upload a PDF or label photo to auto-fill Order ID, Product Name, SKU ID, and 3-Box costs.</p>
+                <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">Upload a PDF or shipping label photo to auto-fill Order ID, Product Name, SKU ID, and costs.</p>
               </div>
               <button
                 onClick={openNewOrderForm}
@@ -905,121 +925,260 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
               </button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-50/90 dark:bg-slate-950/80 border-b border-slate-200/80 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider text-[9.5px]">
-                    <th className="py-4 px-5">Order ID & AWB</th>
-                    <th className="py-4 px-5">Product & SKU ID</th>
-                    <th className="py-4 px-5 text-center">QTY</th>
-                    <th className="py-4 px-5">Payment</th>
-                    <th className="py-4 px-5 text-right">Purchase Cost</th>
-                    <th className="py-4 px-5 text-right">Packaging Cost</th>
-                    <th className="py-4 px-5 text-right">Total Expense (₹)</th>
-                    <th className="py-4 px-5 text-right">Bank Settlement (₹)</th>
-                    <th className="py-4 px-5 text-right">Net Profit / Loss</th>
-                    <th className="py-4 px-5 text-center">Proof</th>
-                    <th className="py-4 px-5 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium text-slate-750 dark:text-slate-300">
-                  {filteredOrders.map((ord) => {
-                    const unitQty = ord.quantity || 1;
-                    const pCost = ord.purchaseCost || 0;
-                    const pkgCost = ord.packagingCost || 0;
-                    const oCost = ord.otherCost || 0;
-                    const totCost = ord.totalCost || ((pCost + pkgCost + oCost) * unitQty);
-                    const bSettlement = ord.bankSettlement || 0;
-                    const netProfit = bSettlement - totCost;
-
-                    return (
-                      <tr key={ord._id || ord.orderNumber} className="hover:bg-slate-50/70 dark:hover:bg-slate-900/50 transition-colors">
-                        <td className="py-4 px-5">
-                          <div className="font-black text-blue-600 dark:text-blue-400 font-mono text-xs">
-                            {ord.orderNumber}
-                          </div>
-                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">AWB: {ord.awbNumber || 'N/A'}</div>
-                        </td>
-                        <td className="py-4 px-5 max-w-[220px]">
-                          <div className="font-bold text-slate-900 dark:text-white truncate" title={ord.productName || ord.itemDescription}>
-                            {ord.productName || ord.itemDescription || 'Standard Product Item'}
-                          </div>
-                          <div className="text-[10px] font-mono text-indigo-500 font-bold mt-0.5 flex items-center gap-1">
-                            <Tag size={11} />
-                            <span>{ord.skuId || 'N/A'}</span>
-                          </div>
-                        </td>
-                        <td className="py-4 px-5 text-center font-bold text-slate-900 dark:text-white">
-                          {unitQty}
-                        </td>
-                        <td className="py-4 px-5">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase border ${
-                            ord.paymentType === 'PREPAID'
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                          }`}>
-                            {ord.paymentType}
-                          </span>
-                        </td>
-                        <td className="py-4 px-5 text-right font-mono font-bold text-slate-800 dark:text-slate-200">
-                          ₹{pCost.toLocaleString('en-IN')}
-                        </td>
-                        <td className="py-4 px-5 text-right font-mono text-slate-600 dark:text-slate-400">
-                          ₹{pkgCost.toLocaleString('en-IN')}
-                        </td>
-                        <td className="py-4 px-5 text-right font-mono font-bold text-rose-600 dark:text-rose-400 text-xs">
-                          ₹{totCost.toLocaleString('en-IN')}
-                        </td>
-                        <td className="py-4 px-5 text-right font-mono font-black text-sky-600 dark:text-sky-400 text-xs bg-sky-500/5">
-                          ₹{bSettlement.toLocaleString('en-IN')}
-                        </td>
-                        <td className="py-4 px-5 text-right font-mono font-black text-xs">
-                          <span className={`px-2 py-0.5 rounded-md ${
-                            netProfit >= 0
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                          }`}>
-                            {netProfit >= 0 ? `+₹${netProfit.toLocaleString('en-IN')}` : `-₹${Math.abs(netProfit).toLocaleString('en-IN')}`}
-                          </span>
-                        </td>
-                        <td className="py-4 px-5 text-center">
-                          {(ord.labelImage || ord.receiptImage) ? (
-                            <button
-                              onClick={() => setPreviewImageModal(ord.labelImage || ord.receiptImage)}
-                              className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer"
-                              title="View Shipping Label Proof"
-                            >
-                              <Eye size={15} />
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-slate-400 italic">No File</span>
-                          )}
-                        </td>
-                        <td className="py-4 px-5 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              onClick={() => handleEditClick(ord)}
-                              className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-colors cursor-pointer"
-                              title="Edit Order Entry"
-                            >
-                              <Edit3 size={15} />
-                            </button>
-                            <button
-                              onClick={() => setDeletingOrder(ord)}
-                              className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer"
-                              title="Delete Order Entry"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
-                        </td>
+            <>
+              {/* ----------------------------------------------------
+                  DESKTOP DATA TABLE VIEW (hidden md:block)
+                 ---------------------------------------------------- */}
+              <div className="hidden md:block glass-panel rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50/90 dark:bg-slate-950/80 border-b border-slate-200/80 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider text-[9.5px]">
+                        <th className="py-4 px-5">Order ID & AWB</th>
+                        <th className="py-4 px-5">Product & SKU ID</th>
+                        <th className="py-4 px-5 text-center">QTY</th>
+                        <th className="py-4 px-5">Payment</th>
+                        <th className="py-4 px-5 text-right">Purchase Cost</th>
+                        <th className="py-4 px-5 text-right">Packaging Cost</th>
+                        <th className="py-4 px-5 text-right">Total Expense (₹)</th>
+                        <th className="py-4 px-5 text-right">Bank Settlement (₹)</th>
+                        <th className="py-4 px-5 text-right">Net Profit / Loss</th>
+                        <th className="py-4 px-5 text-center">Proof</th>
+                        <th className="py-4 px-5 text-center">Actions</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium text-slate-750 dark:text-slate-300">
+                      {filteredOrders.map((ord) => {
+                        const unitQty = ord.quantity || 1;
+                        const pCost = ord.purchaseCost || 0;
+                        const pkgCost = ord.packagingCost || 0;
+                        const oCost = ord.otherCost || 0;
+                        const totCost = ord.totalCost || ((pCost + pkgCost + oCost) * unitQty);
+                        const bSettlement = ord.bankSettlement || 0;
+                        const netProfit = bSettlement - totCost;
+
+                        return (
+                          <tr key={ord._id || ord.orderNumber} className="hover:bg-slate-50/70 dark:hover:bg-slate-900/50 transition-colors">
+                            <td className="py-4 px-5">
+                              <div className="font-black text-blue-600 dark:text-blue-400 font-mono text-xs">
+                                {ord.orderNumber}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono mt-0.5">AWB: {ord.awbNumber || 'N/A'}</div>
+                            </td>
+                            <td className="py-4 px-5 max-w-[220px]">
+                              <div className="font-bold text-slate-900 dark:text-white truncate" title={ord.productName || ord.itemDescription}>
+                                {ord.productName || ord.itemDescription || 'Standard Product Item'}
+                              </div>
+                              <div className="text-[10px] font-mono text-indigo-500 font-bold mt-0.5 flex items-center gap-1">
+                                <Tag size={11} />
+                                <span>{ord.skuId || 'N/A'}</span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-5 text-center font-bold text-slate-900 dark:text-white">
+                              {unitQty}
+                            </td>
+                            <td className="py-4 px-5">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase border ${
+                                ord.paymentType === 'PREPAID'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                              }`}>
+                                {ord.paymentType}
+                              </span>
+                            </td>
+                            <td className="py-4 px-5 text-right font-mono font-bold text-slate-800 dark:text-slate-200">
+                              ₹{pCost.toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-4 px-5 text-right font-mono text-slate-600 dark:text-slate-400">
+                              ₹{pkgCost.toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-4 px-5 text-right font-mono font-bold text-rose-600 dark:text-rose-400 text-xs">
+                              ₹{totCost.toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-4 px-5 text-right font-mono font-black text-sky-600 dark:text-sky-400 text-xs bg-sky-500/5">
+                              ₹{bSettlement.toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-4 px-5 text-right font-mono font-black text-xs">
+                              <span className={`px-2 py-0.5 rounded-md ${
+                                netProfit >= 0
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                              }`}>
+                                {netProfit >= 0 ? `+₹${netProfit.toLocaleString('en-IN')}` : `-₹${Math.abs(netProfit).toLocaleString('en-IN')}`}
+                              </span>
+                            </td>
+                            <td className="py-4 px-5 text-center">
+                              {(ord.labelImage || ord.receiptImage) ? (
+                                <button
+                                  onClick={() => setPreviewImageModal(ord.labelImage || ord.receiptImage)}
+                                  className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer"
+                                  title="View Shipping Label Proof"
+                                >
+                                  <Eye size={15} />
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-slate-400 italic">No File</span>
+                              )}
+                            </td>
+                            <td className="py-4 px-5 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => handleEditClick(ord)}
+                                  className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-colors cursor-pointer"
+                                  title="Edit Order Entry"
+                                >
+                                  <Edit3 size={15} />
+                                </button>
+                                <button
+                                  onClick={() => setDeletingOrder(ord)}
+                                  className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer"
+                                  title="Delete Order Entry"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* ----------------------------------------------------
+                  NATIVE TOUCH-OPTIMIZED MOBILE ORDER CARDS (md:hidden)
+                 ---------------------------------------------------- */}
+              <div className="md:hidden space-y-3">
+                {filteredOrders.map((ord) => {
+                  const unitQty = ord.quantity || 1;
+                  const pCost = ord.purchaseCost || 0;
+                  const pkgCost = ord.packagingCost || 0;
+                  const oCost = ord.otherCost || 0;
+                  const totCost = ord.totalCost || ((pCost + pkgCost + oCost) * unitQty);
+                  const bSettlement = ord.bankSettlement || 0;
+                  const netProfit = bSettlement - totCost;
+                  const isExpanded = expandedCardId === ord._id;
+
+                  return (
+                    <div 
+                      key={`mob_order_${ord._id || ord.orderNumber}`}
+                      className="glass-panel p-4 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm bg-white dark:bg-slate-900"
+                    >
+                      {/* Top Header Row */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-blue-600 dark:text-blue-400 font-mono text-xs">{ord.orderNumber}</span>
+                            <span className={`px-2 py-0.2 rounded-full text-[9px] font-extrabold uppercase border ${
+                              ord.paymentType === 'PREPAID'
+                                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                                : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                            }`}>
+                              {ord.paymentType}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">AWB: {ord.awbNumber || 'N/A'}</p>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleEditClick(ord)}
+                            className="p-1.5 text-slate-400 hover:text-blue-600 rounded-xl cursor-pointer"
+                          >
+                            <Edit3 size={15} />
+                          </button>
+                          <button
+                            onClick={() => setDeletingOrder(ord)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-xl cursor-pointer"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Product Name & SKU */}
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-snug">
+                          {ord.productName || ord.itemDescription || 'Standard Product Item'}
+                        </h4>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-[10px] font-mono text-indigo-500 font-bold flex items-center gap-1">
+                            <Tag size={10} />
+                            {ord.skuId || 'N/A'}
+                          </span>
+                          <span className="text-[10.5px] font-bold text-slate-700 dark:text-slate-300">
+                            QTY: <span className="font-black">{unitQty}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Financial Settlement Bar */}
+                      <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                        <div>
+                          <span className="text-[9.5px] font-black uppercase text-slate-400 block">Bank Payout</span>
+                          <span className="font-mono font-black text-sky-600 dark:text-sky-400">₹{bSettlement.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9.5px] font-black uppercase text-slate-400 block text-right">Expense</span>
+                          <span className="font-mono font-bold text-rose-600 dark:text-rose-400">₹{totCost.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[9.5px] font-black uppercase text-slate-400 block">Net Profit</span>
+                          <span className={`font-mono font-black ${netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
+                            {netProfit >= 0 ? `+₹${netProfit}` : `-₹${Math.abs(netProfit)}`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Expand Details Trigger */}
+                      <div className="flex items-center justify-between pt-1">
+                        {(ord.labelImage || ord.receiptImage) ? (
+                          <button
+                            onClick={() => setPreviewImageModal(ord.labelImage || ord.receiptImage)}
+                            className="text-[10.5px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1 cursor-pointer"
+                          >
+                            <Eye size={12} />
+                            <span>View Label Proof</span>
+                          </button>
+                        ) : <div />}
+
+                        <button
+                          onClick={() => setExpandedCardId(isExpanded ? null : ord._id)}
+                          className="text-[10px] font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>{isExpanded ? 'Hide Details' : 'Breakdown Costs'}</span>
+                          {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        </button>
+                      </div>
+
+                      {/* Expanded Breakdown */}
+                      {isExpanded && (
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] space-y-1.5 font-medium text-slate-600 dark:text-slate-400 animate-slide-up">
+                          <div className="flex justify-between">
+                            <span>Purchase Cost per Unit:</span>
+                            <span className="font-mono font-bold text-slate-800 dark:text-slate-200">₹{pCost}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Packaging Cost per Unit:</span>
+                            <span className="font-mono text-slate-600 dark:text-slate-400">₹{pkgCost}</span>
+                          </div>
+                          {oCost > 0 && (
+                            <div className="flex justify-between">
+                              <span>Other Cost:</span>
+                              <span className="font-mono text-slate-500">₹{oCost}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
+
         </div>
       )}
 
@@ -1027,25 +1186,25 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
           VIEW MODE 2: SKU ID GROUPING ANALYTICS & BULK EDIT VIEW
          ========================================================= */}
       {viewMode === 'sku_grouped' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {skuGroupedAnalytics.map((skuGroup) => {
             const groupNetMargin = skuGroup.totalBankSettlement - skuGroup.totalExpense;
 
             return (
-              <div key={skuGroup.skuId} className="glass-panel p-5 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4 hover:border-indigo-500/40 transition-all duration-300 shadow-sm flex flex-col justify-between">
+              <div key={skuGroup.skuId} className="glass-panel p-4.5 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4 hover:border-indigo-500/40 transition-all duration-300 shadow-sm flex flex-col justify-between bg-white dark:bg-slate-900">
                 <div>
                   {/* SKU Badge & Header */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+                      <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold shrink-0">
                         <Tag size={20} />
                       </div>
                       <div>
                         <span className="text-[10px] font-black uppercase text-indigo-500 tracking-wider">SKU Variant</span>
-                        <h4 className="text-sm font-black text-slate-900 dark:text-white font-mono">{skuGroup.skuId}</h4>
+                        <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white font-mono">{skuGroup.skuId}</h4>
                       </div>
                     </div>
-                    <span className="px-2.5 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-extrabold text-xs rounded-xl border border-blue-500/20">
+                    <span className="px-2.5 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-extrabold text-[11px] rounded-xl border border-blue-500/20">
                       {skuGroup.totalOrders} Orders
                     </span>
                   </div>
@@ -1062,15 +1221,15 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                       <span className="font-bold text-slate-900 dark:text-white">{skuGroup.totalUnits} Units</span>
                     </div>
                     <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                      <span>Purchase Cost per Unit:</span>
+                      <span>Purchase Cost / Unit:</span>
                       <span className="font-mono font-bold text-slate-800 dark:text-slate-200">₹{skuGroup.purchaseCost.toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                      <span>Packaging Cost per Unit:</span>
+                      <span>Packaging Cost / Unit:</span>
                       <span className="font-mono text-slate-600 dark:text-slate-400">₹{skuGroup.packagingCost.toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                      <span>Bank Settlement per Unit:</span>
+                      <span>Bank Settlement / Unit:</span>
                       <span className="font-mono font-black text-sky-600 dark:text-sky-400">₹{skuGroup.bankSettlement.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
@@ -1081,7 +1240,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                   <div className="flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/40 p-3 rounded-2xl">
                     <div>
                       <span className="text-[10px] font-black uppercase text-slate-400 block">Total Group Profit</span>
-                      <span className={`text-base font-black font-mono ${groupNetMargin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
+                      <span className={`text-sm sm:text-base font-black font-mono ${groupNetMargin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
                         {groupNetMargin >= 0 ? `+₹${groupNetMargin.toLocaleString('en-IN')}` : `-₹${Math.abs(groupNetMargin).toLocaleString('en-IN')}`}
                       </span>
                     </div>
@@ -1104,7 +1263,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                       otherCost: skuGroup.otherCost || '',
                       bankSettlement: skuGroup.bankSettlement || ''
                     })}
-                    className="w-full py-2.5 px-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20 transition-all cursor-pointer border border-indigo-400/30"
+                    className="w-full py-2.5 px-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20 transition-all cursor-pointer border border-indigo-400/30 active:scale-98"
                   >
                     <Sliders size={14} />
                     <span>Bulk Edit SKU Costs & Settlement</span>
@@ -1117,47 +1276,72 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       )}
 
       {/* =========================================================
-          3-BOX SETTLEMENT EDIT & ENTRY POPUP MODAL
+          4. 3-BOX SETTLEMENT EDIT & ENTRY POPUP MODAL (FULLY RESPONSIVE)
          ========================================================= */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-md overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-4xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
             
             {/* Modal Header */}
-            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-950 via-blue-950 to-slate-900 text-white relative">
-              <div className="flex items-center gap-3.5 z-10">
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs flex flex-col items-center justify-center shadow-lg uppercase tracking-tighter border border-white/20">
+            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-950 via-blue-950 to-slate-900 text-white relative">
+              <div className="flex items-center gap-3 z-10">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-lg shrink-0 border border-white/20">
                   <Box size={20} className="text-amber-300" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black tracking-tight text-white flex items-center gap-2">
-                    <span>{editingId ? 'Edit Order Settlement Entry' : 'Order Entry & 3-Box Settlement'}</span>
+                  <h3 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-2">
+                    <span>{editingId ? 'Edit Order Entry' : 'Order Entry & 3-Box Settlement'}</span>
                     <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-[9px] font-extrabold rounded-md uppercase border border-blue-400/30">
-                      OCR Auto-Fill
+                      OCR Scan
                     </span>
                   </h3>
-                  <p className="text-[11px] text-slate-300 mt-0.5">
-                    Auto-detect Product Name & Order ID. Enter Purchase, Packaging, and Bank Settlement for net margin tracking.
+                  <p className="text-[10.5px] sm:text-[11px] text-slate-300 mt-0.5 line-clamp-1">
+                    Auto-detect fields via OCR or manually enter 3-Box cost details.
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsFormOpen(false)}
-                className="p-2.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-2xl transition-all cursor-pointer z-10"
+                className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-2xl transition-all cursor-pointer z-10"
               >
                 <X size={20} />
               </button>
             </div>
 
+            {/* Mobile Tab Step Switcher (sm:hidden) */}
+            <div className="sm:hidden flex items-center justify-around border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 p-1.5 text-xs font-bold">
+              {[
+                { step: 1, label: '1. Specs', icon: Tag },
+                { step: 2, label: '2. Expenses', icon: IndianRupee },
+                { step: 3, label: '3. Settlement', icon: Landmark }
+              ].map(s => {
+                const SIcon = s.icon;
+                return (
+                  <button
+                    key={`step_${s.step}`}
+                    onClick={() => setFormStep(s.step)}
+                    className={`flex-1 py-1.5 px-2 rounded-xl flex items-center justify-center gap-1 transition-all ${
+                      formStep === s.step
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-500 dark:text-slate-400'
+                    }`}
+                  >
+                    <SIcon size={13} />
+                    <span>{s.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
             {/* Modal Scrollable Body */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-50/50 dark:bg-slate-950/30">
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 bg-slate-50/50 dark:bg-slate-950/30">
 
               {/* Drag & Drop OCR Upload Dropzone */}
               <div 
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`p-5 rounded-3xl border-2 border-dashed transition-all duration-300 relative overflow-hidden ${
+                className={`p-4 sm:p-5 rounded-3xl border-2 border-dashed transition-all duration-300 relative overflow-hidden ${
                   isDragging
                     ? 'border-blue-500 bg-blue-500/10 scale-[1.01]'
                     : 'border-blue-500/30 hover:border-blue-500/50 bg-gradient-to-br from-blue-500/5 via-indigo-500/5 to-transparent'
@@ -1171,10 +1355,10 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                   className="hidden"
                 />
 
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-5">
-                  <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5 w-full sm:w-auto">
                     {labelImage ? (
-                      <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-blue-500/40 shrink-0 bg-white shadow-md group">
+                      <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border border-blue-500/40 shrink-0 bg-white shadow-md group">
                         <img src={labelImage} alt="Label Preview" className="w-full h-full object-contain" />
                         <button
                           type="button"
@@ -1186,20 +1370,20 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                         </button>
                       </div>
                     ) : (
-                      <div className="w-16 h-16 rounded-3xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20 shadow-inner">
-                        <Upload size={28} />
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-3xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20 shadow-inner">
+                        <Upload size={24} />
                       </div>
                     )}
 
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <h4 className="text-xs font-black text-slate-900 dark:text-white">Upload Label Image or PDF</h4>
-                        <span className="px-2 py-0.5 bg-blue-600 text-white text-[9px] font-extrabold rounded-md flex items-center gap-1 shadow-sm">
-                          <Sparkles size={10} /> Auto-Scan
+                        <span className="px-2 py-0.2 bg-blue-600 text-white text-[9px] font-extrabold rounded-md flex items-center gap-1 shadow-sm">
+                          <Sparkles size={9} /> Auto-Scan
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                        Supports PDF files (`.pdf`) and label screenshots (`.png`, `.jpg`, `.webp`).
+                      <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                        Supports multi-page `.pdf` and image screenshots (`.png`, `.jpg`, `.webp`).
                       </p>
                     </div>
                   </div>
@@ -1208,7 +1392,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isScanning}
-                    className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center gap-2 shadow-lg shadow-blue-600/25 transition-all cursor-pointer shrink-0 border border-blue-400/30"
+                    className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-600/25 transition-all cursor-pointer shrink-0 border border-blue-400/30"
                   >
                     {isScanning ? (
                       <>
@@ -1226,8 +1410,8 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
 
                 {/* Progress Bar during Scanning */}
                 {isScanning && (
-                  <div className="mt-4 space-y-1.5">
-                    <div className="flex items-center justify-between text-[10.5px] font-bold text-blue-600 dark:text-blue-400">
+                  <div className="mt-3.5 space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-blue-600 dark:text-blue-400">
                       <span>{scanStatusMessage}</span>
                       <span>{scanProgress}%</span>
                     </div>
@@ -1242,27 +1426,27 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
               </div>
 
               {/* 3-BOX SETTLEMENT FORM */}
-              <form id="orderForm" onSubmit={handleSubmit} className="space-y-6">
+              <form id="orderForm" onSubmit={handleSubmit} className="space-y-5">
                 
                 {/* =========================================================
                     BOX 1: ORDER & PRODUCT IDENTIFICATION
                    ========================================================= */}
-                <div className="glass-panel p-5 rounded-3xl border border-blue-500/30 bg-blue-500/5 space-y-4">
+                <div className={`${(formStep === 1 || window.innerWidth >= 640) ? 'block' : 'hidden'} glass-panel p-4 sm:p-5 rounded-3xl border border-blue-500/30 bg-blue-500/5 space-y-4`}>
                   <div className="flex items-center justify-between pb-3 border-b border-blue-500/20">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
                         1
                       </div>
                       <h4 className="text-xs font-black uppercase tracking-wider text-blue-900 dark:text-blue-300">
                         Box 1: Order & Product Identification
                       </h4>
                     </div>
-                    <span className="px-2.5 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-black rounded-full uppercase">
+                    <span className="px-2 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9.5px] font-black rounded-full uppercase">
                       Core Specs
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     {/* Order ID */}
                     <div>
                       <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
@@ -1314,7 +1498,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5 pt-1">
                     {/* Product Name */}
                     <div className="sm:col-span-6">
                       <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
@@ -1366,22 +1550,22 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 {/* =========================================================
                     BOX 2: FINANCIAL SETTLEMENT COST BREAKDOWN (EXPENSES)
                    ========================================================= */}
-                <div className="glass-panel p-5 rounded-3xl border border-rose-500/30 bg-rose-500/5 space-y-4">
+                <div className={`${(formStep === 2 || window.innerWidth >= 640) ? 'block' : 'hidden'} glass-panel p-4 sm:p-5 rounded-3xl border border-rose-500/30 bg-rose-500/5 space-y-4`}>
                   <div className="flex items-center justify-between pb-3 border-b border-rose-500/20">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold text-xs">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold text-xs">
                         2
                       </div>
                       <h4 className="text-xs font-black uppercase tracking-wider text-rose-900 dark:text-rose-300">
                         Box 2: Financial Settlement Cost Breakdown (Expenses)
                       </h4>
                     </div>
-                    <span className="px-2.5 py-0.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px] font-black rounded-full uppercase">
+                    <span className="px-2 py-0.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[9.5px] font-black rounded-full uppercase">
                       Cost Structure
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     {/* Purchase Cost */}
                     <div>
                       <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -1445,22 +1629,22 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 {/* =========================================================
                     BOX 3: BANK SETTLEMENT & NET PROFIT PAYOUT (INCOME)
                    ========================================================= */}
-                <div className="glass-panel p-5 rounded-3xl border border-sky-500/30 bg-sky-500/5 space-y-4">
+                <div className={`${(formStep === 3 || window.innerWidth >= 640) ? 'block' : 'hidden'} glass-panel p-4 sm:p-5 rounded-3xl border border-sky-500/30 bg-sky-500/5 space-y-4`}>
                   <div className="flex items-center justify-between pb-3 border-b border-sky-500/20">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-xl bg-sky-600 text-white flex items-center justify-center font-bold text-xs">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-sky-600 text-white flex items-center justify-center font-bold text-xs">
                         3
                       </div>
                       <h4 className="text-xs font-black uppercase tracking-wider text-sky-900 dark:text-sky-300">
                         Box 3: Bank Settlement Field (Income Credited)
                       </h4>
                     </div>
-                    <span className="px-2.5 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[10px] font-black rounded-full uppercase">
+                    <span className="px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[9.5px] font-black rounded-full uppercase">
                       Bank Payout
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     {/* Bank Settlement Field */}
                     <div>
                       <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
@@ -1484,13 +1668,13 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                     {/* Live Margin Calculation Card */}
                     <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                       <div>
-                        <span className="text-[10px] font-black uppercase text-slate-400 block">Calculated Net Profit / Loss</span>
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                        <span className="text-[9.5px] font-black uppercase text-slate-400 block">Calculated Net Profit / Loss</span>
+                        <span className="text-[10.5px] text-slate-500 dark:text-slate-400">
                           Payout ₹{bankSettlement || 0} - Expense ₹{calculatedTotalCost}
                         </span>
                       </div>
                       <div className="text-right">
-                        <span className={`text-base font-black font-mono ${calculatedNetProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
+                        <span className={`text-sm sm:text-base font-black font-mono ${calculatedNetProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
                           {calculatedNetProfit >= 0 ? `+₹${calculatedNetProfit.toLocaleString('en-IN')}` : `-₹${Math.abs(calculatedNetProfit).toLocaleString('en-IN')}`}
                         </span>
                       </div>
@@ -1502,11 +1686,11 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             </div>
 
             {/* Modal Sticky Footer */}
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-950/80 flex items-center justify-end gap-3 backdrop-blur-md">
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-950/80 flex items-center justify-between sm:justify-end gap-3 backdrop-blur-md">
               <button
                 type="button"
                 onClick={() => setIsFormOpen(false)}
-                className="px-5 py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl transition-all cursor-pointer"
+                className="px-4 py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl transition-all cursor-pointer"
               >
                 Cancel
               </button>
@@ -1516,7 +1700,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-2xl shadow-xl shadow-blue-600/30 transition-all cursor-pointer flex items-center gap-2 border border-blue-400/30"
               >
                 <Check size={16} />
-                <span>{editingId ? 'Update Settlement Entry' : 'Save Order Entry'}</span>
+                <span>{editingId ? 'Update Entry' : 'Save Order Entry'}</span>
               </button>
             </div>
 
@@ -1525,14 +1709,14 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       )}
 
       {/* =========================================================
-          BULK SKU EDIT PRICE & SETTLEMENT MODAL
+          5. BULK SKU EDIT PRICE & SETTLEMENT MODAL (RESPONSIVE)
          ========================================================= */}
       {bulkSkuModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-slide-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 animate-slide-up">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 font-bold">
                   <Sliders size={20} />
                 </div>
                 <div>
@@ -1542,7 +1726,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                       {bulkSkuModal.skuId}
                     </span>
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                     Changes will apply to ALL {bulkSkuModal.count} orders under this SKU ID.
                   </p>
                 </div>
@@ -1556,11 +1740,11 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             </div>
 
             <form onSubmit={handleBulkSkuSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Purchase Cost */}
                 <div>
                   <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 block">
-                    Purchase Cost per Unit (₹)
+                    Purchase Cost / Unit (₹)
                   </label>
                   <input
                     type="number"
@@ -1576,7 +1760,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 {/* Packaging Cost */}
                 <div>
                   <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 block">
-                    Packaging Cost per Unit (₹)
+                    Packaging Cost / Unit (₹)
                   </label>
                   <input
                     type="number"
@@ -1608,7 +1792,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 {/* Bank Settlement */}
                 <div>
                   <label className="text-[11px] font-bold text-sky-600 dark:text-sky-400 mb-1 block">
-                    Bank Settlement per Unit (₹)
+                    Bank Settlement / Unit (₹)
                   </label>
                   <input
                     type="number"
@@ -1622,7 +1806,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 </div>
               </div>
 
-              <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800/80">
+              <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100 dark:border-slate-800/80">
                 <button
                   type="button"
                   onClick={() => setBulkSkuModal({ ...bulkSkuModal, isOpen: false })}
@@ -1645,10 +1829,10 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       {/* CUSTOM DELETE CONFIRMATION MODAL */}
       {deletingOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-slide-up">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 animate-slide-up">
             <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center shrink-0 border border-rose-500/20">
-                <AlertTriangle size={24} />
+              <div className="w-11 h-11 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center shrink-0 border border-rose-500/20">
+                <AlertTriangle size={22} />
               </div>
               <div>
                 <h3 className="text-base font-black text-slate-900 dark:text-white">Delete Order Entry?</h3>
@@ -1656,18 +1840,18 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
               </div>
             </div>
 
-            <div className="p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-1.5 font-mono text-xs">
+            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-1 font-mono text-xs">
               <div className="flex justify-between items-center text-slate-900 dark:text-white">
                 <span className="text-[11px] font-sans text-slate-400">Order ID:</span>
                 <span className="font-bold text-blue-600 dark:text-blue-400">{deletingOrder.orderNumber}</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <button
                 type="button"
                 onClick={() => setDeletingOrder(null)}
-                className="px-4.5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-2xl transition-all cursor-pointer"
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-2xl transition-all cursor-pointer"
               >
                 Cancel
               </button>
@@ -1677,9 +1861,9 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                   onDeleteOrder(deletingOrder._id);
                   setDeletingOrder(null);
                 }}
-                className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-95 text-white text-xs font-black rounded-2xl shadow-lg shadow-rose-600/30 transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-5 py-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-95 text-white text-xs font-black rounded-2xl shadow-lg shadow-rose-600/30 transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <Trash2 size={15} />
+                <Trash2 size={14} />
                 <span>Delete Entry</span>
               </button>
             </div>
