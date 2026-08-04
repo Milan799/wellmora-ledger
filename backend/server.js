@@ -13,7 +13,6 @@ import partnerFlowRouter from './routes/partnerFlows.js';
 import backupRouter from './routes/backups.js';
 import reportsRouter from './routes/reports.js';
 import digestRouter from './routes/digest.js';
-import ordersRouter from './routes/orders.js';
 import { createBackup, pruneOldBackups } from './backupManager.js';
 import cron from 'node-cron';
 import Transaction from './models/Transaction.js';
@@ -84,7 +83,6 @@ app.use('/api/partner-flows', verifyToken, partnerFlowRouter);
 app.use('/api/backups', verifyToken, backupRouter);
 app.use('/api/reports', verifyToken, reportsRouter);
 app.use('/api/digest', verifyToken, digestRouter);
-app.use('/api/orders', ordersRouter);
 
 // Also mount data routes on root level fallback for convenience
 app.use('/transactions', verifyToken, transactionRouter);
@@ -93,7 +91,6 @@ app.use('/partner-flows', verifyToken, partnerFlowRouter);
 app.use('/backups', verifyToken, backupRouter);
 app.use('/reports', verifyToken, reportsRouter);
 app.use('/digest', verifyToken, digestRouter);
-app.use('/orders', ordersRouter);
 
 // Health Check Endpoint
 app.get(['/api/health', '/health'], (req, res) => {
