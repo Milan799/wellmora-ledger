@@ -1890,7 +1890,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
               <button
                 type="button"
                 onClick={() => {
-                  onDeleteOrder(deletingOrder._id);
+                  onDeleteOrder(deletingOrder._id, deletingOrder.orderNumber);
                   setDeletingOrder(null);
                 }}
                 className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-lg shadow-rose-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 border border-rose-400/30"

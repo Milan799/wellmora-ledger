@@ -252,7 +252,13 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedOrder = await Order.findByIdAndDelete(id);
+    let deletedOrder = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      deletedOrder = await Order.findByIdAndDelete(id);
+    }
+    if (!deletedOrder && id && id.trim()) {
+      deletedOrder = await Order.findOneAndDelete({ orderNumber: id.trim() });
+    }
 
     if (!deletedOrder) {
       return res.status(404).json({ message: 'Order entry not found' });

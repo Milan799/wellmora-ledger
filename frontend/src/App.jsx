@@ -805,71 +805,66 @@ export default function App() {
   };
 
   const handleSaveOrder = async (orderData) => {
-    const isEdit = !!orderData._id;
-    if (isEdit) {
-      setOrders(prev => {
-        const updatedList = prev.map(o => (o._id === orderData._id || (o.orderNumber && orderData.orderNumber && o.orderNumber === orderData.orderNumber)) ? { ...o, ...orderData } : o);
-        localStorage.setItem('cached_orders', JSON.stringify(updatedList));
-        return updatedList;
-      });
-      try {
-        const response = await fetchWithTimeout(`${API_BASE_URL}/orders/${orderData._id}`, {
-          method: 'PUT',
-          body: JSON.stringify(orderData)
-        });
-        if (response.ok) {
-          triggerNotification("Order settlement updated successfully!", "success");
-          fetchOrders();
-        }
-      } catch (err) {
-        triggerNotification("Order settlement saved locally (Offline)", "info");
-      }
-    } else {
-      setOrders(prev => {
-        const existingIdx = prev.findIndex(o => o.orderNumber === orderData.orderNumber);
-        let updatedList;
-        if (existingIdx >= 0) {
-          updatedList = [...prev];
-          updatedList[existingIdx] = { ...updatedList[existingIdx], ...orderData };
-        } else {
-          const tempId = `local_${Date.now()}`;
-          const tempItem = { ...orderData, _id: tempId };
-          updatedList = [tempItem, ...prev];
-        }
-        localStorage.setItem('cached_orders', JSON.stringify(updatedList));
-        return updatedList;
-      });
+    const isLocalId = !orderData._id || String(orderData._id).startsWith('local_');
+    const isEdit = !!orderData._id && !isLocalId;
 
-      try {
-        const response = await fetchWithTimeout(`${API_BASE_URL}/orders`, {
-          method: 'POST',
-          body: JSON.stringify(orderData)
-        });
-        if (response.ok) {
-          triggerNotification("Order settlement saved successfully!", "success");
-          fetchOrders();
-        }
-      } catch (err) {
-        triggerNotification("Order settlement saved locally (Offline)", "info");
-      }
-    }
-  };
-
-  const handleDeleteOrder = async (orderId) => {
     setOrders(prev => {
-      const updatedList = prev.filter(o => o._id !== orderId);
+      const existingIdx = prev.findIndex(o => 
+        (orderData._id && o._id === orderData._id) || 
+        (orderData.orderNumber && o.orderNumber && o.orderNumber.trim() === orderData.orderNumber.trim())
+      );
+      let updatedList;
+      if (existingIdx >= 0) {
+        updatedList = [...prev];
+        updatedList[existingIdx] = { ...updatedList[existingIdx], ...orderData };
+      } else {
+        const tempId = orderData._id || `local_${Date.now()}`;
+        updatedList = [{ ...orderData, _id: tempId }, ...prev];
+      }
       localStorage.setItem('cached_orders', JSON.stringify(updatedList));
       return updatedList;
     });
+
     try {
-      const response = await fetchWithTimeout(`${API_BASE_URL}/orders/${orderId}`, {
-        method: 'DELETE'
+      const endpoint = isEdit ? `${API_BASE_URL}/orders/${orderData._id}` : `${API_BASE_URL}/orders`;
+      const method = isEdit ? 'PUT' : 'POST';
+      const response = await fetchWithTimeout(endpoint, {
+        method,
+        body: JSON.stringify(orderData)
       });
       if (response.ok) {
-        triggerNotification("Order entry deleted successfully!", "info");
+        triggerNotification("Order settlement saved successfully!", "success");
         fetchOrders();
       }
-    } catch (err) {}
+    } catch (err) {
+      triggerNotification("Order settlement saved locally (Offline)", "info");
+    }
+  };
+
+  const handleDeleteOrder = async (orderId, orderNumber) => {
+    setOrders(prev => {
+      const updatedList = prev.filter(o => 
+        o._id !== orderId && 
+        (!orderNumber || !o.orderNumber || o.orderNumber.trim() !== orderNumber.trim())
+      );
+      localStorage.setItem('cached_orders', JSON.stringify(updatedList));
+      return updatedList;
+    });
+
+    try {
+      const targetId = (orderId && !String(orderId).startsWith('local_')) ? orderId : orderNumber;
+      if (targetId) {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/orders/${encodeURIComponent(targetId)}`, {
+          method: 'DELETE'
+        });
+        if (response.ok) {
+          triggerNotification("Order entry deleted successfully!", "info");
+          fetchOrders();
+        }
+      }
+    } catch (err) {
+      console.warn("Delete order request warning:", err);
+    }
   };
 
   const handleSaveBatchOrders = async (batchList) => {

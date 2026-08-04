@@ -10,7 +10,7 @@ const transactionSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Category is required'],
     enum: {
-      values: ['Sales', 'Purchase', 'Logistics', 'Marketing', 'Office Expense', 'Others'],
+      values: ['Sales', 'Purchase', 'Logistics', 'Marketing', 'Office Expense', 'ATM Cash Withdrawal', 'Cash Transfer', 'Others'],
       message: '{VALUE} is not a valid category'
     }
   },
