@@ -485,6 +485,20 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       detected.productName = true;
     }
 
+    // STRICT SANITIZATION: Retain ONLY concise product name (strip address, GSTIN, legal disclaimers, QTY, etc.)
+    if (extractedProductName) {
+      let cleanName = extractedProductName.split(/\r?\n/)[0].trim();
+      // Cut off at common shipping label footer metadata keywords
+      cleanName = cleanName.split(/(?:Not for resale|Printed at|GSTIN|SKU|QTY|Seller|Return|Ship to|Customer|Order ID|AWB|Tracking|Courier|Price|Rs\.|\b\d{6}\b)/i)[0].trim();
+      // Strip leading noise characters/pipe/colon
+      cleanName = cleanName.replace(/^[:\s|#.\-]+/, '').trim();
+      // Enforce clean 50-character length maximum for pure product title
+      if (cleanName.length > 50) {
+        cleanName = cleanName.substring(0, 50).trim();
+      }
+      extractedProductName = cleanName;
+    }
+
     // 6. Quantity (QTY)
     let extractedQuantity = 1;
     const qtyMatch = text.match(/\bQTY[:\s|]*([1-9]\d{0,2})\b/i);

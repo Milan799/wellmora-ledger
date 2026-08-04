@@ -240,13 +240,13 @@ export default function App() {
       fetchPartnerTransactions();
       fetchOrders();
 
-      // Real-time cross-device auto-sync polling (every 12 seconds)
+      // Real-time cross-device auto-sync polling (every 15 seconds)
       const syncInterval = setInterval(() => {
-        fetchOrders();
+        fetchOrders(true); // Silent background refresh without triggering loading spinner
         fetchTransactions();
         fetchBankTransactions();
         fetchPartnerTransactions();
-      }, 12000);
+      }, 15000);
 
       // Multi-tab storage sync listener
       const handleStorageChange = (e) => {
@@ -771,8 +771,10 @@ export default function App() {
   // ==========================================
   // API Operations: Orders & Settlement (Direct MongoDB Storage)
   // ==========================================
-  const fetchOrders = async () => {
-    setLoadingOrders(true);
+  const fetchOrders = async (isSilent = false) => {
+    if (!isSilent) {
+      setLoadingOrders(true);
+    }
     try {
       const response = await fetchWithTimeout(`${API_BASE_URL}/orders`);
       if (!response.ok) throw new Error("Failed to retrieve order entries");
@@ -784,7 +786,9 @@ export default function App() {
     } catch (err) {
       console.warn("Failed to fetch orders from MongoDB:", err);
     } finally {
-      setLoadingOrders(false);
+      if (!isSilent) {
+        setLoadingOrders(false);
+      }
     }
   };
 
