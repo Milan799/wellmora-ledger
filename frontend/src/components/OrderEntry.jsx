@@ -1,63 +1,48 @@
-import React, { useState, useRef, useMemo } from 'react';
-import { 
-  Upload, 
-  Sparkles, 
-  CheckCircle2, 
-  Trash2, 
-  Edit3, 
-  Search, 
-  Plus, 
-  X, 
-  Download, 
-  Image as ImageIcon,
-  Check,
-  RefreshCw,
-  Tag,
-  Package,
-  Truck,
-  Building,
-  User,
-  MapPin,
-  Barcode,
-  ShieldCheck,
-  Eye,
-  AlertTriangle,
-  IndianRupee,
-  Layers,
+import React, { useState, useRef } from 'react';
+import {
   Box,
-  TrendingUp,
-  TrendingDown,
+  Plus,
+  Search,
+  UploadCloud,
   FileText,
-  Landmark,
-  Sliders,
+  Trash2,
+  Edit,
+  CheckCircle2,
+  AlertCircle,
+  X,
+  Sparkles,
+  Download,
+  Layers,
+  TrendingUp,
   DollarSign,
-  ChevronDown,
-  ChevronUp,
-  Zap,
-  ArrowRight,
-  AlertOctagon
+  PackageCheck,
+  Eye,
+  RefreshCw,
+  Info,
+  ChevronRight,
+  ArrowRight
 } from 'lucide-react';
-import { createWorker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
+import { createWorker } from 'tesseract.js';
 
-// Configure pdfjs worker URL dynamically matching installed pdfjs-dist version
-try {
-  const ver = pdfjsLib.version || '3.11.174';
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${ver}/build/pdf.worker.min.mjs`;
-} catch (e) {
-  console.warn("PDF.js worker setup warning:", e);
-}
-
-export default function OrderEntry({ orders = [], loading = false, onRefresh, onSaveOrder, onSaveBatchOrders, onDeleteOrder, onSaveBulkSku }) {
+export default function OrderEntry({
+  orders = [],
+  loading = false,
+  onRefresh,
+  onSaveOrder,
+  onSaveBatchOrders,
+  onDeleteOrder,
+  onSaveBulkSku
+}) {
   const [searchTerm, setSearchTerm] = useState('');
   const [paymentTypeFilter, setPaymentTypeFilter] = useState('all');
   const [viewMode, setViewMode] = useState('individual'); // 'individual' | 'sku_grouped'
-  
+
   // Modal Form State
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formStep, setFormStep] = useState(1); // Mobile step switcher: 1, 2, 3
-  
+
   // 3-BOX SETTLEMENT FIELDS
   // Box 1: Order & Product Identification
   const [orderNumber, setOrderNumber] = useState('');
@@ -81,9 +66,6 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
   const [shippingAddress, setShippingAddress] = useState('');
   const [pincode, setPincode] = useState('');
   const [labelImage, setLabelImage] = useState('');
-
-  // Mobile card expand state
-  const [expandedCardId, setExpandedCardId] = useState(null);
 
   // Bulk SKU Edit Modal State
   const [bulkSkuModal, setBulkSkuModal] = useState({
@@ -161,7 +143,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     setIsFormOpen(true);
   };
 
-  // Compress canvas output to lightweight JPEG (~50KB) to prevent 413 Payload Too Large errors
+  // Compress canvas output to lightweight JPEG (~50KB)
   const compressCanvasToJpeg = (canvas, maxWidth = 800, quality = 0.6) => {
     try {
       const compCanvas = document.createElement('canvas');
@@ -219,7 +201,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       if (isPdf) {
         setScanStatusMessage('Loading PDF Document...');
         const arrayBuffer = await file.arrayBuffer();
-        
+
         try {
           const ver = pdfjsLib.version || '3.11.174';
           pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${ver}/build/pdf.worker.min.mjs`;
@@ -247,7 +229,6 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
           const pageRes = await renderPdfPageToCanvas(pdf, pageNum);
           if (pageNum === 1) firstPageImage = pageRes.dataUrl;
 
-          // OCR on rendered canvas
           let ocrText = '';
           try {
             const worker = await createWorker('eng');
@@ -311,7 +292,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
           setScanStatusMessage(`Scanned ${totalPages} pages, no valid Order IDs found.`);
         }
       } else {
-        // Single or Multiple Image Upload
+        // Single Image Upload
         setScanStatusMessage('Reading Image File...');
         const imageDataUrl = await new Promise((resolve) => {
           const reader = new FileReader();
@@ -319,7 +300,6 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
           reader.readAsDataURL(file);
         });
 
-        // Compress image Data URL
         const tempImg = new Image();
         tempImg.onload = () => {
           const compCanvas = document.createElement('canvas');
@@ -368,16 +348,6 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     if (file) processFile(file);
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
@@ -386,7 +356,6 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     }
   };
 
-  // Helper to apply parsed fields to form state
   const applyFieldsToForm = (parsedData) => {
     if (parsedData.orderNumber) setOrderNumber(parsedData.orderNumber);
     if (parsedData.awbNumber) setAwbNumber(parsedData.awbNumber);
@@ -405,7 +374,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     const detected = {};
     const text = rawText || '';
 
-    // 1. Order ID (e.g. OD338181136273805100)
+    // 1. Order ID
     let extractedOrderNumber = '';
     const orderMatch = text.match(/\b(OD\d{14,22})\b/i) || text.match(/(?:Order ID|OD)[:\s]*([A-Za-z0-9]+)/i);
     if (orderMatch && orderMatch[1]) {
@@ -413,7 +382,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       detected.orderNumber = true;
     }
 
-    // 2. AWB No. (e.g. FMPP4174433835)
+    // 2. AWB No.
     let extractedAwbNumber = '';
     const awbMatch = text.match(/\b(FMPP\d{8,14})\b/i) || text.match(/(?:AWB No|AWB)[:\s.]*([A-Za-z0-9]+)/i);
     if (awbMatch && awbMatch[1]) {
@@ -431,7 +400,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       detected.paymentType = true;
     }
 
-    // 4. SKU ID (e.g., WE-SEALANT-126)
+    // 4. SKU ID
     let extractedSkuId = '';
     const skuMatch = text.match(/\b([A-Z0-9]{2,8}-[A-Z0-9_-]{3,20})\b/) || text.match(/SKU ID[:\s|]*([A-Za-z0-9_-]+)/i);
     if (skuMatch && skuMatch[1]) {
@@ -439,17 +408,15 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       detected.skuId = true;
     }
 
-    // 5. PRODUCT NAME / DESCRIPTION EXTRACTOR (MULTI-PASS ROBUST ALGORITHM)
+    // 5. PRODUCT NAME / DESCRIPTION EXTRACTOR
     let extractedProductName = '';
 
-    // Pass 1: Pipe delimiter pattern after SKU (e.g. WE-SEALANT-126 | ZEBREOLINE Waterproof Silicone Sealant for Roof Leakage)
     const pipeMatch = text.match(/(?:[A-Z0-9_-]{3,20})\s*\|\s*([^\n]+)/i);
     if (pipeMatch && pipeMatch[1] && pipeMatch[1].trim().length > 3) {
       extractedProductName = pipeMatch[1].trim();
       detected.productName = true;
     }
 
-    // Pass 2: Explicit "Description", "Product Name", "Goods Description", "Title" header
     if (!extractedProductName) {
       const descHeaderMatch = text.match(/(?:Description|Product Name|Item Description|Goods Description|Title|Product)[:\s]*([^\n]+)/i);
       if (descHeaderMatch && descHeaderMatch[1] && descHeaderMatch[1].trim().length > 3) {
@@ -458,7 +425,6 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       }
     }
 
-    // Pass 3: Common E-Commerce product keywords (Silicone, Sealant, ZEBREOLINE, Waterproof, Tape, Cleaner, Spray, etc.)
     if (!extractedProductName) {
       const brandMatch = text.match(/([A-Z0-9\s-]{2,30}(?:Sealant|Silicone|Waterproof|Leakage|Tape|Spray|Cleaner|Tool|Kit|Cleaner|Adhesive|Box|Cover|Stand|Holder|Mat|Light|Bag)[A-Z0-9\s-]{0,50})/i);
       if (brandMatch && brandMatch[1] && brandMatch[1].trim().length > 4) {
@@ -467,32 +433,16 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       }
     }
 
-    // Pass 4: Multiline text scan - Line immediately following "Description" or line before SKU
-    if (!extractedProductName) {
-      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].match(/Description/i) && i + 1 < lines.length && lines[i+1].length > 4) {
-          extractedProductName = lines[i+1];
-          detected.productName = true;
-          break;
-        }
-      }
-    }
-
-    // Pass 5: Fallback Product Name if SKU ID is present
     if (!extractedProductName && extractedSkuId) {
       extractedProductName = `Product Item (${extractedSkuId})`;
       detected.productName = true;
     }
 
-    // STRICT SANITIZATION: Retain ONLY concise product name (strip address, GSTIN, legal disclaimers, QTY, etc.)
+    // STRICT SANITIZATION: Retain ONLY concise product name
     if (extractedProductName) {
       let cleanName = extractedProductName.split(/\r?\n/)[0].trim();
-      // Cut off at common shipping label footer metadata keywords
       cleanName = cleanName.split(/(?:Not for resale|Printed at|GSTIN|SKU|QTY|Seller|Return|Ship to|Customer|Order ID|AWB|Tracking|Courier|Price|Rs\.|\b\d{6}\b)/i)[0].trim();
-      // Strip leading noise characters/pipe/colon
       cleanName = cleanName.replace(/^[:\s|#.\-]+/, '').trim();
-      // Enforce clean 50-character length maximum for pure product title
       if (cleanName.length > 50) {
         cleanName = cleanName.substring(0, 50).trim();
       }
@@ -547,22 +497,14 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     };
   };
 
-  // Total calculated cost per order
-  const calculatedTotalCost = useMemo(() => {
-    const q = parseInt(quantity, 10) || 1;
-    const p = parseFloat(purchaseCost) || 0;
-    const pkg = parseFloat(packagingCost) || 0;
-    const oth = parseFloat(otherCost) || 0;
-    return (p + pkg + oth) * q;
-  }, [quantity, purchaseCost, packagingCost, otherCost]);
+  // Calculations
+  const calculatedTotalCost = (
+    (Number(purchaseCost || 0) + Number(packagingCost || 0) + Number(otherCost || 0)) *
+    (parseInt(quantity, 10) || 1)
+  );
 
-  // Net Profit / Loss calculation for single order entry
-  const calculatedNetProfit = useMemo(() => {
-    const bSettlement = parseFloat(bankSettlement) || 0;
-    return bSettlement - calculatedTotalCost;
-  }, [bankSettlement, calculatedTotalCost]);
+  const calculatedMargin = Number(bankSettlement || 0) - calculatedTotalCost;
 
-  // Form Submission
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!orderNumber || !orderNumber.trim()) {
@@ -598,7 +540,76 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     resetForm();
   };
 
-  // Bulk SKU Submit Handler
+  // Filtering
+  const filteredOrders = orders.filter((o) => {
+    const matchesSearch =
+      (o.orderNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (o.awbNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (o.productName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (o.skuId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (o.customerName || '').toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesPayment =
+      paymentTypeFilter === 'all' ||
+      (o.paymentType || 'PREPAID').toUpperCase() === paymentTypeFilter.toUpperCase();
+
+    return matchesSearch && matchesPayment;
+  });
+
+  // SKU Grouping calculation
+  const skuGroupedMap = new Map();
+  filteredOrders.forEach(o => {
+    const key = o.skuId ? o.skuId.trim().toUpperCase() : 'NO-SKU-ID';
+    if (!skuGroupedMap.has(key)) {
+      skuGroupedMap.set(key, {
+        skuId: key,
+        productName: o.productName || 'Unassigned SKU Product',
+        count: 0,
+        totalQuantity: 0,
+        totalPurchaseCost: 0,
+        totalPackagingCost: 0,
+        totalOtherCost: 0,
+        totalBankSettlement: 0,
+        totalCost: 0,
+        sampleOrder: o
+      });
+    }
+
+    const group = skuGroupedMap.get(key);
+    group.count += 1;
+    group.totalQuantity += (o.quantity || 1);
+    group.totalPurchaseCost += Number(o.purchaseCost || 0);
+    group.totalPackagingCost += Number(o.packagingCost || 0);
+    group.totalOtherCost += Number(o.otherCost || 0);
+    group.totalBankSettlement += Number(o.bankSettlement || 0);
+    group.totalCost += Number(o.totalCost || 0);
+  });
+  const skuGroupedList = Array.from(skuGroupedMap.values());
+
+  // Overall Statistics
+  const statsTotalOrders = filteredOrders.length;
+  const statsTotalQuantity = filteredOrders.reduce((sum, o) => sum + (o.quantity || 1), 0);
+  const statsTotalPurchase = filteredOrders.reduce((sum, o) => sum + Number(o.purchaseCost || 0), 0);
+  const statsTotalPackaging = filteredOrders.reduce((sum, o) => sum + Number(o.packagingCost || 0), 0);
+  const statsTotalOther = filteredOrders.reduce((sum, o) => sum + Number(o.otherCost || 0), 0);
+  const statsTotalBankSettlement = filteredOrders.reduce((sum, o) => sum + Number(o.bankSettlement || 0), 0);
+  const statsTotalCost = filteredOrders.reduce((sum, o) => sum + Number(o.totalCost || 0), 0);
+  const statsTotalNetMargin = statsTotalBankSettlement - statsTotalCost;
+
+  const handleOpenBulkSkuModal = (group) => {
+    const sample = group.sampleOrder || {};
+    setBulkSkuModal({
+      isOpen: true,
+      skuId: group.skuId,
+      productName: group.productName,
+      count: group.count,
+      purchaseCost: sample.purchaseCost !== undefined ? String(sample.purchaseCost) : '',
+      packagingCost: sample.packagingCost !== undefined ? String(sample.packagingCost) : '',
+      otherCost: sample.otherCost !== undefined ? String(sample.otherCost) : '',
+      bankSettlement: sample.bankSettlement !== undefined ? String(sample.bankSettlement) : ''
+    });
+  };
+
   const handleBulkSkuSubmit = (e) => {
     e.preventDefault();
     if (!bulkSkuModal.skuId) return;
@@ -613,120 +624,41 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       });
     }
 
-    setBulkSkuModal({ ...bulkSkuModal, isOpen: false });
+    setBulkSkuModal(prev => ({ ...prev, isOpen: false }));
   };
 
-  // Unique Deduplication Filtered Orders List
-  const uniqueOrdersList = useMemo(() => {
-    const map = new Map();
-    orders.forEach(o => {
-      if (o.orderNumber && !map.has(o.orderNumber.trim())) {
-        map.set(o.orderNumber.trim(), o);
-      }
-    });
-    return Array.from(map.values());
-  }, [orders]);
-
-  const filteredOrders = useMemo(() => {
-    return uniqueOrdersList.filter(ord => {
-      const matchesSearch = 
-        (ord.orderNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (ord.awbNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (ord.productName || ord.itemDescription || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (ord.skuId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (ord.customerName || '').toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesPaymentType = paymentTypeFilter === 'all' || ord.paymentType === paymentTypeFilter;
-      return matchesSearch && matchesPaymentType;
-    });
-  }, [uniqueOrdersList, searchTerm, paymentTypeFilter]);
-
-  // SKU ID Grouped Aggregation
-  const skuGroupedAnalytics = useMemo(() => {
-    const skuMap = new Map();
-    filteredOrders.forEach(ord => {
-      const key = ord.skuId || 'Uncategorized SKU';
-      if (!skuMap.has(key)) {
-        skuMap.set(key, {
-          skuId: key,
-          productName: ord.productName || ord.itemDescription || 'Unknown Item',
-          totalOrders: 0,
-          totalUnits: 0,
-          purchaseCost: ord.purchaseCost || 0,
-          packagingCost: ord.packagingCost || 0,
-          otherCost: ord.otherCost || 0,
-          bankSettlement: ord.bankSettlement || 0,
-          totalPurchaseCost: 0,
-          totalPackagingCost: 0,
-          totalOtherCost: 0,
-          totalBankSettlement: 0,
-          totalExpense: 0,
-          sampleImage: ord.labelImage || ord.receiptImage || ''
-        });
-      }
-      const item = skuMap.get(key);
-      const qty = ord.quantity || 1;
-      item.totalOrders += 1;
-      item.totalUnits += qty;
-      item.totalPurchaseCost += (ord.purchaseCost || 0) * qty;
-      item.totalPackagingCost += (ord.packagingCost || 0) * qty;
-      item.totalOtherCost += (ord.otherCost || 0) * qty;
-      item.totalBankSettlement += (ord.bankSettlement || 0);
-      item.totalExpense += (ord.totalCost || 0);
-    });
-
-    return Array.from(skuMap.values());
-  }, [filteredOrders]);
-
-  // Analytics KPIs
-  const totalOrdersCount = uniqueOrdersList.length;
-  const totalUnitsSold = uniqueOrdersList.reduce((acc, o) => acc + (o.quantity || 1), 0);
-  const totalExpenseAccumulated = uniqueOrdersList.reduce((acc, o) => acc + (o.totalCost || 0), 0);
-  const totalBankSettlementAccumulated = uniqueOrdersList.reduce((acc, o) => acc + (o.bankSettlement || 0), 0);
-  const totalNetProfitAccumulated = totalBankSettlementAccumulated - totalExpenseAccumulated;
-  const uniqueSkusCount = new Set(uniqueOrdersList.map(o => o.skuId).filter(Boolean)).size;
-
-  // Export CSV
   const handleExportCSV = () => {
-    if (uniqueOrdersList.length === 0) return;
-    const headers = ['Order ID', 'AWB No.', 'Payment Type', 'Product Name', 'SKU ID', 'QTY', 'Purchase Cost (₹)', 'Packaging Cost (₹)', 'Other Cost (₹)', 'Total Cost (₹)', 'Bank Settlement (₹)', 'Net Profit/Loss (₹)', 'Customer Name'];
-    const rows = uniqueOrdersList.map(o => {
-      const totCost = o.totalCost || 0;
-      const bSettlement = o.bankSettlement || 0;
-      const netProfit = bSettlement - totCost;
-      return [
-        `"${o.orderNumber || ''}"`,
-        `"${o.awbNumber || ''}"`,
-        `"${o.paymentType || ''}"`,
-        `"${(o.productName || o.itemDescription || '').replace(/"/g, '""')}"`,
-        `"${o.skuId || ''}"`,
-        o.quantity || 1,
-        o.purchaseCost || 0,
-        o.packagingCost || 0,
-        o.otherCost || 0,
-        totCost,
-        bSettlement,
-        netProfit,
-        `"${o.customerName || ''}"`
-      ];
-    });
+    if (filteredOrders.length === 0) {
+      alert("No orders to export.");
+      return;
+    }
 
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `order_settlements_${new Date().toISOString().split('T')[0]}.csv`);
+    const headers = [
+      "Order ID", "AWB Number", "Payment Type", "Product Name", "SKU ID", "Qty",
+      "Purchase Cost", "Packaging Cost", "Other Cost", "Total Cost", "Bank Settlement", "Net Margin"
+    ];
+
+    const rows = filteredOrders.map(o => [
+      o.orderNumber, o.awbNumber, o.paymentType, `"${(o.productName || '').replace(/"/g, '""')}"`,
+      o.skuId, o.quantity || 1, o.purchaseCost || 0, o.packagingCost || 0, o.otherCost || 0,
+      o.totalCost || 0, o.bankSettlement || 0, (o.bankSettlement || 0) - (o.totalCost || 0)
+    ]);
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `wellmora_orders_export_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   return (
-    <div className="space-y-5 pb-24 md:pb-12 animate-slide-up">
+    <div className="space-y-6 pb-20">
 
       {/* =========================================================
-          1. HERO DASHBOARD BANNER - MATCHING WEBSITE UI
+          1. HERO DASHBOARD BANNER - RECREATED MODERN DESIGN
          ========================================================= */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 border border-blue-500/30 dark:border-slate-800 p-5 sm:p-6 text-white shadow-xl">
         <div className="absolute -right-16 -top-16 h-72 w-72 rounded-full bg-white/10 dark:bg-blue-600/20 blur-3xl pointer-events-none" />
@@ -742,11 +674,11 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">Order Entry</h1>
                 <span className="px-2.5 py-0.5 bg-white/20 text-white font-extrabold text-[10px] sm:text-[10.5px] rounded-full uppercase tracking-wider border border-white/30 flex items-center gap-1 backdrop-blur-md">
                   <Sparkles size={11} className="text-amber-300 animate-pulse" />
-                  Real-Time Auto-Sync
+                  Real-Time Direct Sync
                 </span>
               </div>
               <p className="text-xs text-blue-50 dark:text-slate-300 mt-1 max-w-xl leading-relaxed">
-                Scan multi-page PDFs or photos to auto-detect Order ID, Product Name, SKU ID, and track financial settlement margins.
+                Direct MongoDB Order Entry Hub. Scan shipping PDFs or photos to auto-detect Order ID, SKU, and financial settlement margins.
               </p>
             </div>
           </div>
@@ -759,539 +691,360 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
               <Download size={15} />
               <span>Export CSV</span>
             </button>
+
             <button
               onClick={openNewOrderForm}
-              className="flex-1 sm:flex-none px-5 py-2.5 bg-white text-blue-600 hover:bg-blue-50 active:scale-95 text-xs font-black rounded-2xl flex items-center justify-center gap-2 shadow-xl transition-all cursor-pointer border border-white/40"
+              className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 active:scale-95 text-slate-950 text-xs font-black rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer border border-amber-300/40"
             >
-              <Plus size={18} />
-              <span>New Order</span>
+              <Plus size={16} />
+              <span>New Order Entry</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* =========================================================
-          2. RESPONSIVE ANALYTICS KPI CARDS
+          2. STATISTICAL KPI OVERVIEW CARDS
          ========================================================= */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        {/* KPI 1: Total Orders */}
-        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-blue-500/40 transition-all duration-300 shadow-sm group bg-white dark:bg-slate-900">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Orders</span>
-            <div className="p-2 sm:p-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl group-hover:scale-110 transition-transform">
-              <Box size={18} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Total Orders */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-black uppercase tracking-wider">Total Orders</span>
+            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+              <PackageCheck size={16} />
             </div>
           </div>
-          <div className="mt-2">
-            <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">{totalOrdersCount}</h3>
-            <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-              <Package size={11} className="text-blue-500" />
-              {totalUnitsSold} Dispatched
-            </span>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">{statsTotalOrders}</span>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">({statsTotalQuantity} units)</span>
           </div>
         </div>
 
-        {/* KPI 2: Bank Settlement Payout */}
-        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-sky-500/40 transition-all duration-300 shadow-sm group bg-white dark:bg-slate-900">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Bank Payout</span>
-            <div className="p-2 sm:p-2.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-xl group-hover:scale-110 transition-transform">
-              <Landmark size={18} />
+        {/* Bank Settlement */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-black uppercase tracking-wider">Bank Settlement</span>
+            <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+              <DollarSign size={16} />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-xl sm:text-2xl font-black text-sky-600 dark:text-sky-400 font-mono">₹{totalBankSettlementAccumulated.toLocaleString('en-IN')}</h3>
-            <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Bank Credited</span>
+            <span className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">₹{statsTotalBankSettlement.toLocaleString('en-IN')}</span>
           </div>
         </div>
 
-        {/* KPI 3: Total Expense */}
-        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-rose-500/40 transition-all duration-300 shadow-sm group bg-white dark:bg-slate-900">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Expense</span>
-            <div className="p-2 sm:p-2.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl group-hover:scale-110 transition-transform">
-              <IndianRupee size={18} />
+        {/* Total Costs */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-black uppercase tracking-wider">Total Expenses</span>
+            <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
+              <TrendingUp size={16} className="rotate-180" />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400 font-mono">₹{totalExpenseAccumulated.toLocaleString('en-IN')}</h3>
-            <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">Purchase + Packaging</span>
+            <span className="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400 tracking-tight">₹{statsTotalCost.toLocaleString('en-IN')}</span>
           </div>
         </div>
 
-        {/* KPI 4: Net Profit */}
-        <div className="glass-panel p-4 sm:p-4.5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-emerald-500/40 transition-all duration-300 shadow-sm group bg-white dark:bg-slate-900">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Net Margin</span>
-            <div className={`p-2 sm:p-2.5 rounded-xl group-hover:scale-110 transition-transform ${totalNetProfitAccumulated >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'}`}>
-              <TrendingUp size={18} />
+        {/* Net Profit Margin */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-black uppercase tracking-wider">Net Profit Margin</span>
+            <div className={`p-2 rounded-xl ${statsTotalNetMargin >= 0 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'}`}>
+              <TrendingUp size={16} />
             </div>
           </div>
           <div className="mt-2">
-            <h3 className={`text-xl sm:text-2xl font-black font-mono ${totalNetProfitAccumulated >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
-              ₹{totalNetProfitAccumulated.toLocaleString('en-IN')}
-            </h3>
-            <span className="text-[10px] sm:text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              {totalNetProfitAccumulated >= 0 ? <TrendingUp size={11} className="text-emerald-500" /> : <TrendingDown size={11} className="text-rose-500" />}
-              {uniqueSkusCount} SKU Variants
+            <span className={`text-xl sm:text-2xl font-black tracking-tight ${statsTotalNetMargin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+              ₹{statsTotalNetMargin.toLocaleString('en-IN')}
             </span>
           </div>
         </div>
       </div>
 
       {/* =========================================================
-          3. RESPONSIVE TOOLBAR, VIEW SWITCHER & FILTERS
+          3. CONTROLS BAR: SEARCH, FILTERS & VIEW MODES
          ========================================================= */}
-      <div className="glass-panel p-3.5 sm:p-4 rounded-3xl border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3.5 shadow-sm bg-white dark:bg-slate-900">
-        
-        {/* Search Bar */}
-        <div className="relative w-full md:w-80">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Search */}
+        <div className="relative flex-1">
+          <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search Order ID, Product, SKU ID..."
+            placeholder="Search by Order ID (OD...), SKU, AWB, Product Name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-9 py-2.5 bg-slate-100/70 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-400"
           />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-            >
-              <X size={14} />
-            </button>
-          )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
-          {/* View Mode Switcher */}
-          <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 w-full sm:w-auto justify-center">
-            <button
-              onClick={() => setViewMode('individual')}
-              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'individual'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-              }`}
-            >
-              Individual Orders
-            </button>
-            <button
-              onClick={() => setViewMode('sku_grouped')}
-              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                viewMode === 'sku_grouped'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-              }`}
-            >
-              <Layers size={13} />
-              <span>SKU Grouping</span>
-            </button>
-          </div>
-
-          {/* Payment Type Segmented Controls */}
-          <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
+        <div className="flex flex-wrap items-center gap-2.5 justify-between md:justify-end">
+          {/* Payment Type Filters */}
+          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs">
             {['all', 'PREPAID', 'COD'].map((pt) => (
               <button
                 key={pt}
                 onClick={() => setPaymentTypeFilter(pt)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                   paymentTypeFilter === pt
-                    ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                {pt === 'all' ? 'All' : pt}
+                {pt.toUpperCase()}
               </button>
             ))}
           </div>
-        </div>
 
+          {/* View Mode Switcher */}
+          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs">
+            <button
+              onClick={() => setViewMode('individual')}
+              className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                viewMode === 'individual'
+                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <FileText size={14} />
+              <span>All Orders ({filteredOrders.length})</span>
+            </button>
+
+            <button
+              onClick={() => setViewMode('sku_grouped')}
+              className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                viewMode === 'sku_grouped'
+                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Layers size={14} />
+              <span>SKU Grouped ({skuGroupedList.length})</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* =========================================================
-          VIEW MODE 1: INDIVIDUAL ORDERS
+          4. CONTENT VIEWS (INDIVIDUAL OR SKU GROUPED)
          ========================================================= */}
-      {viewMode === 'individual' && (
-        <div className="space-y-4">
-          
-          {loading ? (
-            <div className="glass-panel rounded-3xl p-16 text-center border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center bg-white dark:bg-slate-900">
-              <RefreshCw size={28} className="animate-spin text-blue-500 mb-3" />
-              <span className="text-xs font-semibold text-slate-500">Loading Order Entries...</span>
-            </div>
-          ) : filteredOrders.length === 0 ? (
-            <div className="glass-panel rounded-3xl p-12 text-center border border-slate-200 dark:border-slate-800 space-y-4 bg-white dark:bg-slate-900">
-              <div className="w-16 h-16 rounded-3xl bg-blue-500/10 text-blue-500 flex items-center justify-center mx-auto">
-                <Barcode size={36} />
-              </div>
-              <div>
-                <p className="text-base font-black text-slate-800 dark:text-slate-200">No Orders Found</p>
-                <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">Upload a PDF or shipping label photo to auto-fill Order ID, Product Name, SKU ID, and costs.</p>
-              </div>
-              <button
-                onClick={openNewOrderForm}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-2xl shadow-lg transition-all cursor-pointer inline-flex items-center gap-2"
-              >
-                <Plus size={16} />
-                Add First Order Entry
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* DESKTOP DATA TABLE VIEW */}
-              <div className="hidden md:block glass-panel rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm bg-white dark:bg-slate-900">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                        <th className="py-4 px-5">Order ID & AWB</th>
-                        <th className="py-4 px-5">Product & SKU ID</th>
-                        <th className="py-4 px-5 text-center">QTY</th>
-                        <th className="py-4 px-5">Payment</th>
-                        <th className="py-4 px-5 text-right">Purchase Cost</th>
-                        <th className="py-4 px-5 text-right">Packaging Cost</th>
-                        <th className="py-4 px-5 text-right">Total Expense</th>
-                        <th className="py-4 px-5 text-right">Bank Settlement</th>
-                        <th className="py-4 px-5 text-right min-w-[150px] whitespace-nowrap">Net Profit / Loss</th>
-                        <th className="py-4 px-5 text-center min-w-[110px] whitespace-nowrap">Proof</th>
-                        <th className="py-4 px-5 text-center min-w-[150px]">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium text-slate-750 dark:text-slate-300">
-                      {filteredOrders.map((ord) => {
-                        const unitQty = ord.quantity || 1;
-                        const pCost = Number(ord.purchaseCost || 0);
-                        const pkgCost = Number(ord.packagingCost || 0);
-                        const oCost = Number(ord.otherCost || 0);
-                        const totCost = Number(ord.totalCost) || ((pCost + pkgCost + oCost) * unitQty);
-                        const bSettlement = Number(ord.bankSettlement || 0);
-                        const netProfit = bSettlement - totCost;
-
-                        return (
-                          <tr key={ord._id || ord.orderNumber} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                            <td className="py-4 px-5">
-                              <div className="font-black text-blue-600 dark:text-blue-400 font-mono text-xs">
-                                {ord.orderNumber}
+      {viewMode === 'individual' ? (
+        /* INDIVIDUAL ORDERS VIEW */
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden">
+          {/* Desktop Table View */}
+          <div className="hidden lg:block overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 text-[11px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                  <th className="py-3.5 px-4">Order & Product Identification</th>
+                  <th className="py-3.5 px-4 text-center">SKU ID & Qty</th>
+                  <th className="py-3.5 px-4 text-right">Purchase Cost</th>
+                  <th className="py-3.5 px-4 text-right">Packaging Cost</th>
+                  <th className="py-3.5 px-4 text-right">Bank Settlement</th>
+                  <th className="py-3.5 px-4 text-right">Net Margin</th>
+                  <th className="py-3.5 px-4 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
+                {filteredOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-400 dark:text-slate-500">
+                      <Box size={32} className="mx-auto mb-2 opacity-50" />
+                      <p className="font-semibold text-sm">No Order Entries Found</p>
+                      <p className="text-xs text-slate-400">Click "New Order Entry" or upload a shipping PDF to create entries.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredOrders.map((o) => {
+                    const margin = (o.bankSettlement || 0) - (o.totalCost || 0);
+                    return (
+                      <tr key={o._id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-3">
+                            {o.labelImage ? (
+                              <button
+                                onClick={() => setPreviewImageModal(o.labelImage)}
+                                className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0 relative group cursor-pointer"
+                              >
+                                <img src={o.labelImage} alt="Label Proof" className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                                  <Eye size={14} />
+                                </div>
+                              </button>
+                            ) : (
+                              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-900/50 text-[10px]">
+                                OD
                               </div>
-                              <div className="text-[10px] text-slate-400 font-mono mt-0.5">AWB: {ord.awbNumber || 'N/A'}</div>
-                            </td>
-                            <td className="py-4 px-5 max-w-[220px]">
-                              <div className="font-bold text-slate-900 dark:text-white truncate" title={ord.productName || ord.itemDescription}>
-                                {ord.productName || ord.itemDescription || 'Standard Product Item'}
-                              </div>
-                              <div className="text-[10px] font-mono text-indigo-500 font-bold mt-0.5 flex items-center gap-1">
-                                <Tag size={11} />
-                                <span>{ord.skuId || 'N/A'}</span>
-                              </div>
-                            </td>
-                            <td className="py-4 px-5 text-center font-bold text-slate-900 dark:text-white">
-                              {unitQty}
-                            </td>
-                            <td className="py-4 px-5">
-                              <span className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase border ${
-                                ord.paymentType === 'PREPAID'
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                              }`}>
-                                {ord.paymentType}
-                              </span>
-                            </td>
-                            <td className="py-4 px-5 text-right font-mono font-bold text-slate-800 dark:text-slate-200">
-                              ₹{pCost.toLocaleString('en-IN')}
-                            </td>
-                            <td className="py-4 px-5 text-right font-mono text-slate-600 dark:text-slate-400">
-                              ₹{pkgCost.toLocaleString('en-IN')}
-                            </td>
-                            <td className="py-4 px-5 text-right font-mono font-bold text-rose-600 dark:text-rose-400 text-xs">
-                              ₹{totCost.toLocaleString('en-IN')}
-                            </td>
-                            <td className="py-4 px-5 text-right font-mono font-black text-sky-600 dark:text-sky-400 text-xs bg-sky-500/5 dark:bg-sky-500/10">
-                              ₹{bSettlement.toLocaleString('en-IN')}
-                            </td>
-                            
-                            {/* CRISP & CLEAR NET PROFIT / LOSS BADGE (NO CLIPPING) */}
-                            <td className="py-4 px-5 text-right font-mono font-black text-xs whitespace-nowrap">
-                              <span className={`inline-flex items-center justify-end px-3 py-1.5 rounded-xl font-bold font-mono text-xs shadow-sm border ${
-                                netProfit >= 0
-                                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-                                  : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
-                              }`}>
-                                {netProfit >= 0 ? `+₹${netProfit.toLocaleString('en-IN')}` : `-₹${Math.abs(netProfit).toLocaleString('en-IN')}`}
-                              </span>
-                            </td>
-
-                            {/* PROOF COLUMN WITH CLEAR VIEW BUTTON & NO FILE BADGE */}
-                            <td className="py-4 px-5 text-center whitespace-nowrap">
-                              {(ord.labelImage || ord.receiptImage) ? (
-                                <button
-                                  onClick={() => setPreviewImageModal(ord.labelImage || ord.receiptImage)}
-                                  className="px-3 py-1 bg-blue-500/10 hover:bg-blue-600 text-blue-600 dark:text-blue-400 hover:text-white rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 border border-blue-500/20 shadow-sm cursor-pointer"
-                                  title="View Shipping Label Proof"
-                                >
-                                  <Eye size={13} />
-                                  <span>View Label</span>
-                                </button>
-                              ) : (
-                                <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 text-[10.5px] font-medium rounded-xl border border-slate-200/50 dark:border-slate-800 inline-block">
-                                  No File
+                            )}
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-black text-slate-900 dark:text-white font-mono">{o.orderNumber}</span>
+                                <span className={`px-1.5 py-0.2 rounded font-extrabold text-[9.5px] uppercase ${
+                                  o.paymentType === 'COD' ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                                }`}>
+                                  {o.paymentType || 'PREPAID'}
                                 </span>
-                              )}
-                            </td>
-
-                            <td className="py-4 px-5 text-center whitespace-nowrap">
-                              <div className="flex items-center justify-center gap-2">
-                                <button
-                                  onClick={() => handleEditClick(ord)}
-                                  className="px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-600 text-blue-600 dark:text-blue-400 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-blue-500/20 shadow-sm active:scale-95 cursor-pointer"
-                                  title="Edit Order Entry"
-                                >
-                                  <Edit3 size={13} />
-                                  <span>Edit</span>
-                                </button>
-                                <button
-                                  onClick={() => setDeletingOrder(ord)}
-                                  className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-rose-500/20 shadow-sm active:scale-95 cursor-pointer"
-                                  title="Delete Order Entry"
-                                >
-                                  <Trash2 size={13} />
-                                  <span>Delete</span>
-                                </button>
                               </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* NATIVE TOUCH-OPTIMIZED MOBILE ORDER CARDS */}
-              <div className="md:hidden space-y-3">
-                {filteredOrders.map((ord) => {
-                  const unitQty = ord.quantity || 1;
-                  const pCost = Number(ord.purchaseCost || 0);
-                  const pkgCost = Number(ord.packagingCost || 0);
-                  const oCost = Number(ord.otherCost || 0);
-                  const totCost = Number(ord.totalCost) || ((pCost + pkgCost + oCost) * unitQty);
-                  const bSettlement = Number(ord.bankSettlement || 0);
-                  const netProfit = bSettlement - totCost;
-                  const isExpanded = expandedCardId === ord._id;
-
-                  return (
-                    <div 
-                      key={`mob_order_${ord._id || ord.orderNumber}`}
-                      className="glass-panel p-4 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm bg-white dark:bg-slate-900"
-                    >
-                      {/* Top Header Row */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-black text-blue-600 dark:text-blue-400 font-mono text-xs">{ord.orderNumber}</span>
-                            <span className={`px-2 py-0.2 rounded-full text-[9px] font-extrabold uppercase border ${
-                              ord.paymentType === 'PREPAID'
-                                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                                : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                            }`}>
-                              {ord.paymentType}
-                            </span>
+                              <p className="text-slate-500 dark:text-slate-400 text-[11px] line-clamp-1 max-w-xs mt-0.5">{o.productName || 'Standard Product'}</p>
+                            </div>
                           </div>
-                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">AWB: {ord.awbNumber || 'N/A'}</p>
-                        </div>
+                        </td>
 
-                        {/* PROMINENT DELETE & EDIT ACTION BUTTONS */}
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => handleEditClick(ord)}
-                            className="px-2.5 py-1 bg-blue-500/10 hover:bg-blue-600 text-blue-600 dark:text-blue-400 hover:text-white rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 border border-blue-500/20 cursor-pointer"
-                          >
-                            <Edit3 size={12} />
-                            <span>Edit</span>
-                          </button>
-                          <button
-                            onClick={() => setDeletingOrder(ord)}
-                            className="px-2.5 py-1 bg-rose-500/10 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 border border-rose-500/20 cursor-pointer"
-                          >
-                            <Trash2 size={12} />
-                            <span>Delete</span>
-                          </button>
-                        </div>
-                      </div>
+                        <td className="py-3.5 px-4 text-center font-mono">
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{o.skuId || 'N/A'}</span>
+                          <div className="text-[10.5px] text-slate-400">Qty: {o.quantity || 1}</div>
+                        </td>
 
-                      {/* Product Name & SKU */}
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700 dark:text-slate-300">
+                          ₹{Number(o.purchaseCost || 0).toLocaleString('en-IN')}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700 dark:text-slate-300">
+                          ₹{Number(o.packagingCost || 0).toLocaleString('en-IN')}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
+                          ₹{Number(o.bankSettlement || 0).toLocaleString('en-IN')}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right font-mono font-black">
+                          <span className={margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
+                            ₹{margin.toLocaleString('en-IN')}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => handleEditClick(o)}
+                              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                              title="Edit Order Settlement"
+                            >
+                              <Edit size={14} />
+                            </button>
+                            <button
+                              onClick={() => setDeletingOrder(o)}
+                              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950 text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                              title="Delete Order Entry"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Card List View */}
+          <div className="block lg:hidden divide-y divide-slate-100 dark:divide-slate-800">
+            {filteredOrders.length === 0 ? (
+              <div className="py-12 text-center text-slate-400">
+                <Box size={28} className="mx-auto mb-2 opacity-50" />
+                <p className="text-xs font-semibold">No Orders Found</p>
+              </div>
+            ) : (
+              filteredOrders.map((o) => {
+                const margin = (o.bankSettlement || 0) - (o.totalCost || 0);
+                return (
+                  <div key={o._id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-snug">
-                          {ord.productName || ord.itemDescription || 'Standard Product Item'}
-                        </h4>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-[10px] font-mono text-indigo-500 font-bold flex items-center gap-1">
-                            <Tag size={10} />
-                            {ord.skuId || 'N/A'}
-                          </span>
-                          <span className="text-[10.5px] font-bold text-slate-700 dark:text-slate-300">
-                            QTY: <span className="font-black">{unitQty}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-xs text-slate-900 dark:text-white font-mono">{o.orderNumber}</span>
+                          <span className="px-1.5 py-0.2 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-extrabold text-[9.5px] rounded uppercase">
+                            {o.paymentType || 'PREPAID'}
                           </span>
                         </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5">{o.productName || 'Standard Product'}</p>
                       </div>
 
-                      {/* Financial Settlement Bar */}
-                      <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                        <div>
-                          <span className="text-[9.5px] font-black uppercase text-slate-400 block">Bank Payout</span>
-                          <span className="font-mono font-black text-sky-600 dark:text-sky-400">₹{bSettlement.toLocaleString('en-IN')}</span>
-                        </div>
-                        <div>
-                          <span className="text-[9.5px] font-black uppercase text-slate-400 block text-right">Expense</span>
-                          <span className="font-mono font-bold text-rose-600 dark:text-rose-400">₹{totCost.toLocaleString('en-IN')}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[9.5px] font-black uppercase text-slate-400 block">Net Profit</span>
-                          <span className={`font-mono font-black ${netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
-                            {netProfit >= 0 ? `+₹${netProfit}` : `-₹${Math.abs(netProfit)}`}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Expand Details Trigger */}
-                      <div className="flex items-center justify-between pt-1">
-                        {(ord.labelImage || ord.receiptImage) ? (
-                          <button
-                            onClick={() => setPreviewImageModal(ord.labelImage || ord.receiptImage)}
-                            className="text-[10.5px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1 cursor-pointer"
-                          >
-                            <Eye size={12} />
-                            <span>View Label Proof</span>
-                          </button>
-                        ) : <div />}
-
+                      <div className="flex items-center gap-1 shrink-0">
                         <button
-                          onClick={() => setExpandedCardId(isExpanded ? null : ord._id)}
-                          className="text-[10px] font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 cursor-pointer"
+                          onClick={() => handleEditClick(o)}
+                          className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 active:scale-95 cursor-pointer"
                         >
-                          <span>{isExpanded ? 'Hide Details' : 'Breakdown Costs'}</span>
-                          {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                          <Edit size={14} />
+                        </button>
+                        <button
+                          onClick={() => setDeletingOrder(o)}
+                          className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 active:scale-95 cursor-pointer"
+                        >
+                          <Trash2 size={14} />
                         </button>
                       </div>
-
-                      {/* Expanded Breakdown */}
-                      {isExpanded && (
-                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] space-y-1.5 font-medium text-slate-600 dark:text-slate-400 animate-slide-up">
-                          <div className="flex justify-between">
-                            <span>Purchase Cost per Unit:</span>
-                            <span className="font-mono font-bold text-slate-800 dark:text-slate-200">₹{pCost}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Packaging Cost per Unit:</span>
-                            <span className="font-mono text-slate-600 dark:text-slate-400">₹{pkgCost}</span>
-                          </div>
-                          {oCost > 0 && (
-                            <div className="flex justify-between">
-                              <span>Other Cost:</span>
-                              <span className="font-mono text-slate-500">₹{oCost}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
                     </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
 
-        </div>
-      )}
-
-      {/* =========================================================
-          VIEW MODE 2: SKU ID GROUPING ANALYTICS & BULK EDIT VIEW
-         ========================================================= */}
-      {viewMode === 'sku_grouped' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-          {skuGroupedAnalytics.map((skuGroup) => {
-            const groupNetMargin = skuGroup.totalBankSettlement - skuGroup.totalExpense;
-
-            return (
-              <div key={skuGroup.skuId} className="glass-panel p-4.5 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4 hover:border-indigo-500/40 transition-all duration-300 shadow-sm flex flex-col justify-between bg-white dark:bg-slate-900">
-                <div>
-                  {/* SKU Badge & Header */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold shrink-0">
-                        <Tag size={20} />
+                    <div className="grid grid-cols-3 gap-2 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 text-center font-mono text-[11px]">
+                      <div>
+                        <span className="text-[9.5px] uppercase font-bold text-slate-400 block">Purchase</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">₹{o.purchaseCost || 0}</span>
                       </div>
                       <div>
-                        <span className="text-[10px] font-black uppercase text-indigo-500 tracking-wider">SKU Variant</span>
-                        <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white font-mono">{skuGroup.skuId}</h4>
+                        <span className="text-[9.5px] uppercase font-bold text-slate-400 block">Bank Payout</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">₹{o.bankSettlement || 0}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9.5px] uppercase font-bold text-slate-400 block">Net Margin</span>
+                        <span className={`font-black ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                          ₹{margin}
+                        </span>
                       </div>
                     </div>
-                    <span className="px-2.5 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-extrabold text-[11px] rounded-xl border border-blue-500/20">
-                      {skuGroup.totalOrders} Orders
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      ) : (
+        /* SKU GROUPED VIEW */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {skuGroupedList.map((group) => {
+            const margin = group.totalBankSettlement - group.totalCost;
+            return (
+              <div
+                key={group.skuId}
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-4 flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-900/50">
+                      <Layers size={18} />
+                    </div>
+                    <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-full">
+                      {group.count} Orders
                     </span>
                   </div>
 
-                  {/* Product Name */}
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-3 line-clamp-2" title={skuGroup.productName}>
-                    {skuGroup.productName}
-                  </p>
+                  <h3 className="font-black text-sm text-slate-900 dark:text-white mt-3 font-mono">{group.skuId}</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">{group.productName}</p>
 
-                  {/* Breakdown Stats */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-2 text-xs font-medium">
-                    <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                      <span>Dispatched Units:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{skuGroup.totalUnits} Units</span>
-                    </div>
-                    <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                      <span>Purchase Cost / Unit:</span>
-                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">₹{skuGroup.purchaseCost.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                      <span>Packaging Cost / Unit:</span>
-                      <span className="font-mono text-slate-600 dark:text-slate-400">₹{skuGroup.packagingCost.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                      <span>Bank Settlement / Unit:</span>
-                      <span className="font-mono font-black text-sky-600 dark:text-sky-400">₹{skuGroup.bankSettlement.toLocaleString('en-IN')}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card Footer & Bulk Edit Button */}
-                <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/40 p-3 rounded-2xl">
+                  <div className="grid grid-cols-2 gap-2 mt-4 p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl text-xs font-mono">
                     <div>
-                      <span className="text-[10px] font-black uppercase text-slate-400 block">Total Group Profit</span>
-                      <span className={`text-sm sm:text-base font-black font-mono ${groupNetMargin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
-                        {groupNetMargin >= 0 ? `+₹${groupNetMargin.toLocaleString('en-IN')}` : `-₹${Math.abs(groupNetMargin).toLocaleString('en-IN')}`}
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Bank Settlement</span>
+                      <span className="font-black text-emerald-600 dark:text-emerald-400">₹{group.totalBankSettlement.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Net Margin</span>
+                      <span className={`font-black ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                        ₹{margin.toLocaleString('en-IN')}
                       </span>
                     </div>
-                    <div className="text-right">
-                      <span className="text-[10px] font-black uppercase text-slate-400 block">Total Expense</span>
-                      <span className="text-xs font-black font-mono text-rose-500">₹{skuGroup.totalExpense.toLocaleString('en-IN')}</span>
-                    </div>
                   </div>
-
-                  {/* BULK SKU EDIT BUTTON */}
-                  <button
-                    type="button"
-                    onClick={() => setBulkSkuModal({
-                      isOpen: true,
-                      skuId: skuGroup.skuId,
-                      productName: skuGroup.productName,
-                      count: skuGroup.totalOrders,
-                      purchaseCost: skuGroup.purchaseCost || '',
-                      packagingCost: skuGroup.packagingCost || '',
-                      otherCost: skuGroup.otherCost || '',
-                      bankSettlement: skuGroup.bankSettlement || ''
-                    })}
-                    className="w-full py-2.5 px-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20 transition-all cursor-pointer border border-indigo-400/30 active:scale-98"
-                  >
-                    <Sliders size={14} />
-                    <span>Bulk Edit SKU Costs & Settlement</span>
-                  </button>
                 </div>
+
+                <button
+                  onClick={() => handleOpenBulkSkuModal(group)}
+                  className="w-full py-2.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 font-bold text-xs rounded-2xl border border-blue-200 dark:border-blue-900/40 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                >
+                  <Edit size={14} />
+                  <span>Bulk Edit Settlement for SKU ({group.count})</span>
+                </button>
               </div>
             );
           })}
@@ -1299,605 +1052,339 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       )}
 
       {/* =========================================================
-          4. ORDER ENTRY FORM POPUP MODAL (WEBSITE STANDARD THEME)
+          5. ADD / EDIT ORDER ENTRY POPUP MODAL
+          (COMPACT & NON-SCROLLABLE OUTER CONTAINER FOR MOBILE)
          ========================================================= */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-md animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-md animate-fade-in">
+          {/* Inner Dialog Container - Fixed non-scrollable outer container */}
+          <div className="w-full max-w-2xl max-h-[92vh] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
             
-            {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 dark:from-slate-950 dark:via-blue-950 dark:to-slate-900 text-white relative shrink-0">
-              <div className="flex items-center gap-3 z-10">
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white/20 dark:bg-blue-600/30 text-white font-black text-xs flex items-center justify-center shadow-lg shrink-0 border border-white/20 backdrop-blur-md">
-                  <Box size={20} className="text-amber-300" />
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center shadow-md">
+                  <Box size={18} />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-2">
-                    <span>{editingId ? 'Edit Order Entry' : 'Order Entry'}</span>
-                    <span className="px-2 py-0.5 bg-white/20 text-white text-[9px] font-extrabold rounded-md uppercase border border-white/30">
-                      OCR Scan
-                    </span>
-                  </h3>
-                  <p className="text-[10.5px] sm:text-[11px] text-blue-100 dark:text-slate-300 mt-0.5 line-clamp-1">
-                    Auto-detect fields via OCR or manually enter financial settlement details.
-                  </p>
+                  <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                    {editingId ? 'Edit Order Entry Settlement' : 'New Order Entry'}
+                  </h2>
+                  <p className="text-[11px] text-slate-400">Direct MongoDB Financial Tracking</p>
                 </div>
               </div>
+
               <button
                 onClick={() => setIsFormOpen(false)}
-                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-2xl transition-all cursor-pointer z-10"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Mobile Tab Step Switcher */}
-            <div className="sm:hidden flex items-center justify-around border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 p-1.5 text-xs font-bold shrink-0">
-              {[
-                { step: 1, label: '1. Specs', icon: Tag },
-                { step: 2, label: '2. Expenses', icon: IndianRupee },
-                { step: 3, label: '3. Settlement', icon: Landmark }
-              ].map(s => {
-                const SIcon = s.icon;
-                return (
-                  <button
-                    key={`step_${s.step}`}
-                    onClick={() => setFormStep(s.step)}
-                    className={`flex-1 py-2 px-2 rounded-xl flex items-center justify-center gap-1 transition-all ${
-                      formStep === s.step
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-slate-500 dark:text-slate-400'
-                    }`}
-                  >
-                    <SIcon size={13} />
-                    <span>{s.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Modal Scrollable Body */}
-            <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 bg-slate-50/50 dark:bg-slate-950/30">
-
-              {/* Drag & Drop OCR Upload Dropzone */}
-              <div 
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                className={`p-4 sm:p-5 rounded-3xl border-2 border-dashed transition-all duration-300 relative overflow-hidden bg-white dark:bg-slate-900 ${
-                  isDragging
-                    ? 'border-blue-500 bg-blue-500/10 scale-[1.01]'
-                    : 'border-blue-500/30 hover:border-blue-500/50 bg-gradient-to-br from-blue-500/5 via-indigo-500/5 to-transparent'
-                }`}
-              >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="application/pdf,.pdf,image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5 w-full sm:w-auto">
-                    {labelImage ? (
-                      <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border border-blue-500/40 shrink-0 bg-white shadow-md group">
-                        <img src={labelImage} alt="Label Preview" className="w-full h-full object-contain" />
-                        <button
-                          type="button"
-                          onClick={() => setLabelImage('')}
-                          className="absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full shadow hover:scale-110 transition-transform cursor-pointer"
-                          title="Remove Image"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-3xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20 shadow-inner">
-                        <Upload size={24} />
-                      </div>
-                    )}
-
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h4 className="text-xs font-black text-slate-900 dark:text-white">Upload Label Image or PDF</h4>
-                        <span className="px-2 py-0.2 bg-blue-600 text-white text-[9px] font-extrabold rounded-md flex items-center gap-1 shadow-sm">
-                          <Sparkles size={9} /> Auto-Scan
-                        </span>
-                      </div>
-                      <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-                        Supports multi-page `.pdf` and image screenshots (`.png`, `.jpg`, `.webp`).
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isScanning}
-                    className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-600/25 transition-all cursor-pointer shrink-0 border border-blue-400/30"
-                  >
-                    {isScanning ? (
-                      <>
-                        <RefreshCw size={15} className="animate-spin text-amber-300" />
-                        <span>{scanStatusMessage || 'Scanning File...'}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload size={15} />
-                        <span>{labelImage ? 'Change File' : 'Browse File'}</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* Progress Bar during Scanning */}
-                {isScanning && (
-                  <div className="mt-3.5 space-y-1.5">
-                    <div className="flex items-center justify-between text-[10px] font-bold text-blue-600 dark:text-blue-400">
-                      <span>{scanStatusMessage}</span>
-                      <span>{scanProgress}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300 rounded-full"
-                        style={{ width: `${scanProgress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 3-BOX SETTLEMENT FORM */}
-              <form id="orderForm" onSubmit={handleSubmit} className="space-y-5">
-                
-                {/* BOX 1: ORDER & PRODUCT IDENTIFICATION */}
-                <div className={`${(formStep === 1 || window.innerWidth >= 640) ? 'block' : 'hidden'} p-4 sm:p-5 rounded-3xl border border-blue-500/30 bg-blue-500/5 dark:bg-blue-950/20 space-y-4`}>
-                  <div className="flex items-center justify-between pb-3 border-b border-blue-500/20">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
-                        1
-                      </div>
-                      <h4 className="text-xs font-black uppercase tracking-wider text-blue-900 dark:text-blue-300">
-                        Box 1: Order & Product Identification
-                      </h4>
-                    </div>
-                    <span className="px-2 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9.5px] font-black rounded-full uppercase">
-                      Core Specs
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                    {/* Order ID */}
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                        <span>Order ID (OD...)</span>
-                        {autoDetectedFields.orderNumber && (
-                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">(Auto)</span>
-                        )}
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={orderNumber}
-                        onChange={(e) => setOrderNumber(e.target.value)}
-                        placeholder="OD338181136273805100"
-                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-mono font-bold text-blue-600 dark:text-blue-400 focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
-                      />
-                    </div>
-
-                    {/* AWB No */}
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                        <span>AWB Number</span>
-                        {autoDetectedFields.awbNumber && (
-                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">(Auto)</span>
-                        )}
-                      </label>
-                      <input
-                        type="text"
-                        value={awbNumber}
-                        onChange={(e) => setAwbNumber(e.target.value)}
-                        placeholder="FMPP4174433835"
-                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-mono font-bold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
-                      />
-                    </div>
-
-                    {/* Payment Type */}
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                        <span>Payment Method</span>
-                      </label>
-                      <select
-                        value={paymentType}
-                        onChange={(e) => setPaymentType(e.target.value)}
-                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:outline-none cursor-pointer"
-                      >
-                        <option value="PREPAID">PREPAID</option>
-                        <option value="COD">COD (Cash on Delivery)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5 pt-1">
-                    {/* Product Name */}
-                    <div className="sm:col-span-6">
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                        <span>Product Name / Item Description</span>
-                        {autoDetectedFields.productName && (
-                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">(Auto-Detected)</span>
-                        )}
-                      </label>
-                      <input
-                        type="text"
-                        value={productName}
-                        onChange={(e) => setProductName(e.target.value)}
-                        placeholder="ZEBREOLINE Waterproof Silicone Sealant for Roof Leakage"
-                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
-                      />
-                    </div>
-
-                    {/* SKU ID */}
-                    <div className="sm:col-span-4">
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                        <span>SKU ID (Variant Group)</span>
-                        {autoDetectedFields.skuId && (
-                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">(Auto)</span>
-                        )}
-                      </label>
-                      <input
-                        type="text"
-                        value={skuId}
-                        onChange={(e) => setSkuId(e.target.value)}
-                        placeholder="WE-SEALANT-126"
-                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
-                      />
-                    </div>
-
-                    {/* Quantity */}
-                    <div className="sm:col-span-2">
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Quantity</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
-                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold text-center text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/30 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* BOX 2: FINANCIAL SETTLEMENT COST BREAKDOWN (EXPENSES) */}
-                <div className={`${(formStep === 2 || window.innerWidth >= 640) ? 'block' : 'hidden'} p-4 sm:p-5 rounded-3xl border border-rose-500/30 bg-rose-500/5 dark:bg-rose-950/20 space-y-4`}>
-                  <div className="flex items-center justify-between pb-3 border-b border-rose-500/20">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold text-xs">
-                        2
-                      </div>
-                      <h4 className="text-xs font-black uppercase tracking-wider text-rose-900 dark:text-rose-300">
-                        Box 2: Financial Settlement Cost Breakdown (Expenses)
-                      </h4>
-                    </div>
-                    <span className="px-2 py-0.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[9.5px] font-black rounded-full uppercase">
-                      Cost Structure
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                    {/* Purchase Cost */}
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Purchase Cost per Unit (₹)
-                      </label>
-                      <div className="relative">
-                        <IndianRupee size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={purchaseCost}
-                          onChange={(e) => setPurchaseCost(e.target.value)}
-                          placeholder="150.00"
-                          className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500/30 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Packaging Cost */}
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Packaging Cost per Unit (₹)
-                      </label>
-                      <div className="relative">
-                        <IndianRupee size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={packagingCost}
-                          onChange={(e) => setPackagingCost(e.target.value)}
-                          placeholder="20.00"
-                          className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500/30 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Other Cost (Optional) */}
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                        <span>Other Cost (₹)</span>
-                        <span className="text-[9px] text-slate-400 font-normal">(Optional)</span>
-                      </label>
-                      <div className="relative">
-                        <IndianRupee size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={otherCost}
-                          onChange={(e) => setOtherCost(e.target.value)}
-                          placeholder="0.00"
-                          className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500/30 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* BOX 3: BANK SETTLEMENT & NET PROFIT PAYOUT (INCOME) */}
-                <div className={`${(formStep === 3 || window.innerWidth >= 640) ? 'block' : 'hidden'} p-4 sm:p-5 rounded-3xl border border-sky-500/30 bg-sky-500/5 dark:bg-sky-950/20 space-y-4`}>
-                  <div className="flex items-center justify-between pb-3 border-b border-sky-500/20">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-sky-600 text-white flex items-center justify-center font-bold text-xs">
-                        3
-                      </div>
-                      <h4 className="text-xs font-black uppercase tracking-wider text-sky-900 dark:text-sky-300">
-                        Box 3: Bank Settlement Field (Income Credited)
-                      </h4>
-                    </div>
-                    <span className="px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[9.5px] font-black rounded-full uppercase">
-                      Bank Payout
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    {/* Bank Settlement Field */}
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
-                        <span>Bank Settlement Amount (₹)</span>
-                        <span className="text-[9px] text-sky-600 dark:text-sky-400 font-bold">(Net Payout in Bank)</span>
-                      </label>
-                      <div className="relative">
-                        <Landmark size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-sky-500" />
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={bankSettlement}
-                          onChange={(e) => setBankSettlement(e.target.value)}
-                          placeholder="250.00"
-                          className="w-full pl-8 pr-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-mono font-bold text-sky-600 dark:text-sky-400 focus:ring-2 focus:ring-sky-500/30 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Live Margin Calculation Card */}
-                    <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                      <div>
-                        <span className="text-[9.5px] font-black uppercase text-slate-400 block">Calculated Net Profit / Loss</span>
-                        <span className="text-[10.5px] text-slate-500 dark:text-slate-400">
-                          Payout ₹{bankSettlement || 0} - Expense ₹{calculatedTotalCost}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <span className={`text-sm sm:text-base font-black font-mono ${calculatedNetProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
-                          {calculatedNetProfit >= 0 ? `+₹${calculatedNetProfit.toLocaleString('en-IN')}` : `-₹${Math.abs(calculatedNetProfit).toLocaleString('en-IN')}`}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-              </form>
-            </div>
-
-            {/* Modal Sticky Footer */}
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between sm:justify-end gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => setIsFormOpen(false)}
-                className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                form="orderForm"
-                className="px-7 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-2xl shadow-xl shadow-blue-600/30 transition-all cursor-pointer flex items-center gap-2 border border-blue-400/30"
-              >
-                <Check size={16} />
-                <span>{editingId ? 'Update Entry' : 'Save Order Entry'}</span>
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================
-          5. BULK SKU EDIT PRICE & SETTLEMENT MODAL
-         ========================================================= */}
-      {bulkSkuModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-md animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 animate-slide-up">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 font-bold">
-                  <Sliders size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Bulk Edit SKU Prices</span>
-                    <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-500 text-[10px] font-mono font-bold rounded-md">
-                      {bulkSkuModal.skuId}
-                    </span>
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Changes will apply to ALL {bulkSkuModal.count} orders under this SKU ID.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setBulkSkuModal({ ...bulkSkuModal, isOpen: false })}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleBulkSkuSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Purchase Cost */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 block">
-                    Purchase Cost / Unit (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={bulkSkuModal.purchaseCost}
-                    onChange={(e) => setBulkSkuModal({ ...bulkSkuModal, purchaseCost: e.target.value })}
-                    placeholder="150.00"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                {/* Packaging Cost */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 block">
-                    Packaging Cost / Unit (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={bulkSkuModal.packagingCost}
-                    onChange={(e) => setBulkSkuModal({ ...bulkSkuModal, packagingCost: e.target.value })}
-                    placeholder="20.00"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                {/* Other Cost */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 block">
-                    Other Cost (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={bulkSkuModal.otherCost}
-                    onChange={(e) => setBulkSkuModal({ ...bulkSkuModal, otherCost: e.target.value })}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                {/* Bank Settlement */}
-                <div>
-                  <label className="text-[11px] font-bold text-sky-600 dark:text-sky-400 mb-1 block">
-                    Bank Settlement / Unit (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={bulkSkuModal.bankSettlement}
-                    onChange={(e) => setBulkSkuModal({ ...bulkSkuModal, bankSettlement: e.target.value })}
-                    placeholder="250.00"
-                    className="w-full px-3 py-2 bg-sky-500/10 border border-sky-500/30 rounded-xl text-xs font-mono font-bold text-sky-600 dark:text-sky-400"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100 dark:border-slate-800/80">
+            {/* Mobile Step Switcher Bar */}
+            <div className="flex sm:hidden border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-1.5 shrink-0 text-[11px]">
+              {[
+                { id: 1, label: '1. Identification' },
+                { id: 2, label: '2. Costs' },
+                { id: 3, label: '3. Settlement' }
+              ].map(s => (
                 <button
+                  key={s.id}
                   type="button"
-                  onClick={() => setBulkSkuModal({ ...bulkSkuModal, isOpen: false })}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl cursor-pointer"
+                  onClick={() => setFormStep(s.id)}
+                  className={`flex-1 py-1.5 font-extrabold rounded-xl transition-all ${
+                    formStep === s.id
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
                 >
-                  Cancel
+                  {s.label}
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-xl shadow-lg cursor-pointer"
+              ))}
+            </div>
+
+            {/* Scrollable Form Content (Internal Section Scrolling Only) */}
+            <form id="order-entry-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+              
+              {/* FILE UPLOAD & OCR SCANNER BAR */}
+              {(formStep === 1 || window.innerWidth >= 640) && (
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`p-3 sm:p-4 rounded-2xl border-2 border-dashed transition-all ${
+                    isDragging
+                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/40'
+                      : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50'
+                  }`}
                 >
-                  Apply Prices to All {bulkSkuModal.count} Orders
-                </button>
-              </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-bold flex items-center justify-center shrink-0">
+                        <UploadCloud size={20} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-slate-900 dark:text-white">Auto-Detect via Shipping Label</h4>
+                        <p className="text-[10.5px] text-slate-400">Upload PDF or Image to auto-detect Order ID, SKU & Product Name</p>
+                      </div>
+                    </div>
+
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="application/pdf,image/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      disabled={isScanning}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {isScanning ? <RefreshCw size={14} className="animate-spin" /> : <FileText size={14} />}
+                      <span>{isScanning ? 'Scanning...' : 'Select PDF / Image'}</span>
+                    </button>
+                  </div>
+
+                  {/* Scanning Progress */}
+                  {isScanning && (
+                    <div className="mt-3 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-blue-600 dark:text-blue-400">
+                        <span>{scanStatusMessage}</span>
+                        <span>{scanProgress}%</span>
+                      </div>
+                      <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                        <div className="bg-blue-600 h-1.5 rounded-full transition-all duration-300" style={{ width: `${scanProgress}%` }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* STEP 1 / BOX 1: ORDER IDENTIFICATION */}
+              {(formStep === 1 || window.innerWidth >= 640) && (
+                <div className="space-y-3 p-3.5 rounded-2xl bg-slate-50/50 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800/60">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                    <Box size={14} />
+                    <span>Box 1: Order & Product Identification</span>
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                        Order ID (OD...) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. OD33818113627"
+                        value={orderNumber}
+                        onChange={(e) => setOrderNumber(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                        Payment Type
+                      </label>
+                      <select
+                        value={paymentType}
+                        onChange={(e) => setPaymentType(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      >
+                        <option value="PREPAID">PREPAID</option>
+                        <option value="COD">COD (Cash on Delivery)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                        Product Name Only
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Concise product title..."
+                        value={productName}
+                        onChange={(e) => setProductName(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                          SKU ID
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. WE-SEALANT"
+                          value={skuId}
+                          onChange={(e) => setSkuId(e.target.value)}
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                          Quantity
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={quantity}
+                          onChange={(e) => setQuantity(e.target.value)}
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2 / BOX 2: FINANCIAL COSTS & EXPENSES */}
+              {(formStep === 2 || window.innerWidth >= 640) && (
+                <div className="space-y-3 p-3.5 rounded-2xl bg-slate-50/50 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800/60">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                    <TrendingUp size={14} className="rotate-180" />
+                    <span>Box 2: Financial Expenses & Purchase Costs</span>
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                        Purchase Cost (₹)
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        value={purchaseCost}
+                        onChange={(e) => setPurchaseCost(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                        Packaging Cost (₹)
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        value={packagingCost}
+                        onChange={(e) => setPackagingCost(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                        Other Cost (Optional)
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        value={otherCost}
+                        onChange={(e) => setOtherCost(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3 / BOX 3: BANK SETTLEMENT */}
+              {(formStep === 3 || window.innerWidth >= 640) && (
+                <div className="space-y-3 p-3.5 rounded-2xl bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/40">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                    <DollarSign size={14} />
+                    <span>Box 3: Bank Settlement (Net Payout Credited)</span>
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                        Bank Settlement Amount (₹)
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        value={bankSettlement}
+                        onChange={(e) => setBankSettlement(e.target.value)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-black text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs font-mono">
+                      <div className="flex justify-between text-slate-500 text-[10.5px]">
+                        <span>Calculated Expenses:</span>
+                        <span>₹{calculatedTotalCost}</span>
+                      </div>
+                      <div className="flex justify-between font-black mt-1">
+                        <span>Expected Net Margin:</span>
+                        <span className={calculatedMargin >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                          ₹{calculatedMargin}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </form>
+
+            {/* Fixed Bottom Footer */}
+            <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsFormOpen(false)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                form="order-entry-form"
+                className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2"
+              >
+                <CheckCircle2 size={15} />
+                <span>{editingId ? 'Update Settlement' : 'Save Order to MongoDB'}</span>
+              </button>
+            </div>
+
           </div>
         </div>
       )}
 
       {/* =========================================================
-          6. WEBSITE-STANDARD DELETE CONFIRMATION POPUP MODAL
+          6. DELETE ORDER CONFIRMATION MODAL
+          (NON-SCROLLABLE POPUP MENU FOR MOBILE)
          ========================================================= */}
       {deletingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-md animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-modal relative overflow-hidden">
-            
-            {/* Header Close button */}
-            <button 
-              onClick={() => setDeletingOrder(null)}
-              className="absolute top-4 right-4 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded-lg transition-all duration-200 cursor-pointer"
-            >
-              <X size={16} />
-            </button>
-
-            {/* Pulsing Warning Icon */}
-            <div className="flex flex-col items-center text-center mt-1 mb-2">
-              <div className="w-12 h-12 bg-rose-500/10 dark:bg-rose-500/15 rounded-full flex items-center justify-center text-rose-600 dark:text-rose-400 mb-2.5 border border-rose-500/20 relative">
-                <span className="absolute inset-0 rounded-full bg-rose-500/10 dark:bg-rose-500/20 animate-ping"></span>
-                <AlertOctagon size={22} className="relative z-10" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-2xl space-y-4 animate-slide-up">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 font-bold flex items-center justify-center shrink-0">
+                <Trash2 size={20} />
               </div>
-              <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-slate-50 tracking-tight">Delete Order Entry</h3>
-              <p className="text-slate-400 dark:text-slate-500 text-[11px] mt-1 max-w-[280px]">
-                This operation is permanent. Are you sure you want to delete this order record?
-              </p>
-            </div>
-
-            {/* High Fidelity Order Details Panel */}
-            <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-2 text-xs relative overflow-hidden">
-              <div className="flex justify-between items-center text-slate-900 dark:text-white font-mono">
-                <span className="text-[10px] font-sans font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Order ID</span>
-                <span className="font-black text-blue-600 dark:text-blue-400">{deletingOrder.orderNumber}</span>
-              </div>
-              <div className="flex justify-between items-center text-slate-700 dark:text-slate-300">
-                <span className="text-[10px] font-sans font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Product Name</span>
-                <span className="font-bold truncate max-w-[200px] text-right">{deletingOrder.productName || 'Standard Item'}</span>
-              </div>
-              {deletingOrder.skuId && (
-                <div className="flex justify-between items-center text-slate-700 dark:text-slate-300">
-                  <span className="text-[10px] font-sans font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">SKU Variant</span>
-                  <span className="font-mono font-bold text-indigo-500">{deletingOrder.skuId}</span>
-                </div>
-              )}
-              <div className="flex justify-between items-center text-slate-700 dark:text-slate-300 pt-1.5 border-t border-slate-200 dark:border-slate-800">
-                <span className="text-[10px] font-sans font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Bank Settlement</span>
-                <span className="font-mono font-black text-sky-600 dark:text-sky-400">₹{(deletingOrder.bankSettlement || 0).toLocaleString('en-IN')}</span>
+              <div>
+                <h3 className="text-sm font-black text-slate-900 dark:text-white">Delete Order Entry?</h3>
+                <p className="text-[11px] text-slate-400 font-mono font-bold">{deletingOrder.orderNumber}</p>
               </div>
             </div>
 
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800/60 text-xs space-y-1 font-mono">
+              <div className="text-slate-600 dark:text-slate-300 font-semibold line-clamp-1">{deletingOrder.productName || 'Standard Product'}</div>
+              <div className="text-[11px] text-slate-400">SKU: {deletingOrder.skuId || 'N/A'} | Bank: ₹{deletingOrder.bankSettlement || 0}</div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setDeletingOrder(null)}
-                className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl cursor-pointer"
               >
                 Cancel
               </button>
@@ -1907,18 +1394,92 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                   onDeleteOrder(deletingOrder._id, deletingOrder.orderNumber);
                   setDeletingOrder(null);
                 }}
-                className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-lg shadow-rose-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 border border-rose-400/30"
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <Trash2 size={15} />
-                <span>Confirm Delete Order Entry</span>
+                <Trash2 size={14} />
+                <span>Confirm Delete</span>
               </button>
             </div>
-
           </div>
         </div>
       )}
 
-      {/* Preview Modal */}
+      {/* =========================================================
+          7. BULK SKU EDIT MODAL (NON-SCROLLABLE POPUP)
+         ========================================================= */}
+      {bulkSkuModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-2xl space-y-4 animate-slide-up">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-bold flex items-center justify-center shadow">
+                  <Layers size={18} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white font-mono">Bulk SKU Edit: {bulkSkuModal.skuId}</h3>
+                  <p className="text-[10.5px] text-slate-400">Updates settlement & costs for all {bulkSkuModal.count} orders</p>
+                </div>
+              </div>
+              <button onClick={() => setBulkSkuModal(prev => ({ ...prev, isOpen: false }))} className="text-slate-400 hover:text-slate-600">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleBulkSkuSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Purchase Cost (₹)</label>
+                  <input
+                    type="number"
+                    value={bulkSkuModal.purchaseCost}
+                    onChange={(e) => setBulkSkuModal(prev => ({ ...prev, purchaseCost: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Packaging Cost (₹)</label>
+                  <input
+                    type="number"
+                    value={bulkSkuModal.packagingCost}
+                    onChange={(e) => setBulkSkuModal(prev => ({ ...prev, packagingCost: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Bank Settlement (₹)</label>
+                <input
+                  type="number"
+                  value={bulkSkuModal.bankSettlement}
+                  onChange={(e) => setBulkSkuModal(prev => ({ ...prev, bankSettlement: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono font-black text-emerald-600"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setBulkSkuModal(prev => ({ ...prev, isOpen: false }))}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow"
+                >
+                  Update SKU ({bulkSkuModal.count}) Orders
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================
+          8. PROOF IMAGE PREVIEW MODAL
+         ========================================================= */}
       {previewImageModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
           <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl max-h-[85vh] p-5 shadow-2xl flex flex-col items-center animate-slide-up">
@@ -1932,11 +1493,9 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
               <Eye size={14} />
               <span>Original Shipping Label Proof</span>
             </h4>
-            <img 
-              src={previewImageModal} 
-              alt="Label Preview" 
-              className="max-h-[70vh] object-contain rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md" 
-            />
+            <div className="overflow-auto max-h-[70vh] rounded-2xl border border-slate-200 dark:border-slate-800">
+              <img src={previewImageModal} alt="Label Proof" className="max-w-full h-auto object-contain" />
+            </div>
           </div>
         </div>
       )}
