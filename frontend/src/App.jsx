@@ -872,12 +872,26 @@ export default function App() {
 
     setOrders(prev => {
       const orderMap = new Map();
-      batchList.forEach(o => {
-        if (o.orderNumber) orderMap.set(o.orderNumber.trim(), { ...o, _id: o._id || `local_${Date.now()}_${Math.random()}` });
-      });
       prev.forEach(o => {
-        if (o.orderNumber && !orderMap.has(o.orderNumber.trim())) {
-          orderMap.set(o.orderNumber.trim(), o);
+        if (o.orderNumber) orderMap.set(o.orderNumber.trim(), o);
+      });
+      batchList.forEach(o => {
+        if (o.orderNumber) {
+          const key = o.orderNumber.trim();
+          const existing = orderMap.get(key);
+          if (existing) {
+            orderMap.set(key, {
+              ...o,
+              purchaseCost: (o.purchaseCost && Number(o.purchaseCost) !== 0) ? Number(o.purchaseCost) : (existing.purchaseCost || 0),
+              packagingCost: (o.packagingCost && Number(o.packagingCost) !== 0) ? Number(o.packagingCost) : (existing.packagingCost || 0),
+              otherCost: (o.otherCost && Number(o.otherCost) !== 0) ? Number(o.otherCost) : (existing.otherCost || 0),
+              bankSettlement: (o.bankSettlement && Number(o.bankSettlement) !== 0) ? Number(o.bankSettlement) : (existing.bankSettlement || 0),
+              totalCost: existing.totalCost || o.totalCost || 0,
+              _id: existing._id || o._id
+            });
+          } else {
+            orderMap.set(key, { ...o, _id: o._id || `local_${Date.now()}_${Math.random()}` });
+          }
         }
       });
       const updatedList = Array.from(orderMap.values());
