@@ -17,6 +17,7 @@ import PartnerForm from './components/PartnerForm';
 import FinancialSummary from './components/FinancialSummary';
 import CentralDashboard from './components/CentralDashboard';
 import CustomReportBuilder from './components/CustomReportBuilder';
+import OrderEntry from './components/OrderEntry';
 
 import DeleteConfirmation from './components/DeleteConfirmation';
 import Notification from './components/Notification';
@@ -228,16 +229,28 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [ledgerSubTab, setLedgerSubTab] = useState('all'); // 'all' | 'cash'
 
+  const [orders, setOrders] = useState(() => {
+    try {
+      const cached = localStorage.getItem('cached_orders');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [loadingOrders, setLoadingOrders] = useState(false);
+
   // Fetch all categories on mount if logged in, otherwise require auth
   useEffect(() => {
     if (authUser && authToken) {
       fetchTransactions();
       fetchBankTransactions();
       fetchPartnerTransactions();
+      fetchOrders();
     } else {
       setTransactions([]);
       setBankTransactions([]);
       setPartnerTransactions([]);
+      setOrders([]);
       setIsAuthModalOpen(true);
     }
   }, [authUser, authToken]);
@@ -733,6 +746,133 @@ export default function App() {
   };
 
   // ==========================================
+  // API Operations: Orders & Settlement
+  // ==========================================
+  const fetchOrders = async () => {
+    if (!localStorage.getItem('cached_orders')) {
+      setLoadingOrders(true);
+    }
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/orders`);
+      if (!response.ok) return;
+      const data = await safeJsonFetch(response);
+      if (data && Array.isArray(data)) {
+        setOrders(prev => {
+          const mergedMap = new Map();
+          data.forEach(o => {
+            if (o.orderNumber) mergedMap.set(o.orderNumber.trim(), o);
+          });
+          prev.forEach(o => {
+            if (o.orderNumber && !mergedMap.has(o.orderNumber.trim())) {
+              mergedMap.set(o.orderNumber.trim(), o);
+            }
+          });
+          const mergedList = Array.from(mergedMap.values());
+          localStorage.setItem('cached_orders', JSON.stringify(mergedList));
+          return mergedList;
+        });
+      }
+    } catch (err) {
+      console.warn("Failed to fetch orders:", err);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const handleSaveOrder = async (orderData) => {
+    const isEdit = !!orderData._id;
+    if (isEdit) {
+      setOrders(prev => {
+        const updatedList = prev.map(o => o._id === orderData._id ? orderData : o);
+        localStorage.setItem('cached_orders', JSON.stringify(updatedList));
+        return updatedList;
+      });
+      try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/orders/${orderData._id}`, {
+          method: 'PUT',
+          body: JSON.stringify(orderData)
+        });
+        if (response.ok) {
+          triggerNotification("Order settlement updated successfully!", "success");
+          fetchOrders();
+        }
+      } catch (err) {
+        triggerNotification("Order settlement saved locally (Offline)", "info");
+      }
+    } else {
+      const tempId = `local_${Date.now()}`;
+      const tempItem = { ...orderData, _id: tempId };
+      setOrders(prev => {
+        const updatedList = [tempItem, ...prev];
+        localStorage.setItem('cached_orders', JSON.stringify(updatedList));
+        return updatedList;
+      });
+
+      try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/orders`, {
+          method: 'POST',
+          body: JSON.stringify(orderData)
+        });
+        if (response.ok) {
+          triggerNotification("Order settlement saved successfully!", "success");
+          fetchOrders();
+        }
+      } catch (err) {
+        triggerNotification("Order settlement saved locally (Offline)", "info");
+      }
+    }
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    setOrders(prev => {
+      const updatedList = prev.filter(o => o._id !== orderId);
+      localStorage.setItem('cached_orders', JSON.stringify(updatedList));
+      return updatedList;
+    });
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/orders/${orderId}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        triggerNotification("Order entry deleted successfully!", "info");
+        fetchOrders();
+      }
+    } catch (err) {}
+  };
+
+  const handleSaveBatchOrders = async (batchList) => {
+    if (!Array.isArray(batchList) || batchList.length === 0) return;
+
+    setOrders(prev => {
+      const orderMap = new Map();
+      batchList.forEach(o => {
+        if (o.orderNumber) orderMap.set(o.orderNumber.trim(), { ...o, _id: o._id || `local_${Date.now()}_${Math.random()}` });
+      });
+      prev.forEach(o => {
+        if (o.orderNumber && !orderMap.has(o.orderNumber.trim())) {
+          orderMap.set(o.orderNumber.trim(), o);
+        }
+      });
+      const updatedList = Array.from(orderMap.values());
+      localStorage.setItem('cached_orders', JSON.stringify(updatedList));
+      return updatedList;
+    });
+
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/orders/batch`, {
+        method: 'POST',
+        body: JSON.stringify({ orders: batchList })
+      });
+      if (response.ok) {
+        triggerNotification(`Saved ${batchList.length} unique orders from label file!`, 'success');
+        fetchOrders();
+      }
+    } catch (err) {
+      triggerNotification(`Saved ${batchList.length} orders locally (Offline)`, 'info');
+    }
+  };
+
+  // ==========================================
   // Global Delete Handlers
   // ==========================================
   const handleDeleteTrigger = (transaction, type) => {
@@ -1068,6 +1208,18 @@ export default function App() {
                   />
                 )}
               </div>
+            )}
+
+            {/* Render PAGE: ORDER ENTRY & SETTLEMENT */}
+            {activePage === 'orders' && (
+              <OrderEntry
+                orders={orders}
+                loading={loadingOrders}
+                onRefresh={fetchOrders}
+                onSaveOrder={handleSaveOrder}
+                onSaveBatchOrders={handleSaveBatchOrders}
+                onDeleteOrder={handleDeleteOrder}
+              />
             )}
 
             {/* Render PAGE 2: BANK */}
