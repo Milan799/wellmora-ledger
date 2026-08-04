@@ -301,7 +301,12 @@ export default function App() {
           // Remove local temporary ID
           const { _id, ...cleanData } = op.data;
           let url = '';
-          if (op.type === 'ledger') url = `${API_BASE_URL}/transactions`;
+          if (op.type === 'ledger') {
+            url = `${API_BASE_URL}/transactions`;
+            if (!cleanData.category || typeof cleanData.category !== 'string') {
+              cleanData.category = 'Others';
+            }
+          }
           else if (op.type === 'bank') url = `${API_BASE_URL}/bank-transactions`;
           else if (op.type === 'partner') url = `${API_BASE_URL}/partner-flows`;
           else if (op.type === 'orders') url = `${API_BASE_URL}/orders`;
@@ -310,7 +315,7 @@ export default function App() {
             method: 'POST',
             body: JSON.stringify(cleanData)
           });
-          if (!response.ok) throw new Error();
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
           const savedItem = await safeJsonFetch(response);
           if (savedItem) {
