@@ -51,9 +51,9 @@ app.use(helmet({
 // 3. NoSQL Query Injection Prevention
 app.use(mongoSanitize());
 
-// 4. Body Parsing Middleware (Increased limit to 10mb for image/receipt uploads)
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// 4. Body Parsing Middleware (Increased limit to 50mb for image/receipt uploads & batch processing)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // 5. Rate Limiting for API routes (Allowing high throughput for real-time data sync)
 const apiLimiter = rateLimit({
@@ -144,8 +144,16 @@ Transaction.on('index', err => {
 BankTransaction.on('index', err => {
   if (err) console.error('⚠️ BankTransaction model auto-indexing failed:', err.message);
 });
-PartnerFlow.on('index', err => {
-  if (err) console.error('⚠️ PartnerFlow model auto-indexing failed:', err.message);
+// Global Error Handling Middleware
+app.use((err, req, res, next) => {
+  console.error('⚠️ Unhandled Server Error:', err);
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ message: 'Uploaded file payload is too large (max 50MB)' });
+  }
+  res.status(err.status || 500).json({
+    message: err.message || 'Internal Server Error',
+    error: process.env.NODE_ENV === 'development' ? err : undefined
+  });
 });
 
 // Connect to MongoDB
