@@ -52,6 +52,11 @@ const orderSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  bankSettlement: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   totalCost: {
     type: Number,
     default: 0,

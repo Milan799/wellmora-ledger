@@ -872,6 +872,46 @@ export default function App() {
     }
   };
 
+  const handleSaveBulkSkuOrders = async (bulkData) => {
+    const { skuId, purchaseCost, packagingCost, otherCost, bankSettlement } = bulkData;
+    const pCost = Number(purchaseCost || 0);
+    const pkgCost = Number(packagingCost || 0);
+    const oCost = Number(otherCost || 0);
+    const bSettlement = Number(bankSettlement || 0);
+
+    setOrders(prev => {
+      const updatedList = prev.map(o => {
+        if (o.skuId && o.skuId.trim() === skuId.trim()) {
+          const qty = o.quantity || 1;
+          return {
+            ...o,
+            purchaseCost: pCost,
+            packagingCost: pkgCost,
+            otherCost: oCost,
+            bankSettlement: bSettlement,
+            totalCost: (pCost + pkgCost + oCost) * qty
+          };
+        }
+        return o;
+      });
+      localStorage.setItem('cached_orders', JSON.stringify(updatedList));
+      return updatedList;
+    });
+
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/orders/bulk-sku`, {
+        method: 'PUT',
+        body: JSON.stringify(bulkData)
+      });
+      if (response.ok) {
+        triggerNotification(`Updated settlement & costs for all orders under SKU ${skuId}!`, 'success');
+        fetchOrders();
+      }
+    } catch (err) {
+      triggerNotification(`Updated SKU ${skuId} orders locally (Offline)`, 'info');
+    }
+  };
+
   // ==========================================
   // Global Delete Handlers
   // ==========================================
@@ -1219,6 +1259,7 @@ export default function App() {
                 onSaveOrder={handleSaveOrder}
                 onSaveBatchOrders={handleSaveBatchOrders}
                 onDeleteOrder={handleDeleteOrder}
+                onSaveBulkSku={handleSaveBulkSkuOrders}
               />
             )}
 

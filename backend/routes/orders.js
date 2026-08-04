@@ -26,6 +26,7 @@ router.post('/', async (req, res) => {
       purchaseCost, 
       packagingCost, 
       otherCost, 
+      bankSettlement,
       sellerName, 
       customerName, 
       shippingAddress, 
@@ -41,6 +42,7 @@ router.post('/', async (req, res) => {
     const pCost = Number(purchaseCost || 0);
     const pkgCost = Number(packagingCost || 0);
     const oCost = Number(otherCost || 0);
+    const bSettlement = Number(bankSettlement || 0);
     const calculatedTotalCost = (pCost + pkgCost + oCost) * qty;
 
     const filter = { orderNumber: orderNumber.trim() };
@@ -54,6 +56,7 @@ router.post('/', async (req, res) => {
       purchaseCost: pCost,
       packagingCost: pkgCost,
       otherCost: oCost,
+      bankSettlement: bSettlement,
       totalCost: calculatedTotalCost,
       sellerName: sellerName || 'WELLMORA ENTERPRISE',
       customerName: customerName || '',
@@ -85,6 +88,7 @@ router.post('/batch', async (req, res) => {
       const pCost = Number(item.purchaseCost || 0);
       const pkgCost = Number(item.packagingCost || 0);
       const oCost = Number(item.otherCost || 0);
+      const bSettlement = Number(item.bankSettlement || 0);
       const calculatedTotalCost = (pCost + pkgCost + oCost) * qty;
 
       const filter = { orderNumber: item.orderNumber.trim() };
@@ -98,6 +102,7 @@ router.post('/batch', async (req, res) => {
         purchaseCost: pCost,
         packagingCost: pkgCost,
         otherCost: oCost,
+        bankSettlement: bSettlement,
         totalCost: calculatedTotalCost,
         sellerName: item.sellerName || 'WELLMORA ENTERPRISE',
         customerName: item.customerName || '',
@@ -116,6 +121,43 @@ router.post('/batch', async (req, res) => {
   }
 });
 
+// PUT (bulk update) all order entries for a specific SKU ID
+router.put('/bulk-sku', async (req, res) => {
+  try {
+    const { skuId, purchaseCost, packagingCost, otherCost, bankSettlement } = req.body;
+    if (!skuId || !skuId.trim()) {
+      return res.status(400).json({ message: 'SKU ID is required for bulk SKU update' });
+    }
+
+    const pCost = Number(purchaseCost || 0);
+    const pkgCost = Number(packagingCost || 0);
+    const oCost = Number(otherCost || 0);
+    const bSettlement = Number(bankSettlement || 0);
+
+    const targetOrders = await Order.find({ skuId: skuId.trim() });
+    const updatePromises = targetOrders.map(ord => {
+      const qty = ord.quantity || 1;
+      const calculatedTotalCost = (pCost + pkgCost + oCost) * qty;
+      return Order.findByIdAndUpdate(
+        ord._id,
+        {
+          purchaseCost: pCost,
+          packagingCost: pkgCost,
+          otherCost: oCost,
+          bankSettlement: bSettlement,
+          totalCost: calculatedTotalCost
+        },
+        { new: true }
+      );
+    });
+
+    const updatedOrders = await Promise.all(updatePromises);
+    res.json({ message: `Successfully updated ${updatedOrders.length} orders for SKU ${skuId}`, count: updatedOrders.length, orders: updatedOrders });
+  } catch (error) {
+    res.status(400).json({ message: 'Error performing bulk SKU update', error: error.message });
+  }
+});
+
 // PUT (update) an existing Order entry
 router.put('/:id', async (req, res) => {
   try {
@@ -130,6 +172,7 @@ router.put('/:id', async (req, res) => {
       purchaseCost, 
       packagingCost, 
       otherCost, 
+      bankSettlement,
       sellerName, 
       customerName, 
       shippingAddress, 
@@ -141,6 +184,7 @@ router.put('/:id', async (req, res) => {
     const pCost = Number(purchaseCost || 0);
     const pkgCost = Number(packagingCost || 0);
     const oCost = Number(otherCost || 0);
+    const bSettlement = Number(bankSettlement || 0);
     const calculatedTotalCost = (pCost + pkgCost + oCost) * qty;
 
     const updatedOrder = await Order.findByIdAndUpdate(
@@ -155,6 +199,7 @@ router.put('/:id', async (req, res) => {
         purchaseCost: pCost, 
         packagingCost: pkgCost, 
         otherCost: oCost, 
+        bankSettlement: bSettlement,
         totalCost: calculatedTotalCost, 
         sellerName, 
         customerName, 
