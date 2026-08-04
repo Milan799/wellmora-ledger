@@ -229,14 +229,7 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [ledgerSubTab, setLedgerSubTab] = useState('all'); // 'all' | 'cash'
 
-  const [orders, setOrders] = useState(() => {
-    try {
-      const cached = localStorage.getItem('cached_orders');
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
   // Fetch all categories on mount & run real-time auto-sync polling
@@ -776,60 +769,27 @@ export default function App() {
   // ==========================================
   // API Operations: Orders & Settlement
   // ==========================================
+  // API Operations: Orders & Settlement (Direct MongoDB Storage)
+  // ==========================================
   const fetchOrders = async () => {
-    if (!localStorage.getItem('cached_orders')) {
-      setLoadingOrders(true);
-    }
+    setLoadingOrders(true);
     try {
       const response = await fetchWithTimeout(`${API_BASE_URL}/orders`);
-      if (!response.ok) return;
+      if (!response.ok) throw new Error("Failed to retrieve order entries");
       const data = await safeJsonFetch(response);
       if (data && Array.isArray(data)) {
-        setOrders(prev => {
-          const mergedMap = new Map();
-          // Server state is authoritative
-          data.forEach(o => {
-            if (o.orderNumber) mergedMap.set(o.orderNumber.trim(), o);
-          });
-          // Retain only unsynced draft entries created locally offline
-          prev.forEach(o => {
-            if (o._id && String(o._id).startsWith('local_') && o.orderNumber && !mergedMap.has(o.orderNumber.trim())) {
-              mergedMap.set(o.orderNumber.trim(), o);
-            }
-          });
-          const mergedList = Array.from(mergedMap.values());
-          localStorage.setItem('cached_orders', JSON.stringify(mergedList));
-          return mergedList;
-        });
+        setOrders(data);
+        localStorage.removeItem('cached_orders'); // Clear any legacy cache
       }
     } catch (err) {
-      console.warn("Failed to fetch orders:", err);
+      console.warn("Failed to fetch orders from MongoDB:", err);
     } finally {
       setLoadingOrders(false);
     }
   };
 
   const handleSaveOrder = async (orderData) => {
-    const isLocalId = !orderData._id || String(orderData._id).startsWith('local_');
-    const isEdit = !!orderData._id && !isLocalId;
-
-    setOrders(prev => {
-      const existingIdx = prev.findIndex(o => 
-        (orderData._id && o._id === orderData._id) || 
-        (orderData.orderNumber && o.orderNumber && o.orderNumber.trim() === orderData.orderNumber.trim())
-      );
-      let updatedList;
-      if (existingIdx >= 0) {
-        updatedList = [...prev];
-        updatedList[existingIdx] = { ...updatedList[existingIdx], ...orderData };
-      } else {
-        const tempId = orderData._id || `local_${Date.now()}`;
-        updatedList = [{ ...orderData, _id: tempId }, ...prev];
-      }
-      localStorage.setItem('cached_orders', JSON.stringify(updatedList));
-      return updatedList;
-    });
-
+    const isEdit = !!orderData._id && !String(orderData._id).startsWith('local_');
     try {
       const endpoint = isEdit ? `${API_BASE_URL}/orders/${orderData._id}` : `${API_BASE_URL}/orders`;
       const method = isEdit ? 'PUT' : 'POST';
@@ -838,24 +798,18 @@ export default function App() {
         body: JSON.stringify(orderData)
       });
       if (response.ok) {
-        triggerNotification("Order settlement saved successfully!", "success");
-        fetchOrders();
+        triggerNotification("Order entry saved directly to MongoDB!", "success");
+        await fetchOrders();
+      } else {
+        const errorRes = await safeJsonFetch(response);
+        triggerNotification(errorRes?.message || "Failed to save order to MongoDB", "error");
       }
     } catch (err) {
-      triggerNotification("Order settlement saved locally (Offline)", "info");
+      triggerNotification("Error connecting to MongoDB database", "error");
     }
   };
 
   const handleDeleteOrder = async (orderId, orderNumber) => {
-    setOrders(prev => {
-      const updatedList = prev.filter(o => 
-        o._id !== orderId && 
-        (!orderNumber || !o.orderNumber || o.orderNumber.trim() !== orderNumber.trim())
-      );
-      localStorage.setItem('cached_orders', JSON.stringify(updatedList));
-      return updatedList;
-    });
-
     try {
       if (orderId && !String(orderId).startsWith('local_')) {
         await fetchWithTimeout(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}`, { method: 'DELETE' }).catch(() => null);
@@ -863,44 +817,15 @@ export default function App() {
       if (orderNumber && orderNumber.trim()) {
         await fetchWithTimeout(`${API_BASE_URL}/orders/${encodeURIComponent(orderNumber.trim())}`, { method: 'DELETE' }).catch(() => null);
       }
-      triggerNotification("Order entry deleted successfully!", "info");
-      fetchOrders();
+      triggerNotification("Order entry deleted from MongoDB!", "info");
+      await fetchOrders();
     } catch (err) {
-      console.warn("Delete order request warning:", err);
+      triggerNotification("Error deleting order from MongoDB", "error");
     }
   };
 
   const handleSaveBatchOrders = async (batchList) => {
     if (!Array.isArray(batchList) || batchList.length === 0) return;
-
-    setOrders(prev => {
-      const orderMap = new Map();
-      prev.forEach(o => {
-        if (o.orderNumber) orderMap.set(o.orderNumber.trim(), o);
-      });
-      batchList.forEach(o => {
-        if (o.orderNumber) {
-          const key = o.orderNumber.trim();
-          const existing = orderMap.get(key);
-          if (existing) {
-            orderMap.set(key, {
-              ...o,
-              purchaseCost: (o.purchaseCost && Number(o.purchaseCost) !== 0) ? Number(o.purchaseCost) : (existing.purchaseCost || 0),
-              packagingCost: (o.packagingCost && Number(o.packagingCost) !== 0) ? Number(o.packagingCost) : (existing.packagingCost || 0),
-              otherCost: (o.otherCost && Number(o.otherCost) !== 0) ? Number(o.otherCost) : (existing.otherCost || 0),
-              bankSettlement: (o.bankSettlement && Number(o.bankSettlement) !== 0) ? Number(o.bankSettlement) : (existing.bankSettlement || 0),
-              totalCost: existing.totalCost || o.totalCost || 0,
-              _id: existing._id || o._id
-            });
-          } else {
-            orderMap.set(key, { ...o, _id: o._id || `local_${Date.now()}_${Math.random()}` });
-          }
-        }
-      });
-      const updatedList = Array.from(orderMap.values());
-      localStorage.setItem('cached_orders', JSON.stringify(updatedList));
-      return updatedList;
-    });
 
     try {
       const response = await fetchWithTimeout(`${API_BASE_URL}/orders/batch`, {
@@ -908,51 +833,32 @@ export default function App() {
         body: JSON.stringify({ orders: batchList })
       });
       if (response.ok) {
-        triggerNotification(`Saved ${batchList.length} unique orders from label file!`, 'success');
-        fetchOrders();
+        const resData = await safeJsonFetch(response);
+        triggerNotification(`Saved ${resData?.savedCount || batchList.length} orders directly to MongoDB!`, 'success');
+        await fetchOrders();
+      } else {
+        triggerNotification("Failed to save batch orders to MongoDB", "error");
       }
     } catch (err) {
-      triggerNotification(`Saved ${batchList.length} orders locally (Offline)`, 'info');
+      triggerNotification("Error saving batch orders to MongoDB database", "error");
     }
   };
 
   const handleSaveBulkSkuOrders = async (bulkData) => {
-    const { skuId, purchaseCost, packagingCost, otherCost, bankSettlement } = bulkData;
-    const pCost = Number(purchaseCost || 0);
-    const pkgCost = Number(packagingCost || 0);
-    const oCost = Number(otherCost || 0);
-    const bSettlement = Number(bankSettlement || 0);
-
-    setOrders(prev => {
-      const updatedList = prev.map(o => {
-        if (o.skuId && o.skuId.trim() === skuId.trim()) {
-          const qty = o.quantity || 1;
-          return {
-            ...o,
-            purchaseCost: pCost,
-            packagingCost: pkgCost,
-            otherCost: oCost,
-            bankSettlement: bSettlement,
-            totalCost: (pCost + pkgCost + oCost) * qty
-          };
-        }
-        return o;
-      });
-      localStorage.setItem('cached_orders', JSON.stringify(updatedList));
-      return updatedList;
-    });
-
+    const { skuId } = bulkData;
     try {
       const response = await fetchWithTimeout(`${API_BASE_URL}/orders/bulk-sku`, {
         method: 'PUT',
         body: JSON.stringify(bulkData)
       });
       if (response.ok) {
-        triggerNotification(`Updated settlement & costs for all orders under SKU ${skuId}!`, 'success');
-        fetchOrders();
+        triggerNotification(`Updated settlement & costs for SKU ${skuId} in MongoDB!`, 'success');
+        await fetchOrders();
+      } else {
+        triggerNotification("Failed to update SKU orders in MongoDB", "error");
       }
     } catch (err) {
-      triggerNotification(`Updated SKU ${skuId} orders locally (Offline)`, 'info');
+      triggerNotification("Error updating SKU orders in MongoDB database", "error");
     }
   };
 
