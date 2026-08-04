@@ -24,6 +24,10 @@ import User from './models/User.js';
 dotenv.config();
 
 const app = express();
+
+// Trust reverse proxy header from Render / Nginx for express-rate-limit
+app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://trymilan971_db_user:milan123@cluster0.emzxezj.mongodb.net/?appName=Cluster0';
 
