@@ -144,10 +144,10 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
     setProductName(order.productName || order.itemDescription || '');
     setSkuId(order.skuId || '');
     setQuantity(order.quantity || 1);
-    setPurchaseCost(order.purchaseCost || '');
-    setPackagingCost(order.packagingCost || '');
-    setOtherCost(order.otherCost || '');
-    setBankSettlement(order.bankSettlement || '');
+    setPurchaseCost(order.purchaseCost !== undefined ? String(order.purchaseCost) : '');
+    setPackagingCost(order.packagingCost !== undefined ? String(order.packagingCost) : '');
+    setOtherCost(order.otherCost !== undefined ? String(order.otherCost) : '');
+    setBankSettlement(order.bankSettlement !== undefined ? String(order.bankSettlement) : '');
     setSellerName(order.sellerName || 'WELLMORA ENTERPRISE');
     setCustomerName(order.customerName || '');
     setShippingAddress(order.shippingAddress || '');
@@ -724,14 +724,14 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">Order Entry & 3-Box Settlement</h1>
+                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">Order Entry</h1>
                 <span className="px-2.5 py-0.5 bg-blue-500/20 text-blue-300 font-extrabold text-[10px] sm:text-[10.5px] rounded-full uppercase tracking-wider border border-blue-400/30 flex items-center gap-1 backdrop-blur-md">
                   <Sparkles size={11} className="text-amber-400 animate-pulse" />
                   Real-Time Auto-Sync
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
-                Scan multi-page PDFs or photos to auto-detect Order ID, Product Name, SKU ID, and track 3-Box financial settlement margins.
+                Scan multi-page PDFs or photos to auto-detect Order ID, Product Name, SKU ID, and track financial settlement margins.
               </p>
             </div>
           </div>
@@ -940,21 +940,21 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                         <th className="py-4 px-5">Payment</th>
                         <th className="py-4 px-5 text-right">Purchase Cost</th>
                         <th className="py-4 px-5 text-right">Packaging Cost</th>
-                        <th className="py-4 px-5 text-right">Total Expense (₹)</th>
-                        <th className="py-4 px-5 text-right">Bank Settlement (₹)</th>
-                        <th className="py-4 px-5 text-right">Net Profit / Loss</th>
-                        <th className="py-4 px-5 text-center">Proof</th>
-                        <th className="py-4 px-5 text-center">Actions</th>
+                        <th className="py-4 px-5 text-right">Total Expense</th>
+                        <th className="py-4 px-5 text-right">Bank Settlement</th>
+                        <th className="py-4 px-5 text-right min-w-[150px] whitespace-nowrap">Net Profit / Loss</th>
+                        <th className="py-4 px-5 text-center min-w-[110px] whitespace-nowrap">Proof</th>
+                        <th className="py-4 px-5 text-center min-w-[150px]">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium text-slate-750 dark:text-slate-300">
                       {filteredOrders.map((ord) => {
                         const unitQty = ord.quantity || 1;
-                        const pCost = ord.purchaseCost || 0;
-                        const pkgCost = ord.packagingCost || 0;
-                        const oCost = ord.otherCost || 0;
-                        const totCost = ord.totalCost || ((pCost + pkgCost + oCost) * unitQty);
-                        const bSettlement = ord.bankSettlement || 0;
+                        const pCost = Number(ord.purchaseCost || 0);
+                        const pkgCost = Number(ord.packagingCost || 0);
+                        const oCost = Number(ord.otherCost || 0);
+                        const totCost = Number(ord.totalCost) || ((pCost + pkgCost + oCost) * unitQty);
+                        const bSettlement = Number(ord.bankSettlement || 0);
                         const netProfit = bSettlement - totCost;
 
                         return (
@@ -998,29 +998,37 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                             <td className="py-4 px-5 text-right font-mono font-black text-sky-600 dark:text-sky-400 text-xs bg-sky-500/5">
                               ₹{bSettlement.toLocaleString('en-IN')}
                             </td>
-                            <td className="py-4 px-5 text-right font-mono font-black text-xs">
-                              <span className={`px-2 py-0.5 rounded-md ${
+                            
+                            {/* CRISP & CLEAR NET PROFIT / LOSS BADGE (NO CLIPPING) */}
+                            <td className="py-4 px-5 text-right font-mono font-black text-xs whitespace-nowrap">
+                              <span className={`inline-flex items-center justify-end px-3 py-1.5 rounded-xl font-bold font-mono text-xs shadow-sm border ${
                                 netProfit >= 0
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                                  : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
                               }`}>
                                 {netProfit >= 0 ? `+₹${netProfit.toLocaleString('en-IN')}` : `-₹${Math.abs(netProfit).toLocaleString('en-IN')}`}
                               </span>
                             </td>
-                            <td className="py-4 px-5 text-center">
+
+                            {/* PROOF COLUMN WITH CLEAR VIEW BUTTON & NO FILE BADGE */}
+                            <td className="py-4 px-5 text-center whitespace-nowrap">
                               {(ord.labelImage || ord.receiptImage) ? (
                                 <button
                                   onClick={() => setPreviewImageModal(ord.labelImage || ord.receiptImage)}
-                                  className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer"
+                                  className="px-3 py-1 bg-blue-500/10 hover:bg-blue-600 text-blue-600 dark:text-blue-400 hover:text-white rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 border border-blue-500/20 shadow-sm cursor-pointer"
                                   title="View Shipping Label Proof"
                                 >
-                                  <Eye size={15} />
+                                  <Eye size={13} />
+                                  <span>View Label</span>
                                 </button>
                               ) : (
-                                <span className="text-[10px] text-slate-400 italic">No File</span>
+                                <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 text-[10.5px] font-medium rounded-xl border border-slate-200/50 dark:border-slate-800 inline-block">
+                                  No File
+                                </span>
                               )}
                             </td>
-                            <td className="py-4 px-5 text-center">
+
+                            <td className="py-4 px-5 text-center whitespace-nowrap">
                               <div className="flex items-center justify-center gap-2">
                                 <button
                                   onClick={() => handleEditClick(ord)}
@@ -1054,11 +1062,11 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
               <div className="md:hidden space-y-3">
                 {filteredOrders.map((ord) => {
                   const unitQty = ord.quantity || 1;
-                  const pCost = ord.purchaseCost || 0;
-                  const pkgCost = ord.packagingCost || 0;
-                  const oCost = ord.otherCost || 0;
-                  const totCost = ord.totalCost || ((pCost + pkgCost + oCost) * unitQty);
-                  const bSettlement = ord.bankSettlement || 0;
+                  const pCost = Number(ord.purchaseCost || 0);
+                  const pkgCost = Number(ord.packagingCost || 0);
+                  const oCost = Number(ord.otherCost || 0);
+                  const totCost = Number(ord.totalCost) || ((pCost + pkgCost + oCost) * unitQty);
+                  const bSettlement = Number(ord.bankSettlement || 0);
                   const netProfit = bSettlement - totCost;
                   const isExpanded = expandedCardId === ord._id;
 
@@ -1083,7 +1091,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                           <p className="text-[10px] text-slate-400 font-mono mt-0.5">AWB: {ord.awbNumber || 'N/A'}</p>
                         </div>
 
-                        {/* IMPROVED PROMINENT DELETE & EDIT ACTION BUTTONS */}
+                        {/* PROMINENT DELETE & EDIT ACTION BUTTONS */}
                         <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => handleEditClick(ord)}
@@ -1281,27 +1289,27 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       )}
 
       {/* =========================================================
-          4. RECREATED 3-BOX SETTLEMENT EDIT & ENTRY POPUP MODAL
+          4. FULL PAGE ORDER ENTRY POPUP MODAL UI
          ========================================================= */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-4xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
+        <div className="fixed inset-0 z-50 w-screen h-screen bg-slate-950/90 backdrop-blur-xl flex flex-col p-0 sm:p-4 overflow-hidden animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border-0 sm:border border-slate-200 dark:border-slate-800 rounded-none sm:rounded-3xl w-full h-full max-w-5xl mx-auto flex flex-col shadow-2xl overflow-hidden animate-slide-up">
             
-            {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-950 via-blue-950 to-slate-900 text-white relative">
+            {/* Modal Full-Page Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-950 via-blue-950 to-slate-900 text-white relative shrink-0">
               <div className="flex items-center gap-3 z-10">
                 <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-lg shrink-0 border border-white/20">
                   <Box size={20} className="text-amber-300" />
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-2">
-                    <span>{editingId ? 'Edit Order Entry' : 'Order Entry & 3-Box Settlement'}</span>
+                    <span>{editingId ? 'Edit Order Entry' : 'Order Entry'}</span>
                     <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-[9px] font-extrabold rounded-md uppercase border border-blue-400/30">
                       OCR Scan
                     </span>
                   </h3>
                   <p className="text-[10.5px] sm:text-[11px] text-slate-300 mt-0.5 line-clamp-1">
-                    Auto-detect fields via OCR or manually enter 3-Box cost details.
+                    Auto-detect fields via OCR or manually enter financial settlement details.
                   </p>
                 </div>
               </div>
@@ -1314,7 +1322,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             </div>
 
             {/* Mobile Tab Step Switcher (sm:hidden) */}
-            <div className="sm:hidden flex items-center justify-around border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 p-1.5 text-xs font-bold">
+            <div className="sm:hidden flex items-center justify-around border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 p-1.5 text-xs font-bold shrink-0">
               {[
                 { step: 1, label: '1. Specs', icon: Tag },
                 { step: 2, label: '2. Expenses', icon: IndianRupee },
@@ -1325,7 +1333,7 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                   <button
                     key={`step_${s.step}`}
                     onClick={() => setFormStep(s.step)}
-                    className={`flex-1 py-1.5 px-2 rounded-xl flex items-center justify-center gap-1 transition-all ${
+                    className={`flex-1 py-2 px-2 rounded-xl flex items-center justify-center gap-1 transition-all ${
                       formStep === s.step
                         ? 'bg-blue-600 text-white shadow-sm'
                         : 'text-slate-500 dark:text-slate-400'
@@ -1691,18 +1699,18 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
             </div>
 
             {/* Modal Sticky Footer */}
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-950/80 flex items-center justify-between sm:justify-end gap-3 backdrop-blur-md">
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-950/80 flex items-center justify-between sm:justify-end gap-3 backdrop-blur-md shrink-0">
               <button
                 type="button"
                 onClick={() => setIsFormOpen(false)}
-                className="px-4 py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl transition-all cursor-pointer"
+                className="px-5 py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 form="orderForm"
-                className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-2xl shadow-xl shadow-blue-600/30 transition-all cursor-pointer flex items-center gap-2 border border-blue-400/30"
+                className="px-7 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-2xl shadow-xl shadow-blue-600/30 transition-all cursor-pointer flex items-center gap-2 border border-blue-400/30"
               >
                 <Check size={16} />
                 <span>{editingId ? 'Update Entry' : 'Save Order Entry'}</span>
@@ -1832,29 +1840,31 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
       )}
 
       {/* =========================================================
-          6. RECREATED HIGH-VISIBILITY DELETE CONFIRMATION MODAL
+          6. FULL PAGE DELETE ORDER ENTRY CONFIRMATION MODAL UI
          ========================================================= */}
       {deletingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-slide-up">
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 border border-rose-500/30 shadow-md">
-                <AlertTriangle size={24} />
+        <div className="fixed inset-0 z-50 w-screen h-screen bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-6 animate-slide-up my-auto">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 border border-rose-500/30 shadow-md">
+                <AlertTriangle size={28} />
               </div>
               <div>
-                <h3 className="text-base font-black text-slate-900 dark:text-white">Delete Order Entry?</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">This entry will be permanently removed from all devices.</p>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">Delete Order Entry</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Are you sure you want to permanently delete this order entry? This action cannot be undone and will be synced across all devices.
+                </p>
               </div>
             </div>
 
-            <div className="p-4 bg-rose-500/5 dark:bg-slate-950/80 rounded-2xl border border-rose-500/20 space-y-2 text-xs">
+            <div className="p-4.5 bg-rose-500/5 dark:bg-slate-950/80 rounded-2xl border border-rose-500/20 space-y-2.5 text-xs">
               <div className="flex justify-between items-center text-slate-900 dark:text-white font-mono">
                 <span className="text-[11px] font-sans font-bold text-slate-500">Order ID:</span>
-                <span className="font-black text-blue-600 dark:text-blue-400">{deletingOrder.orderNumber}</span>
+                <span className="font-black text-blue-600 dark:text-blue-400 text-sm">{deletingOrder.orderNumber}</span>
               </div>
               <div className="flex justify-between items-center text-slate-700 dark:text-slate-300">
-                <span className="text-[11px] font-sans font-bold text-slate-500">Product:</span>
-                <span className="font-bold truncate max-w-[200px]">{deletingOrder.productName || 'Standard Item'}</span>
+                <span className="text-[11px] font-sans font-bold text-slate-500">Product Name:</span>
+                <span className="font-bold truncate max-w-[220px] text-right">{deletingOrder.productName || 'Standard Item'}</span>
               </div>
               {deletingOrder.skuId && (
                 <div className="flex justify-between items-center text-slate-700 dark:text-slate-300">
@@ -1862,13 +1872,17 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                   <span className="font-mono font-bold text-indigo-500">{deletingOrder.skuId}</span>
                 </div>
               )}
+              <div className="flex justify-between items-center text-slate-700 dark:text-slate-300 pt-1 border-t border-rose-500/10">
+                <span className="text-[11px] font-sans font-bold text-slate-500">Bank Settlement:</span>
+                <span className="font-mono font-black text-sky-600 dark:text-sky-400">₹{(deletingOrder.bankSettlement || 0).toLocaleString('en-IN')}</span>
+              </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
               <button
                 type="button"
                 onClick={() => setDeletingOrder(null)}
-                className="px-4.5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-2xl transition-all cursor-pointer"
+                className="flex-1 sm:flex-none px-5 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-2xl transition-all cursor-pointer"
               >
                 Cancel
               </button>
@@ -1878,10 +1892,10 @@ export default function OrderEntry({ orders = [], loading = false, onRefresh, on
                   onDeleteOrder(deletingOrder._id);
                   setDeletingOrder(null);
                 }}
-                className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-95 text-white text-xs font-black rounded-2xl shadow-xl shadow-rose-600/30 transition-all cursor-pointer flex items-center gap-1.5 border border-rose-400/30"
+                className="flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-95 text-white text-xs font-black rounded-2xl shadow-xl shadow-rose-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 border border-rose-400/30"
               >
-                <Trash2 size={15} />
-                <span>Confirm Delete</span>
+                <Trash2 size={16} />
+                <span>Confirm Delete Order Entry</span>
               </button>
             </div>
           </div>

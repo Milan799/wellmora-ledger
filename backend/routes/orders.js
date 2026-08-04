@@ -187,28 +187,56 @@ router.put('/:id', async (req, res) => {
     const bSettlement = Number(bankSettlement || 0);
     const calculatedTotalCost = (pCost + pkgCost + oCost) * qty;
 
-    const updatedOrder = await Order.findByIdAndUpdate(
-      id,
-      { 
-        orderNumber, 
-        awbNumber, 
-        paymentType, 
-        productName, 
-        skuId, 
-        quantity: qty, 
-        purchaseCost: pCost, 
-        packagingCost: pkgCost, 
-        otherCost: oCost, 
-        bankSettlement: bSettlement,
-        totalCost: calculatedTotalCost, 
-        sellerName, 
-        customerName, 
-        shippingAddress, 
-        pincode, 
-        labelImage 
-      },
-      { new: true, runValidators: true }
-    );
+    let updatedOrder = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      updatedOrder = await Order.findByIdAndUpdate(
+        id,
+        { 
+          orderNumber: orderNumber ? orderNumber.trim() : '', 
+          awbNumber: awbNumber || '', 
+          paymentType: paymentType || 'PREPAID', 
+          productName: productName || '', 
+          skuId: skuId || '', 
+          quantity: qty, 
+          purchaseCost: pCost, 
+          packagingCost: pkgCost, 
+          otherCost: oCost, 
+          bankSettlement: bSettlement,
+          totalCost: calculatedTotalCost, 
+          sellerName: sellerName || 'WELLMORA ENTERPRISE', 
+          customerName: customerName || '', 
+          shippingAddress: shippingAddress || '', 
+          pincode: pincode || '', 
+          labelImage: labelImage || '' 
+        },
+        { new: true, runValidators: true }
+      );
+    }
+
+    if (!updatedOrder && orderNumber && orderNumber.trim()) {
+      updatedOrder = await Order.findOneAndUpdate(
+        { orderNumber: orderNumber.trim() },
+        { 
+          orderNumber: orderNumber.trim(), 
+          awbNumber: awbNumber || '', 
+          paymentType: paymentType || 'PREPAID', 
+          productName: productName || '', 
+          skuId: skuId || '', 
+          quantity: qty, 
+          purchaseCost: pCost, 
+          packagingCost: pkgCost, 
+          otherCost: oCost, 
+          bankSettlement: bSettlement,
+          totalCost: calculatedTotalCost, 
+          sellerName: sellerName || 'WELLMORA ENTERPRISE', 
+          customerName: customerName || '', 
+          shippingAddress: shippingAddress || '', 
+          pincode: pincode || '', 
+          labelImage: labelImage || '' 
+        },
+        { new: true, upsert: true, runValidators: true }
+      );
+    }
 
     if (!updatedOrder) {
       return res.status(404).json({ message: 'Order entry not found' });

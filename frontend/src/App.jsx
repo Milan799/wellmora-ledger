@@ -808,7 +808,7 @@ export default function App() {
     const isEdit = !!orderData._id;
     if (isEdit) {
       setOrders(prev => {
-        const updatedList = prev.map(o => o._id === orderData._id ? orderData : o);
+        const updatedList = prev.map(o => (o._id === orderData._id || (o.orderNumber && orderData.orderNumber && o.orderNumber === orderData.orderNumber)) ? { ...o, ...orderData } : o);
         localStorage.setItem('cached_orders', JSON.stringify(updatedList));
         return updatedList;
       });
@@ -825,10 +825,17 @@ export default function App() {
         triggerNotification("Order settlement saved locally (Offline)", "info");
       }
     } else {
-      const tempId = `local_${Date.now()}`;
-      const tempItem = { ...orderData, _id: tempId };
       setOrders(prev => {
-        const updatedList = [tempItem, ...prev];
+        const existingIdx = prev.findIndex(o => o.orderNumber === orderData.orderNumber);
+        let updatedList;
+        if (existingIdx >= 0) {
+          updatedList = [...prev];
+          updatedList[existingIdx] = { ...updatedList[existingIdx], ...orderData };
+        } else {
+          const tempId = `local_${Date.now()}`;
+          const tempItem = { ...orderData, _id: tempId };
+          updatedList = [tempItem, ...prev];
+        }
         localStorage.setItem('cached_orders', JSON.stringify(updatedList));
         return updatedList;
       });
