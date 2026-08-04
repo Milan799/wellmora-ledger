@@ -208,28 +208,36 @@ export default function TransactionForm({ isOpen, onClose, onSubmit, transaction
             </div>
           </div>
 
-          {/* Description */}
-          <div>
-            <label className={`block text-xs font-bold mb-1.5 uppercase tracking-wider ${styles.label}`}>Description</label>
-            <div className="relative">
-              <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${styles.icon}`}>
-                <FileText size={14} />
+            {/* Description */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className={`block text-xs font-bold uppercase tracking-wider ${styles.label}`}>
+                  Description / Note
+                </label>
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                  {formData.description.length} / 1000 Max
+                </span>
               </div>
-              <input
-                type="text"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                placeholder="e.g. Supplier payment, Client Consulting, Office rent"
-                className={`block w-full pl-9 pr-3 py-2.5 border rounded-xl text-sm focus:ring-2 ${styles.input} ${
-                  errors.description 
-                    ? 'border-red-500/40 focus:ring-red-500/10 focus:border-red-500/30' 
-                    : ''
-                }`}
-              />
+              <div className="relative">
+                <div className={`absolute top-3 left-3.5 pointer-events-none ${styles.icon}`}>
+                  <FileText size={14} />
+                </div>
+                <textarea
+                  name="description"
+                  rows={4}
+                  maxLength={1000}
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="Enter detailed expense notes, vendor details, reference numbers, or remarks..."
+                  className={`block w-full pl-9 pr-3 py-2.5 border rounded-xl text-sm leading-relaxed focus:ring-2 resize-y min-h-[100px] ${styles.input} ${
+                    errors.description 
+                      ? 'border-red-500/40 focus:ring-red-500/10 focus:border-red-500/30' 
+                      : ''
+                  }`}
+                />
+              </div>
+              {errors.description && <p className="text-red-500 dark:text-red-455 text-xs mt-1.5 font-medium">{errors.description}</p>}
             </div>
-            {errors.description && <p className="text-red-500 dark:text-red-455 text-xs mt-1.5 font-medium">{errors.description}</p>}
-          </div>
 
           {/* Category */}
           <div>

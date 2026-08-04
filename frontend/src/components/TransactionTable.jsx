@@ -147,7 +147,10 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
                 </td>
                 
                 {/* Description */}
-                <td className="px-4 py-3.5 font-semibold text-slate-900 dark:text-slate-50 max-w-xs truncate text-xs">
+                <td 
+                  className="px-4 py-3.5 font-semibold text-slate-900 dark:text-slate-50 max-w-sm truncate text-xs" 
+                  title={t.description}
+                >
                   {t.description}
                 </td>
                 
