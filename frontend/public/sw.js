@@ -11,6 +11,11 @@ self.addEventListener('message', (event) => {
   if (event.data && (event.data.type === 'SKIP_WAITING' || event.data === 'SKIP_WAITING')) {
     self.skipWaiting();
   }
+  if (event.ports && event.ports[0]) {
+    try {
+      event.ports[0].postMessage({ status: 'ok' });
+    } catch (e) {}
+  }
 });
 
 self.addEventListener('install', (event) => {
