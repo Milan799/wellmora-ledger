@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, IndianRupee, Landmark, FileText, Activity } from 'lucide-react';
+import { X, Calendar, IndianRupee, Landmark, FileText, Activity, ArrowRightLeft, Sparkles } from 'lucide-react';
 
 export default function BankForm({ isOpen, onClose, onSubmit, transaction = null }) {
   const [formData, setFormData] = useState({
@@ -9,7 +9,8 @@ export default function BankForm({ isOpen, onClose, onSubmit, transaction = null
     type: 'Deposit',
     amount: '',
     status: 'Completed',
-    description: ''
+    description: '',
+    syncToCash: false
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,7 +27,8 @@ export default function BankForm({ isOpen, onClose, onSubmit, transaction = null
         type: transaction.type || 'Deposit',
         amount: transaction.amount || '',
         status: transaction.status || 'Completed',
-        description: transaction.description || ''
+        description: transaction.description || '',
+        syncToCash: transaction.syncToCash || (transaction.type === 'ATM Withdrawal')
       });
       setErrors({});
     } else {
@@ -37,7 +39,8 @@ export default function BankForm({ isOpen, onClose, onSubmit, transaction = null
         type: 'Deposit',
         amount: '',
         status: 'Completed',
-        description: ''
+        description: '',
+        syncToCash: false
       });
       setErrors({});
     }
@@ -54,7 +57,12 @@ export default function BankForm({ isOpen, onClose, onSubmit, transaction = null
   };
 
   const handleTypeChange = (type) => {
-    setFormData(prev => ({ ...prev, type }));
+    setFormData(prev => ({
+      ...prev,
+      type,
+      // Auto-enable Cash Transfer sync when selecting ATM Withdrawal or Withdrawal
+      syncToCash: type === 'ATM Withdrawal' ? true : (type === 'Deposit' ? false : prev.syncToCash)
+    }));
   };
 
   const validateForm = () => {
@@ -115,30 +123,89 @@ export default function BankForm({ isOpen, onClose, onSubmit, transaction = null
           {/* Type Toggle */}
           <div>
             <label className={`block text-xs font-bold mb-2 uppercase tracking-wider ${styles.label}`}>Transaction Type</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => handleTypeChange('Deposit')}
-                className={`py-3 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 border cursor-pointer transition-all duration-200 ${
+                className={`py-2.5 px-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 border cursor-pointer transition-all duration-200 ${
                   formData.type === 'Deposit'
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 shadow-sm'
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 shadow-sm font-bold'
                     : styles.toggleInactive
                 }`}
               >
                 <div className={`w-2 h-2 rounded-full ${formData.type === 'Deposit' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                Deposit (Cash In)
+                Deposit
               </button>
               <button
                 type="button"
                 onClick={() => handleTypeChange('Withdrawal')}
-                className={`py-3 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 border cursor-pointer transition-all duration-200 ${
+                className={`py-2.5 px-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 border cursor-pointer transition-all duration-200 ${
                   formData.type === 'Withdrawal'
-                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 shadow-sm'
+                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 shadow-sm font-bold'
                     : styles.toggleInactive
                 }`}
               >
                 <div className={`w-2 h-2 rounded-full ${formData.type === 'Withdrawal' ? 'bg-rose-500' : 'bg-slate-400'}`} />
-                Withdrawal (Cash Out)
+                Withdrawal
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTypeChange('ATM Withdrawal')}
+                className={`py-2.5 px-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 border cursor-pointer transition-all duration-200 ${
+                  formData.type === 'ATM Withdrawal'
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 shadow-sm font-bold ring-2 ring-amber-500/30'
+                    : styles.toggleInactive
+                }`}
+              >
+                <div className={`w-2 h-2 rounded-full ${formData.type === 'ATM Withdrawal' ? 'bg-amber-500' : 'bg-slate-400'}`} />
+                ATM Cash
+              </button>
+            </div>
+          </div>
+
+          {/* Cash Transfer Auto-Sync Toggle Switch */}
+          <div className={`p-4 rounded-2xl border transition-all ${
+            formData.syncToCash 
+              ? 'bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-emerald-500/10 border-blue-500/30 shadow-md' 
+              : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800'
+          }`}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className={`p-2.5 rounded-xl shrink-0 mt-0.5 ${
+                  formData.syncToCash 
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' 
+                    : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                }`}>
+                  <ArrowRightLeft size={18} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span>Sync to Cash-in-Hand (Cash Ledger)</span>
+                    {formData.type === 'ATM Withdrawal' && (
+                      <span className="px-2 py-0.2 bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[9px] font-black rounded-md uppercase flex items-center gap-1">
+                        <Sparkles size={10} /> Auto-Sync
+                      </span>
+                    )}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-normal">
+                    Automatically adds a Cash Credit entry to your Cash Ledger when withdrawing from Bank.
+                  </p>
+                </div>
+              </div>
+
+              {/* Toggle Switch */}
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, syncToCash: !prev.syncToCash }))}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  formData.syncToCash ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    formData.syncToCash ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
               </button>
             </div>
           </div>

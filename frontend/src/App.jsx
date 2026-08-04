@@ -613,6 +613,25 @@ export default function App() {
           triggerNotification('Bank record saved locally (Offline)', 'info');
         }
       }
+
+      // Auto-Sync to Cash Ledger (Cash-in-Hand Credit) if syncToCash is active
+      const isAtmOrSync = formData.syncToCash || formData.type === 'ATM Withdrawal' || (formData.type === 'Withdrawal' && formData.syncToCash);
+      if (isAtmOrSync && !editingBankTransaction && Number(formData.amount) > 0) {
+        const cashTransactionData = {
+          date: formData.date || new Date().toISOString().split('T')[0],
+          description: formData.description 
+            ? `ATM Cash Withdrawal (${formData.description}) - ${formData.bankName}`
+            : `ATM Cash Withdrawal from ${formData.bankName} (${formData.accountNumber || 'Bank'})`,
+          category: 'ATM Cash Withdrawal',
+          type: 'Credit', // Cash Credit (Cash In)
+          amount: Number(formData.amount),
+          isHandCash: true
+        };
+
+        handleTransactionSubmit(cashTransactionData);
+        triggerNotification(`Bank entry saved & ₹${formData.amount} auto-synced to Cash Ledger!`, 'success');
+      }
+
       setIsBankFormOpen(false);
       setEditingBankTransaction(null);
     } catch (err) {
