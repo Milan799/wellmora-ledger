@@ -15,8 +15,8 @@ const bankTransactionSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Transaction type is required'],
     enum: {
-      values: ['Deposit', 'Withdrawal'],
-      message: '{VALUE} must be either Deposit or Withdrawal'
+      values: ['Deposit', 'Withdrawal', 'ATM Withdrawal'],
+      message: '{VALUE} must be Deposit, Withdrawal, or ATM Withdrawal'
     }
   },
   amount: {

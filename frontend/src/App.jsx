@@ -641,7 +641,7 @@ export default function App() {
           isHandCash: true
         };
 
-        handleTransactionSubmit(cashTransactionData);
+        handleLedgerSubmit(cashTransactionData);
         triggerNotification(`Bank entry saved & ₹${formData.amount} auto-synced to Cash Ledger!`, 'success');
       }
 
