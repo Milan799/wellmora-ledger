@@ -283,7 +283,6 @@ export default function Sidebar({
         {[
           { id: 'central', label: 'Home', icon: LayoutDashboard },
           { id: 'ledger', label: 'Expenses', icon: BookOpen },
-          { id: 'orders', label: 'Flipkart', icon: ShoppingBag },
           { id: 'bank', label: 'Banks', icon: Building2 },
           { id: 'partner', label: 'Partners', icon: Users2 },
           { id: 'summary', label: 'Overview', icon: BarChart3 },
