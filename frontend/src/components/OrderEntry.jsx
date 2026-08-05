@@ -841,31 +841,35 @@ export default function OrderEntry({
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0 pt-2 sm:pt-0">
-            <button
-              onClick={handleOpenBulkDateFrameModal}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-amber-400/20 hover:bg-amber-400/30 active:scale-95 text-amber-200 text-xs font-black rounded-2xl flex items-center justify-center gap-2 backdrop-blur-md transition-all cursor-pointer border border-amber-300/30 shadow-sm"
-              title="Adjust purchase/packaging costs and bank settlement for all orders in selected date frame"
-            >
-              <Sliders size={15} />
-              <span>Adjust Date Frame Prices</span>
-            </button>
-
-            <button
-              onClick={handleExportCSV}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-white text-xs font-bold rounded-2xl flex items-center justify-center gap-2 backdrop-blur-md transition-all cursor-pointer border border-white/20 shadow-sm"
-            >
-              <Download size={15} />
-              <span>Export CSV</span>
-            </button>
-
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0 pt-2 sm:pt-0 w-full sm:w-auto">
+            {/* Primary Action Button - Full width on Mobile */}
             <button
               onClick={openNewOrderForm}
-              className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 active:scale-95 text-slate-950 text-xs font-black rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer border border-amber-300/40"
+              className="order-1 sm:order-3 w-full sm:w-auto px-5 py-3 sm:py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 active:scale-95 text-slate-950 text-xs sm:text-xs font-black rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer border border-amber-300/40"
             >
               <Plus size={16} />
-              <span>New Order Entry</span>
+              <span className="whitespace-nowrap">New Order Entry</span>
             </button>
+
+            {/* Secondary Actions Row - Side-by-Side 50/50 on Mobile */}
+            <div className="order-2 sm:order-1 flex items-center gap-2 w-full sm:w-auto">
+              <button
+                onClick={handleOpenBulkDateFrameModal}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 bg-amber-400/20 hover:bg-amber-400/30 active:scale-95 text-amber-200 text-[11px] sm:text-xs font-black rounded-2xl flex items-center justify-center gap-1.5 backdrop-blur-md transition-all cursor-pointer border border-amber-300/30 shadow-sm whitespace-nowrap"
+                title="Adjust purchase/packaging costs and bank settlement for all orders in selected date frame"
+              >
+                <Sliders size={14} />
+                <span>Adjust Date Prices</span>
+              </button>
+
+              <button
+                onClick={handleExportCSV}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-white text-[11px] sm:text-xs font-bold rounded-2xl flex items-center justify-center gap-1.5 backdrop-blur-md transition-all cursor-pointer border border-white/20 shadow-sm whitespace-nowrap"
+              >
+                <Download size={14} />
+                <span>Export CSV</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
