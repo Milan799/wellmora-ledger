@@ -812,9 +812,6 @@ export default function OrderEntry({
                   Real-Time Direct Sync
                 </span>
               </div>
-              <p className="text-xs text-blue-50 dark:text-slate-300 mt-1 max-w-xl leading-relaxed">
-                Direct MongoDB Order Entry Hub. Scan shipping PDFs or photos to auto-detect Order ID, SKU, and financial settlement margins.
-              </p>
             </div>
           </div>
 
@@ -1318,7 +1315,7 @@ export default function OrderEntry({
                   <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
                     {editingId ? 'Edit Order Entry Settlement' : 'New Order Entry'}
                   </h2>
-                  <p className="text-[11px] text-slate-400">Direct MongoDB Financial Tracking</p>
+                  <p className="text-[11px] text-slate-400">Order Financial Settlement & Tracking</p>
                 </div>
               </div>
 
@@ -1611,7 +1608,7 @@ export default function OrderEntry({
                 className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2"
               >
                 <CheckCircle2 size={15} />
-                <span>{editingId ? 'Update Settlement' : 'Save Order to MongoDB'}</span>
+                <span>{editingId ? 'Update Settlement' : 'Save Order Entry'}</span>
               </button>
             </div>
 
