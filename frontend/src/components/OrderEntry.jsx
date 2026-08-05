@@ -1195,15 +1195,26 @@ export default function OrderEntry({
             ) : (
               filteredOrders.map((o) => {
                 const margin = (o.bankSettlement || 0) - (o.totalCost || 0);
+                const rawDate = o.orderDate || o.createdAt;
+                const dateFormatted = rawDate
+                  ? new Date(rawDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                  : 'N/A';
+
                 return (
                   <div key={o._id} className="p-4 space-y-3">
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-black text-xs text-slate-900 dark:text-white font-mono">{o.orderNumber}</span>
-                          <span className="px-1.5 py-0.2 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-extrabold text-[9.5px] rounded uppercase">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-bold text-[10px] rounded-md flex items-center gap-1">
+                            <Calendar size={11} className="text-blue-500 shrink-0" />
+                            {dateFormatted}
+                          </span>
+                          <span className="px-1.5 py-0.2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold text-[9.5px] rounded uppercase">
                             {o.paymentType || 'PREPAID'}
                           </span>
+                        </div>
+                        <div className="font-black text-xs text-slate-900 dark:text-white font-mono">
+                          {o.orderNumber}
                         </div>
                         <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5">{o.productName || 'Standard Product'}</p>
                       </div>
