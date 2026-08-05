@@ -33,7 +33,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST a new Order entry (Enforces Unique Order ID via Upsert & Preserves Existing Prices)
+// POST a new Order entry (Enforces Unique Order ID via Upsert & Auto-Syncs SKU Prices)
 router.post('/', async (req, res) => {
   try {
     const { 
@@ -60,12 +60,39 @@ router.post('/', async (req, res) => {
     }
     
     const existing = await Order.findOne({ orderNumber: orderNumber.trim() });
+    
+    const cleanSku = skuId ? skuId.trim() : (existing ? existing.skuId : '');
+    let existingSku = null;
+    if (cleanSku) {
+      existingSku = await Order.findOne({ skuId: cleanSku });
+    }
 
     const qty = Number(quantity || (existing ? existing.quantity : 1));
-    const pCost = purchaseCost !== undefined ? Number(purchaseCost) : (existing ? existing.purchaseCost : 0);
-    const pkgCost = packagingCost !== undefined ? Number(packagingCost) : (existing ? existing.packagingCost : 0);
-    const oCost = otherCost !== undefined ? Number(otherCost) : (existing ? existing.otherCost : 0);
-    const bSettlement = bankSettlement !== undefined ? Number(bankSettlement) : (existing ? existing.bankSettlement : 0);
+    
+    let pCost = purchaseCost !== undefined ? Number(purchaseCost) : (existing ? existing.purchaseCost : undefined);
+    if ((pCost === undefined || pCost === 0) && existingSku && existingSku.purchaseCost) {
+      pCost = existingSku.purchaseCost;
+    }
+    pCost = pCost || 0;
+
+    let pkgCost = packagingCost !== undefined ? Number(packagingCost) : (existing ? existing.packagingCost : undefined);
+    if ((pkgCost === undefined || pkgCost === 0) && existingSku && existingSku.packagingCost) {
+      pkgCost = existingSku.packagingCost;
+    }
+    pkgCost = pkgCost || 0;
+
+    let oCost = otherCost !== undefined ? Number(otherCost) : (existing ? existing.otherCost : undefined);
+    if ((oCost === undefined || oCost === 0) && existingSku && existingSku.otherCost) {
+      oCost = existingSku.otherCost;
+    }
+    oCost = oCost || 0;
+
+    let bSettlement = bankSettlement !== undefined ? Number(bankSettlement) : (existing ? existing.bankSettlement : undefined);
+    if ((bSettlement === undefined || bSettlement === 0) && existingSku && existingSku.bankSettlement) {
+      bSettlement = existingSku.bankSettlement;
+    }
+    bSettlement = bSettlement || 0;
+
     const calculatedTotalCost = (pCost + pkgCost + oCost) * qty;
 
     let parsedOrderDate = existing ? existing.orderDate : new Date();
@@ -80,7 +107,7 @@ router.post('/', async (req, res) => {
       awbNumber: awbNumber || (existing ? existing.awbNumber : ''),
       paymentType: paymentType || (existing ? existing.paymentType : 'PREPAID'),
       productName: productName || (existing ? existing.productName : ''),
-      skuId: skuId || (existing ? existing.skuId : ''),
+      skuId: cleanSku,
       quantity: qty,
       purchaseCost: pCost,
       packagingCost: pkgCost,
@@ -96,13 +123,33 @@ router.post('/', async (req, res) => {
     };
     
     const savedOrder = await Order.findOneAndUpdate(filter, updateData, { new: true, upsert: true, runValidators: true });
+
+    // Auto-propagate costs to all other orders sharing the same SKU ID
+    if (cleanSku) {
+      const sameSkuOrders = await Order.find({ skuId: cleanSku, _id: { $ne: savedOrder._id } });
+      if (sameSkuOrders.length > 0) {
+        const autoSyncPromises = sameSkuOrders.map(ord => {
+          const oQty = ord.quantity || 1;
+          const oTotalCost = (pCost + pkgCost + oCost) * oQty;
+          return Order.findByIdAndUpdate(ord._id, {
+            purchaseCost: pCost,
+            packagingCost: pkgCost,
+            otherCost: oCost,
+            bankSettlement: bSettlement,
+            totalCost: oTotalCost
+          });
+        });
+        await Promise.all(autoSyncPromises);
+      }
+    }
+
     res.status(200).json(savedOrder);
   } catch (error) {
     res.status(400).json({ message: 'Error saving order entry', error: error.message });
   }
 });
 
-// POST batch multi-file / multi-page Order entries (Preserves Existing Non-Zero Costs)
+// POST batch multi-file / multi-page Order entries (Preserves & Auto-Syncs SKU Prices)
 router.post('/batch', async (req, res) => {
   try {
     const { orders: batchOrders } = req.body;
@@ -115,12 +162,27 @@ router.post('/batch', async (req, res) => {
       if (!item.orderNumber || !item.orderNumber.trim()) continue;
       
       const existing = await Order.findOne({ orderNumber: item.orderNumber.trim() });
+      const cleanSku = item.skuId ? item.skuId.trim() : (existing ? existing.skuId : '');
+      let existingSku = null;
+      if (cleanSku) {
+        existingSku = await Order.findOne({ skuId: cleanSku });
+      }
 
       const qty = Number(item.quantity || (existing ? existing.quantity : 1));
-      const pCost = item.purchaseCost !== undefined && Number(item.purchaseCost) !== 0 ? Number(item.purchaseCost) : (existing ? existing.purchaseCost : 0);
-      const pkgCost = item.packagingCost !== undefined && Number(item.packagingCost) !== 0 ? Number(item.packagingCost) : (existing ? existing.packagingCost : 0);
-      const oCost = item.otherCost !== undefined && Number(item.otherCost) !== 0 ? Number(item.otherCost) : (existing ? existing.otherCost : 0);
-      const bSettlement = item.bankSettlement !== undefined && Number(item.bankSettlement) !== 0 ? Number(item.bankSettlement) : (existing ? existing.bankSettlement : 0);
+
+      let pCost = item.purchaseCost !== undefined && Number(item.purchaseCost) !== 0 
+        ? Number(item.purchaseCost) 
+        : (existing ? existing.purchaseCost : (existingSku ? existingSku.purchaseCost : 0));
+      let pkgCost = item.packagingCost !== undefined && Number(item.packagingCost) !== 0 
+        ? Number(item.packagingCost) 
+        : (existing ? existing.packagingCost : (existingSku ? existingSku.packagingCost : 0));
+      let oCost = item.otherCost !== undefined && Number(item.otherCost) !== 0 
+        ? Number(item.otherCost) 
+        : (existing ? existing.otherCost : (existingSku ? existingSku.otherCost : 0));
+      let bSettlement = item.bankSettlement !== undefined && Number(item.bankSettlement) !== 0 
+        ? Number(item.bankSettlement) 
+        : (existing ? existing.bankSettlement : (existingSku ? existingSku.bankSettlement : 0));
+
       const calculatedTotalCost = (pCost + pkgCost + oCost) * qty;
 
       let parsedOrderDate = existing ? existing.orderDate : new Date();
@@ -135,7 +197,7 @@ router.post('/batch', async (req, res) => {
         awbNumber: item.awbNumber || (existing ? existing.awbNumber : ''),
         paymentType: item.paymentType || (existing ? existing.paymentType : 'PREPAID'),
         productName: item.productName || item.itemDescription || (existing ? existing.productName : ''),
-        skuId: item.skuId || (existing ? existing.skuId : ''),
+        skuId: cleanSku,
         quantity: qty,
         purchaseCost: pCost,
         packagingCost: pkgCost,
@@ -151,6 +213,25 @@ router.post('/batch', async (req, res) => {
       };
       
       const saved = await Order.findOneAndUpdate(filter, updateData, { new: true, upsert: true });
+
+      if (cleanSku) {
+        const sameSkuOrders = await Order.find({ skuId: cleanSku, _id: { $ne: saved._id } });
+        if (sameSkuOrders.length > 0) {
+          const autoSyncPromises = sameSkuOrders.map(ord => {
+            const oQty = ord.quantity || 1;
+            const oTotalCost = (pCost + pkgCost + oCost) * oQty;
+            return Order.findByIdAndUpdate(ord._id, {
+              purchaseCost: pCost,
+              packagingCost: pkgCost,
+              otherCost: oCost,
+              bankSettlement: bSettlement,
+              totalCost: oTotalCost
+            });
+          });
+          await Promise.all(autoSyncPromises);
+        }
+      }
+
       savedResults.push(saved);
     }
 
@@ -332,6 +413,26 @@ router.put('/:id', async (req, res) => {
 
     if (!updatedOrder) {
       return res.status(404).json({ message: 'Order entry not found' });
+    }
+
+    // Auto-propagate costs to all other orders sharing the same SKU ID
+    const cleanSku = updateData.skuId ? updateData.skuId.trim() : '';
+    if (cleanSku) {
+      const sameSkuOrders = await Order.find({ skuId: cleanSku, _id: { $ne: updatedOrder._id } });
+      if (sameSkuOrders.length > 0) {
+        const autoSyncPromises = sameSkuOrders.map(ord => {
+          const oQty = ord.quantity || 1;
+          const oTotalCost = (pCost + pkgCost + oCost) * oQty;
+          return Order.findByIdAndUpdate(ord._id, {
+            purchaseCost: pCost,
+            packagingCost: pkgCost,
+            otherCost: oCost,
+            bankSettlement: bSettlement,
+            totalCost: oTotalCost
+          });
+        });
+        await Promise.all(autoSyncPromises);
+      }
     }
 
     res.json(updatedOrder);

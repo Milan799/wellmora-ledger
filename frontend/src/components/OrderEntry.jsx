@@ -273,6 +273,9 @@ export default function OrderEntry({
           const parsedData = extractFieldsFromText(combinedText);
 
           if (parsedData.orderNumber) {
+            const cleanParsedSku = parsedData.skuId ? parsedData.skuId.trim().toUpperCase() : '';
+            const matchingSkuOrder = cleanParsedSku ? orders.find(o => o.skuId && o.skuId.trim().toUpperCase() === cleanParsedSku) : null;
+
             const orderObj = {
               orderNumber: parsedData.orderNumber,
               awbNumber: parsedData.awbNumber || `FMPP${Date.now().toString().slice(-10)}`,
@@ -280,10 +283,10 @@ export default function OrderEntry({
               productName: parsedData.productName || 'Standard Product Item',
               skuId: parsedData.skuId || '',
               quantity: parsedData.quantity || 1,
-              purchaseCost: Number(purchaseCost || 0),
-              packagingCost: Number(packagingCost || 0),
-              otherCost: Number(otherCost || 0),
-              bankSettlement: Number(bankSettlement || 0),
+              purchaseCost: matchingSkuOrder ? (matchingSkuOrder.purchaseCost || 0) : Number(purchaseCost || 0),
+              packagingCost: matchingSkuOrder ? (matchingSkuOrder.packagingCost || 0) : Number(packagingCost || 0),
+              otherCost: matchingSkuOrder ? (matchingSkuOrder.otherCost || 0) : Number(otherCost || 0),
+              bankSettlement: matchingSkuOrder ? (matchingSkuOrder.bankSettlement || 0) : Number(bankSettlement || 0),
               sellerName: parsedData.sellerName || 'WELLMORA ENTERPRISE',
               customerName: parsedData.customerName || '',
               shippingAddress: parsedData.shippingAddress || '',
@@ -396,12 +399,35 @@ export default function OrderEntry({
     }
   };
 
+  const handleSkuIdChange = (val) => {
+    setSkuId(val);
+    if (!val || !val.trim()) return;
+    const cleanSku = val.trim().toUpperCase();
+    const existingSkuOrder = orders.find(o => o.skuId && o.skuId.trim().toUpperCase() === cleanSku);
+    if (existingSkuOrder) {
+      if (existingSkuOrder.purchaseCost !== undefined && existingSkuOrder.purchaseCost !== null) {
+        setPurchaseCost(String(existingSkuOrder.purchaseCost));
+      }
+      if (existingSkuOrder.packagingCost !== undefined && existingSkuOrder.packagingCost !== null) {
+        setPackagingCost(String(existingSkuOrder.packagingCost));
+      }
+      if (existingSkuOrder.otherCost !== undefined && existingSkuOrder.otherCost !== null) {
+        setOtherCost(String(existingSkuOrder.otherCost));
+      }
+      if (existingSkuOrder.bankSettlement !== undefined && existingSkuOrder.bankSettlement !== null) {
+        setBankSettlement(String(existingSkuOrder.bankSettlement));
+      }
+    }
+  };
+
   const applyFieldsToForm = (parsedData) => {
     if (parsedData.orderNumber) setOrderNumber(parsedData.orderNumber);
     if (parsedData.awbNumber) setAwbNumber(parsedData.awbNumber);
     if (parsedData.paymentType) setPaymentType(parsedData.paymentType);
     if (parsedData.productName) setProductName(parsedData.productName);
-    if (parsedData.skuId) setSkuId(parsedData.skuId);
+    if (parsedData.skuId) {
+      handleSkuIdChange(parsedData.skuId);
+    }
     if (parsedData.quantity) setQuantity(parsedData.quantity);
     if (parsedData.sellerName) setSellerName(parsedData.sellerName);
     if (parsedData.customerName) setCustomerName(parsedData.customerName);
@@ -1492,7 +1518,7 @@ export default function OrderEntry({
                           type="text"
                           placeholder="e.g. WE-SEALANT"
                           value={skuId}
-                          onChange={(e) => setSkuId(e.target.value)}
+                          onChange={(e) => handleSkuIdChange(e.target.value)}
                           className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                         />
                       </div>
