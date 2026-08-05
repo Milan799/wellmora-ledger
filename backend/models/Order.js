@@ -85,12 +85,17 @@ const orderSchema = new mongoose.Schema({
   labelImage: {
     type: String,
     default: ''
+  },
+  orderDate: {
+    type: Date,
+    default: Date.now
   }
 }, {
   timestamps: true
 });
 
-// Index for fast query deduplication
+// Index for fast query deduplication and date range filtering
 orderSchema.index({ orderNumber: 1 });
+orderSchema.index({ orderDate: -1 });
 
 export default mongoose.model('Order', orderSchema);

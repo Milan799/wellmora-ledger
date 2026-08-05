@@ -4,10 +4,29 @@ import Order from '../models/Order.js';
 
 const router = express.Router();
 
-// GET all Order entries (newest first)
+// GET all Order entries (newest first, with optional date range query)
 router.get('/', async (req, res) => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 });
+    const { startDate, endDate } = req.query;
+    const filter = {};
+
+    if (startDate || endDate) {
+      const dateFilter = {};
+      if (startDate) {
+        dateFilter.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const eDate = new Date(endDate);
+        eDate.setHours(23, 59, 59, 999);
+        dateFilter.$lte = eDate;
+      }
+      filter.$or = [
+        { orderDate: dateFilter },
+        { orderDate: { $exists: false }, createdAt: dateFilter }
+      ];
+    }
+
+    const orders = await Order.find(filter).sort({ orderDate: -1, createdAt: -1 });
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: 'Error retrieving order entries', error: error.message });
@@ -32,7 +51,8 @@ router.post('/', async (req, res) => {
       customerName, 
       shippingAddress, 
       pincode, 
-      labelImage 
+      labelImage,
+      orderDate
     } = req.body;
     
     if (!orderNumber || !orderNumber.trim()) {
@@ -47,6 +67,12 @@ router.post('/', async (req, res) => {
     const oCost = otherCost !== undefined ? Number(otherCost) : (existing ? existing.otherCost : 0);
     const bSettlement = bankSettlement !== undefined ? Number(bankSettlement) : (existing ? existing.bankSettlement : 0);
     const calculatedTotalCost = (pCost + pkgCost + oCost) * qty;
+
+    let parsedOrderDate = existing ? existing.orderDate : new Date();
+    if (orderDate) {
+      const d = new Date(orderDate);
+      if (!isNaN(d.getTime())) parsedOrderDate = d;
+    }
 
     const filter = { orderNumber: orderNumber.trim() };
     const updateData = {
@@ -65,7 +91,8 @@ router.post('/', async (req, res) => {
       customerName: customerName || (existing ? existing.customerName : ''),
       shippingAddress: shippingAddress || (existing ? existing.shippingAddress : ''),
       pincode: pincode || (existing ? existing.pincode : ''),
-      labelImage: labelImage || (existing ? existing.labelImage : '')
+      labelImage: labelImage || (existing ? existing.labelImage : ''),
+      orderDate: parsedOrderDate
     };
     
     const savedOrder = await Order.findOneAndUpdate(filter, updateData, { new: true, upsert: true, runValidators: true });
@@ -96,6 +123,12 @@ router.post('/batch', async (req, res) => {
       const bSettlement = item.bankSettlement !== undefined && Number(item.bankSettlement) !== 0 ? Number(item.bankSettlement) : (existing ? existing.bankSettlement : 0);
       const calculatedTotalCost = (pCost + pkgCost + oCost) * qty;
 
+      let parsedOrderDate = existing ? existing.orderDate : new Date();
+      if (item.orderDate) {
+        const d = new Date(item.orderDate);
+        if (!isNaN(d.getTime())) parsedOrderDate = d;
+      }
+
       const filter = { orderNumber: item.orderNumber.trim() };
       const updateData = {
         orderNumber: item.orderNumber.trim(),
@@ -113,7 +146,8 @@ router.post('/batch', async (req, res) => {
         customerName: item.customerName || (existing ? existing.customerName : ''),
         shippingAddress: item.shippingAddress || (existing ? existing.shippingAddress : ''),
         pincode: item.pincode || (existing ? existing.pincode : ''),
-        labelImage: item.labelImage || item.receiptImage || (existing ? existing.labelImage : '')
+        labelImage: item.labelImage || item.receiptImage || (existing ? existing.labelImage : ''),
+        orderDate: parsedOrderDate
       };
       
       const saved = await Order.findOneAndUpdate(filter, updateData, { new: true, upsert: true });
@@ -163,6 +197,72 @@ router.put('/bulk-sku', async (req, res) => {
   }
 });
 
+// PUT (bulk date-frame price adjustment) update prices for all order entries within a date frame
+router.put('/bulk-date-frame', async (req, res) => {
+  try {
+    const { startDate, endDate, skuId, purchaseCost, packagingCost, otherCost, bankSettlement } = req.body;
+    
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: 'Start date and End date are required for Date Frame price adjustment' });
+    }
+
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    const dateFilter = { $gte: start, $lte: end };
+
+    const queryCondition = {
+      $or: [
+        { orderDate: dateFilter },
+        { orderDate: { $exists: false }, createdAt: dateFilter }
+      ]
+    };
+
+    if (skuId && skuId.trim() && skuId.trim().toUpperCase() !== 'ALL') {
+      queryCondition.skuId = skuId.trim();
+    }
+
+    const targetOrders = await Order.find(queryCondition);
+    
+    if (targetOrders.length === 0) {
+      return res.status(404).json({ message: 'No orders found within the specified date frame' });
+    }
+
+    const updatePromises = targetOrders.map(ord => {
+      const qty = ord.quantity || 1;
+      const pCost = purchaseCost !== undefined ? Number(purchaseCost) : ord.purchaseCost;
+      const pkgCost = packagingCost !== undefined ? Number(packagingCost) : ord.packagingCost;
+      const oCost = otherCost !== undefined ? Number(otherCost) : ord.otherCost;
+      const bSettlement = bankSettlement !== undefined ? Number(bankSettlement) : ord.bankSettlement;
+      const calculatedTotalCost = (pCost + pkgCost + oCost) * qty;
+
+      return Order.findByIdAndUpdate(
+        ord._id,
+        {
+          purchaseCost: pCost,
+          packagingCost: pkgCost,
+          otherCost: oCost,
+          bankSettlement: bSettlement,
+          totalCost: calculatedTotalCost
+        },
+        { new: true }
+      );
+    });
+
+    const updatedOrders = await Promise.all(updatePromises);
+    res.json({
+      message: `Successfully adjusted prices for ${updatedOrders.length} orders in date frame ${startDate} to ${endDate}`,
+      count: updatedOrders.length,
+      orders: updatedOrders
+    });
+  } catch (error) {
+    res.status(400).json({ message: 'Error performing bulk date frame price adjustment', error: error.message });
+  }
+});
+
 // PUT (update) an existing Order entry
 router.put('/:id', async (req, res) => {
   try {
@@ -182,7 +282,8 @@ router.put('/:id', async (req, res) => {
       customerName, 
       shippingAddress, 
       pincode, 
-      labelImage 
+      labelImage,
+      orderDate
     } = req.body;
 
     const qty = Number(quantity || 1);
@@ -210,6 +311,11 @@ router.put('/:id', async (req, res) => {
       pincode: pincode || '', 
       labelImage: labelImage || '' 
     };
+
+    if (orderDate) {
+      const d = new Date(orderDate);
+      if (!isNaN(d.getTime())) updateData.orderDate = d;
+    }
 
     let updatedOrder = null;
     if (mongoose.Types.ObjectId.isValid(id)) {

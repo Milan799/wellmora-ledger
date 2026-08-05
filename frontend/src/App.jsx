@@ -866,6 +866,25 @@ export default function App() {
     }
   };
 
+  const handleSaveBulkDateFrameOrders = async (bulkDateFrameData) => {
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/orders/bulk-date-frame`, {
+        method: 'PUT',
+        body: JSON.stringify(bulkDateFrameData)
+      });
+      if (response.ok) {
+        const resData = await safeJsonFetch(response);
+        triggerNotification(`Successfully adjusted prices for ${resData?.count || 0} orders in selected Date Frame!`, 'success');
+        await fetchOrders();
+      } else {
+        const errRes = await safeJsonFetch(response);
+        triggerNotification(errRes?.message || "Failed to adjust prices for date frame", "error");
+      }
+    } catch (err) {
+      triggerNotification("Error adjusting date frame order prices in MongoDB", "error");
+    }
+  };
+
   // ==========================================
   // Global Delete Handlers
   // ==========================================
@@ -1214,6 +1233,7 @@ export default function App() {
                 onSaveBatchOrders={handleSaveBatchOrders}
                 onDeleteOrder={handleDeleteOrder}
                 onSaveBulkSku={handleSaveBulkSkuOrders}
+                onSaveBulkDateFrame={handleSaveBulkDateFrameOrders}
               />
             )}
 
