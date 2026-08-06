@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Search, RefreshCw, Trash2, Edit2, ArrowUpRight, ArrowDownRight, CreditCard, Wallet } from 'lucide-react';
 import ExportDropdown from './ExportDropdown';
+import Pagination from './Pagination';
 
 export default function BankLedger({ transactions, onEdit, onDelete, loading, onRefresh, onAddClick }) {
   const [search, setSearch] = useState('');
@@ -9,6 +10,9 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
   const [dateRange, setDateRange] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
@@ -87,6 +91,15 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
 
     return true;
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterType, filterStatus, dateRange, startDate, endDate]);
+
+  const effectiveItemsPerPage = itemsPerPage === 'all' ? filtered.length : Number(itemsPerPage);
+  const paginatedFiltered = itemsPerPage === 'all'
+    ? filtered
+    : filtered.slice((currentPage - 1) * effectiveItemsPerPage, currentPage * effectiveItemsPerPage);
 
   // Calculates stats for selected date filter
   const totalDeposit = filtered
@@ -433,7 +446,7 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
         <div className="glass-panel rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800/60 shadow-lg animate-fade-in">
           {/* Mobile Card Feed (block md:hidden) */}
           <div className="block md:hidden divide-y divide-slate-200/60 dark:divide-slate-800/60">
-            {filtered.map((t) => (
+            {paginatedFiltered.map((t) => (
               <div key={`mobile_${t._id}`} className="p-4 space-y-2.5 hover:bg-slate-100/40 dark:hover:bg-slate-900/40 transition-colors">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -513,7 +526,7 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/40 dark:divide-slate-800/40 text-xs text-slate-700 dark:text-slate-250">
-                {filtered.map((t, idx) => (
+                {paginatedFiltered.map((t, idx) => (
                   <tr 
                     key={t._id} 
                     className="hover:bg-slate-100/30 dark:hover:bg-slate-900/20 transition-colors group"
@@ -584,6 +597,18 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Bar */}
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filtered.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={(limit) => {
+              setItemsPerPage(limit);
+              setCurrentPage(1);
+            }}
+          />
         </div>
       )}
     </div>

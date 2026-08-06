@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { createWorker } from 'tesseract.js';
+import Pagination from './Pagination';
 
 export default function OrderEntry({
   orders = [],
@@ -50,6 +51,10 @@ export default function OrderEntry({
   // Multi-Select & Bulk Delete State
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Modal Form State
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -724,6 +729,19 @@ export default function OrderEntry({
   });
   const skuGroupedList = Array.from(skuGroupedMap.values());
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, paymentTypeFilter, dateFrameFilter, orderStartDate, orderEndDate, viewMode]);
+
+  const effectiveItemsPerPage = itemsPerPage === 'all' ? filteredOrders.length : Number(itemsPerPage);
+  const paginatedOrders = itemsPerPage === 'all'
+    ? filteredOrders
+    : filteredOrders.slice((currentPage - 1) * effectiveItemsPerPage, currentPage * effectiveItemsPerPage);
+
+  const paginatedSkuGroupedList = itemsPerPage === 'all'
+    ? skuGroupedList
+    : skuGroupedList.slice((currentPage - 1) * effectiveItemsPerPage, currentPage * effectiveItemsPerPage);
+
   // Overall Statistics
   const statsTotalOrders = filteredOrders.length;
   const statsTotalQuantity = filteredOrders.reduce((sum, o) => sum + (o.quantity || 1), 0);
@@ -1094,7 +1112,7 @@ export default function OrderEntry({
                     </td>
                   </tr>
                 ) : (
-                  filteredOrders.map((o) => {
+                  paginatedOrders.map((o) => {
                     const margin = (o.bankSettlement || 0) - (o.totalCost || 0);
                     const rawDate = o.orderDate || o.createdAt;
                     const dateFormatted = rawDate
@@ -1205,7 +1223,7 @@ export default function OrderEntry({
                 <p className="text-xs font-semibold">No Orders Found</p>
               </div>
             ) : (
-              filteredOrders.map((o) => {
+              paginatedOrders.map((o) => {
                 const margin = (o.bankSettlement || 0) - (o.totalCost || 0);
                 const rawDate = o.orderDate || o.createdAt;
                 const dateFormatted = rawDate
@@ -1280,7 +1298,7 @@ export default function OrderEntry({
       ) : (
         /* SKU GROUPED VIEW */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {skuGroupedList.map((group) => {
+          {paginatedSkuGroupedList.map((group) => {
             const margin = group.totalBankSettlement - group.totalCost;
             return (
               <div
@@ -1326,6 +1344,20 @@ export default function OrderEntry({
           })}
         </div>
       )}
+
+      {/* Pagination Bar */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
+        <Pagination
+          currentPage={currentPage}
+          totalItems={viewMode === 'individual' ? filteredOrders.length : skuGroupedList.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(limit) => {
+            setItemsPerPage(limit);
+            setCurrentPage(1);
+          }}
+        />
+      </div>
 
       {/* =========================================================
           5. ADD / EDIT ORDER ENTRY POPUP MODAL

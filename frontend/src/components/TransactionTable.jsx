@@ -1,7 +1,19 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Edit2, Trash2, Calendar, FileText, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import Pagination from './Pagination';
 
 export default function TransactionTable({ transactions, onEdit, onDelete }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [transactions]);
+
+  const effectiveItemsPerPage = itemsPerPage === 'all' ? transactions.length : Number(itemsPerPage);
+  const paginatedTransactions = itemsPerPage === 'all'
+    ? transactions
+    : transactions.slice((currentPage - 1) * effectiveItemsPerPage, currentPage * effectiveItemsPerPage);
   // Format Date (Indian format, e.g. 14 Jul 2026)
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
@@ -53,7 +65,7 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
     <div className="glass-panel rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800/60 shadow-lg animate-fade-in">
       {/* Mobile Card Feed (block md:hidden) */}
       <div className="block md:hidden divide-y divide-slate-200/60 dark:divide-slate-800/60">
-        {transactions.map((t) => (
+        {paginatedTransactions.map((t) => (
           <div key={`mobile_${t._id}`} className="p-4 space-y-2.5 hover:bg-slate-100/40 dark:hover:bg-slate-900/40 transition-colors">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
@@ -132,7 +144,7 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200/40 dark:divide-slate-800/40 text-xs text-slate-700 dark:text-slate-250">
-            {transactions.map((t, idx) => (
+            {paginatedTransactions.map((t, idx) => (
               <tr 
                 key={t._id} 
                 className="hover:bg-slate-100/30 dark:hover:bg-slate-900/20 transition-colors group"
@@ -214,6 +226,18 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Bar */}
+      <Pagination
+        currentPage={currentPage}
+        totalItems={transactions.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        onItemsPerPageChange={(limit) => {
+          setItemsPerPage(limit);
+          setCurrentPage(1);
+        }}
+      />
     </div>
   );
 }
