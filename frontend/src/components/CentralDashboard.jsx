@@ -19,6 +19,7 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import ExportDropdown from './ExportDropdown';
+import Pagination from './Pagination';
 
 export default function CentralDashboard({
   transactions = [],
@@ -38,6 +39,9 @@ export default function CentralDashboard({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [sortOrder, setSortOrder] = useState('desc'); // 'desc' | 'asc'
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Format currency helper (INR)
   const formatCurrency = (val) => {
@@ -216,6 +220,16 @@ export default function CentralDashboard({
       }
     });
   }, [dateFilteredTransactions, search, sourceFilter, typeFilter, sortOrder]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, sourceFilter, typeFilter, dateRange, startDate, endDate, sortOrder]);
+
+  const effectiveItemsPerPage = itemsPerPage === 'all' ? filteredTransactions.length : Number(itemsPerPage);
+  const paginatedFilteredTransactions = useMemo(() => {
+    if (itemsPerPage === 'all') return filteredTransactions;
+    return filteredTransactions.slice((currentPage - 1) * effectiveItemsPerPage, currentPage * effectiveItemsPerPage);
+  }, [filteredTransactions, currentPage, effectiveItemsPerPage, itemsPerPage]);
 
   // Export Combined Data to Excel (.xls)
   const exportCentralToExcel = (range = 'all', startDateParam = '', endDateParam = '') => {
@@ -564,7 +578,7 @@ export default function CentralDashboard({
           <>
             {/* Mobile Card Feed (block md:hidden) */}
             <div className="block md:hidden divide-y divide-slate-200/60 dark:divide-slate-800/60">
-              {filteredTransactions.map((t) => (
+              {paginatedFilteredTransactions.map((t) => (
                 <div key={`mobile_${t.sourceModule}_${t._id}`} className="p-4 space-y-2.5 hover:bg-slate-100/40 dark:hover:bg-slate-900/40 transition-colors">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -650,7 +664,7 @@ export default function CentralDashboard({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/40 dark:divide-slate-800/40 text-xs text-slate-700 dark:text-slate-250">
-                  {filteredTransactions.map((t) => (
+                  {paginatedFilteredTransactions.map((t) => (
                     <tr 
                       key={`${t.sourceModule}_${t._id}`} 
                       className="hover:bg-slate-100/50 dark:hover:bg-slate-900/30 transition-colors"
@@ -736,6 +750,18 @@ export default function CentralDashboard({
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Bar */}
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredTransactions.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={(limit) => {
+                setItemsPerPage(limit);
+                setCurrentPage(1);
+              }}
+            />
           </>
         )}
       </div>
