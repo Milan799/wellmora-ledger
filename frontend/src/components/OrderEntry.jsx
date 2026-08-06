@@ -35,6 +35,7 @@ export default function OrderEntry({
   onSaveOrder,
   onSaveBatchOrders,
   onDeleteOrder,
+  onDeleteBatchOrders,
   onSaveBulkSku
 }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,6 +46,10 @@ export default function OrderEntry({
   const [dateFrameFilter, setDateFrameFilter] = useState('all'); // 'all' | 'today' | 'yesterday' | 'this_week' | 'this_month' | 'last_30_days' | 'custom'
   const [orderStartDate, setOrderStartDate] = useState('');
   const [orderEndDate, setOrderEndDate] = useState('');
+
+  // Multi-Select & Bulk Delete State
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
 
   // Modal Form State
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -298,17 +303,13 @@ export default function OrderEntry({
           applyFieldsToForm(firstPageFields ? firstPageFields.parsedData : extractFieldsFromText(''));
           setAutoDetectedFields(firstPageFields ? firstPageFields.parsedData.detected : {});
 
-          if (onSaveBatchOrders) {
-            onSaveBatchOrders(uniqueOrdersList);
-          }
-
           setBatchSummary({
             totalPages,
             uniqueOrdersCount: uniqueOrdersList.length,
             ordersList: uniqueOrdersList
           });
 
-          setScanStatusMessage(`Multi-Page PDF Scanned! ${uniqueOrdersList.length} Unique Orders Saved from ${totalPages} Pages.`);
+          setScanStatusMessage(`Multi-Page PDF Scanned! ${uniqueOrdersList.length} Unique Orders extracted from ${totalPages} Pages. Click "Save Order Entry" below to confirm.`);
         } else {
           setScanStatusMessage(`Scanned ${totalPages} pages, no valid Order IDs found.`);
         }
@@ -561,6 +562,15 @@ export default function OrderEntry({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (batchSummary && batchSummary.ordersList && batchSummary.ordersList.length > 1) {
+      if (onSaveBatchOrders) {
+        onSaveBatchOrders(batchSummary.ordersList);
+      }
+      setIsFormOpen(false);
+      resetForm();
+      return;
+    }
+
     if (!orderNumber || !orderNumber.trim()) {
       alert("Please enter a valid Order ID (OD...).");
       return;
@@ -593,6 +603,29 @@ export default function OrderEntry({
     onSaveOrder(payload);
     setIsFormOpen(false);
     resetForm();
+  };
+
+  const toggleSelectAll = () => {
+    if (filteredOrders.length === 0) return;
+    if (selectedOrderIds.length === filteredOrders.length) {
+      setSelectedOrderIds([]);
+    } else {
+      setSelectedOrderIds(filteredOrders.map(o => o._id || o.orderNumber));
+    }
+  };
+
+  const toggleSelectOrder = (id) => {
+    setSelectedOrderIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleConfirmBulkDelete = () => {
+    if (onDeleteBatchOrders && selectedOrderIds.length > 0) {
+      onDeleteBatchOrders(selectedOrderIds);
+      setSelectedOrderIds([]);
+    }
+    setIsBulkDeleteModalOpen(false);
   };
 
   // Date Range bounds calculation
@@ -1032,6 +1065,15 @@ export default function OrderEntry({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 text-[11px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                  <th className="py-3.5 px-3 text-center w-10">
+                    <input
+                      type="checkbox"
+                      checked={filteredOrders.length > 0 && selectedOrderIds.length === filteredOrders.length}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-slate-700 cursor-pointer"
+                      title="Select / Deselect All Orders"
+                    />
+                  </th>
                   <th className="py-3.5 px-4">Order Date</th>
                   <th className="py-3.5 px-4">Order & Product Identification</th>
                   <th className="py-3.5 px-4 text-center">SKU ID & Qty</th>
@@ -1045,7 +1087,7 @@ export default function OrderEntry({
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400 dark:text-slate-500">
+                    <td colSpan={9} className="py-12 text-center text-slate-400 dark:text-slate-500">
                       <Box size={32} className="mx-auto mb-2 opacity-50" />
                       <p className="font-semibold text-sm">No Order Entries Found</p>
                       <p className="text-xs text-slate-400">Click "New Order Entry" or upload a shipping PDF to create entries.</p>
@@ -1059,7 +1101,15 @@ export default function OrderEntry({
                       ? new Date(rawDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
                       : 'N/A';
                     return (
-                      <tr key={o._id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                      <tr key={o._id} className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${selectedOrderIds.includes(o._id || o.orderNumber) ? 'bg-blue-50/50 dark:bg-blue-950/30' : ''}`}>
+                        <td className="py-3.5 px-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedOrderIds.includes(o._id || o.orderNumber)}
+                            onChange={() => toggleSelectOrder(o._id || o.orderNumber)}
+                            className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-slate-700 cursor-pointer"
+                          />
+                        </td>
                         <td className="py-3.5 px-4 font-mono text-[11px]">
                           <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-700 dark:text-slate-300 font-bold whitespace-nowrap flex items-center gap-1.5 w-max">
                             <Calendar size={12} className="text-blue-500" />
@@ -1163,9 +1213,16 @@ export default function OrderEntry({
                   : 'N/A';
 
                 return (
-                  <div key={o._id} className="p-4 space-y-3">
+                  <div key={o._id} className={`p-4 space-y-3 ${selectedOrderIds.includes(o._id || o.orderNumber) ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''}`}>
                     <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedOrderIds.includes(o._id || o.orderNumber)}
+                          onChange={() => toggleSelectOrder(o._id || o.orderNumber)}
+                          className="mt-1 w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-slate-700 cursor-pointer shrink-0"
+                        />
+                        <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-bold text-[10px] rounded-md flex items-center gap-1">
                             <Calendar size={11} className="text-blue-500 shrink-0" />
@@ -1180,8 +1237,9 @@ export default function OrderEntry({
                         </div>
                         <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5">{o.productName || 'Standard Product'}</p>
                       </div>
+                    </div>
 
-                      <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => handleEditClick(o)}
                           className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 active:scale-95 cursor-pointer"
@@ -1728,6 +1786,72 @@ export default function OrderEntry({
             </h4>
             <div className="overflow-auto max-h-[70vh] rounded-2xl border border-slate-200 dark:border-slate-800">
               <img src={previewImageModal} alt="Label Proof" className="max-w-full h-auto object-contain" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================
+          9. FLOATING MULTI-SELECT ACTION TOOLBAR & BULK DELETE MODAL
+         ========================================================= */}
+      {selectedOrderIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white border border-slate-700 shadow-2xl rounded-2xl px-5 py-3 flex items-center gap-4 animate-slide-up backdrop-blur-lg">
+          <div className="flex items-center gap-2 text-xs font-black">
+            <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px]">
+              {selectedOrderIds.length}
+            </span>
+            <span>Selected</span>
+          </div>
+
+          <div className="h-4 w-px bg-slate-700" />
+
+          <button
+            onClick={() => setIsBulkDeleteModalOpen(true)}
+            className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white text-xs font-black rounded-xl shadow flex items-center gap-1.5 cursor-pointer transition-all"
+          >
+            <Trash2 size={14} />
+            <span>Delete Selected ({selectedOrderIds.length})</span>
+          </button>
+
+          <button
+            onClick={() => setSelectedOrderIds([])}
+            className="px-2.5 py-1.5 text-slate-400 hover:text-white text-xs font-bold transition-colors cursor-pointer"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      {/* BULK DELETE CONFIRMATION MODAL */}
+      {isBulkDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-2xl space-y-4 animate-slide-up">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 font-bold flex items-center justify-center shrink-0">
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-900 dark:text-white">Delete Selected Orders?</h3>
+                <p className="text-[11px] text-slate-400 font-bold">{selectedOrderIds.length} order entry(s) will be permanently deleted from MongoDB.</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleteModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBulkDelete}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 size={14} />
+                <span>Delete All {selectedOrderIds.length}</span>
+              </button>
             </div>
           </div>
         </div>

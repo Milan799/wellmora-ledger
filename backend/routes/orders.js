@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
       ];
     }
 
-    const orders = await Order.find(filter).sort({ orderDate: -1, createdAt: -1 });
+    const orders = await Order.find(filter).sort({ orderDate: -1, createdAt: -1 }).lean();
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: 'Error retrieving order entries', error: error.message });
@@ -438,6 +438,31 @@ router.put('/:id', async (req, res) => {
     res.json(updatedOrder);
   } catch (error) {
     res.status(400).json({ message: 'Error updating order entry', error: error.message });
+  }
+});
+
+// POST (bulk delete) multiple Order entries by _id or orderNumber array
+router.post('/bulk-delete', async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: 'No order IDs provided for bulk deletion' });
+    }
+
+    const validObjectIds = ids.filter(id => mongoose.Types.ObjectId.isValid(id));
+    const orderNumbers = ids.map(id => String(id).trim());
+
+    const deleteFilter = {
+      $or: [
+        { _id: { $in: validObjectIds } },
+        { orderNumber: { $in: orderNumbers } }
+      ]
+    };
+
+    const deletedResult = await Order.deleteMany(deleteFilter);
+    res.json({ message: `Successfully deleted ${deletedResult.deletedCount} order entries`, deletedCount: deletedResult.deletedCount });
+  } catch (error) {
+    res.status(500).json({ message: 'Error performing bulk deletion of order entries', error: error.message });
   }
 });
 

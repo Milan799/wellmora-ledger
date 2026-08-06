@@ -229,7 +229,15 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [ledgerSubTab, setLedgerSubTab] = useState('all'); // 'all' | 'cash'
 
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders] = useState(() => {
+    if (!localStorage.getItem('authUser')) return [];
+    try {
+      const cached = localStorage.getItem('cached_orders');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [loadingOrders, setLoadingOrders] = useState(false);
 
   // Fetch all categories on mount & run real-time auto-sync polling
@@ -772,7 +780,7 @@ export default function App() {
   // API Operations: Orders & Settlement (Direct MongoDB Storage)
   // ==========================================
   const fetchOrders = async (isSilent = false) => {
-    if (!isSilent) {
+    if (!isSilent && !localStorage.getItem('cached_orders')) {
       setLoadingOrders(true);
     }
     try {
@@ -781,10 +789,14 @@ export default function App() {
       const data = await safeJsonFetch(response);
       if (data && Array.isArray(data)) {
         setOrders(data);
-        localStorage.removeItem('cached_orders'); // Clear any legacy cache
+        localStorage.setItem('cached_orders', JSON.stringify(data));
       }
     } catch (err) {
       console.warn("Failed to fetch orders from MongoDB:", err);
+      const cached = localStorage.getItem('cached_orders');
+      if (cached) {
+        try { setOrders(JSON.parse(cached)); } catch (e) {}
+      }
     } finally {
       if (!isSilent) {
         setLoadingOrders(false);
@@ -825,6 +837,25 @@ export default function App() {
       await fetchOrders();
     } catch (err) {
       triggerNotification("Error deleting order from MongoDB", "error");
+    }
+  };
+
+  const handleDeleteBatchOrders = async (orderIdsList) => {
+    if (!Array.isArray(orderIdsList) || orderIdsList.length === 0) return;
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/orders/bulk-delete`, {
+        method: 'POST',
+        body: JSON.stringify({ ids: orderIdsList })
+      });
+      if (response.ok) {
+        const resData = await safeJsonFetch(response);
+        triggerNotification(`Successfully deleted ${resData?.deletedCount || orderIdsList.length} orders from MongoDB!`, 'info');
+        await fetchOrders();
+      } else {
+        triggerNotification("Failed to bulk delete orders from MongoDB", "error");
+      }
+    } catch (err) {
+      triggerNotification("Error connecting to MongoDB server for bulk delete", "error");
     }
   };
 
@@ -1225,6 +1256,7 @@ export default function App() {
                 onSaveOrder={handleSaveOrder}
                 onSaveBatchOrders={handleSaveBatchOrders}
                 onDeleteOrder={handleDeleteOrder}
+                onDeleteBatchOrders={handleDeleteBatchOrders}
                 onSaveBulkSku={handleSaveBulkSkuOrders}
               />
             )}
