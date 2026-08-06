@@ -364,7 +364,6 @@ export default function App() {
 
     localStorage.setItem('unsynced_ops', JSON.stringify(failedOps));
     if (failedOps.length === 0) {
-      triggerNotification('Offline entries successfully synced to server!', 'success');
       // Quietly reload backend data
       const r1 = await fetchWithTimeout(`${API_BASE_URL}/transactions`).catch(() => null);
       const res1 = r1 ? await safeJsonFetch(r1) : null;
@@ -408,7 +407,6 @@ export default function App() {
       const cached = localStorage.getItem('cached_transactions');
       if (cached) {
         setTransactions(JSON.parse(cached));
-        triggerNotification('Loaded ledger from cache (Offline)', 'info');
       } else {
         setErrorLedger('Backend connection offline.');
         triggerNotification('Ledger connection offline', 'error');
@@ -444,7 +442,6 @@ export default function App() {
             return newL;
           });
           queueSyncOperation('EDIT', 'ledger', updatedLocally);
-          triggerNotification('Ledger updated locally (Offline)', 'info');
         }
       } else {
         try {
@@ -470,7 +467,6 @@ export default function App() {
             return newL;
           });
           queueSyncOperation('ADD', 'ledger', localNew);
-          triggerNotification('Ledger saved locally (Offline)', 'info');
         }
       }
       setIsFormOpen(false);
@@ -591,7 +587,6 @@ export default function App() {
       const cached = localStorage.getItem('cached_bankTransactions');
       if (cached) {
         setBankTransactions(JSON.parse(cached));
-        triggerNotification('Loaded bank entries from cache (Offline)', 'info');
       } else {
         setErrorBank('Bank API offline.');
       }
@@ -626,7 +621,6 @@ export default function App() {
             return newL;
           });
           queueSyncOperation('EDIT', 'bank', updatedLocally);
-          triggerNotification('Bank record updated locally (Offline)', 'info');
         }
       } else {
         try {
@@ -652,7 +646,6 @@ export default function App() {
             return newL;
           });
           queueSyncOperation('ADD', 'bank', localNew);
-          triggerNotification('Bank record saved locally (Offline)', 'info');
         }
       }
 
@@ -702,7 +695,6 @@ export default function App() {
       const cached = localStorage.getItem('cached_partnerTransactions');
       if (cached) {
         setPartnerTransactions(JSON.parse(cached));
-        triggerNotification('Loaded partner capital from cache (Offline)', 'info');
       } else {
         setErrorPartner('Partner API offline.');
       }
@@ -737,7 +729,6 @@ export default function App() {
             return newL;
           });
           queueSyncOperation('EDIT', 'partner', updatedLocally);
-          triggerNotification('Partner flow updated locally (Offline)', 'info');
         }
       } else {
         try {
@@ -763,7 +754,6 @@ export default function App() {
             return newL;
           });
           queueSyncOperation('ADD', 'partner', localNew);
-          triggerNotification('Partner flow saved locally (Offline)', 'info');
         }
       }
       setIsPartnerFormOpen(false);
@@ -814,14 +804,14 @@ export default function App() {
         body: JSON.stringify(orderData)
       });
       if (response.ok) {
-        triggerNotification("Order entry saved directly to MongoDB!", "success");
+        triggerNotification("Order entry saved successfully!", "success");
         await fetchOrders();
       } else {
         const errorRes = await safeJsonFetch(response);
-        triggerNotification(errorRes?.message || "Failed to save order to MongoDB", "error");
+        triggerNotification(errorRes?.message || "Failed to save order entry", "error");
       }
     } catch (err) {
-      triggerNotification("Error connecting to MongoDB database", "error");
+      triggerNotification("Error connecting to server", "error");
     }
   };
 
@@ -833,10 +823,10 @@ export default function App() {
       if (orderNumber && orderNumber.trim()) {
         await fetchWithTimeout(`${API_BASE_URL}/orders/${encodeURIComponent(orderNumber.trim())}`, { method: 'DELETE' }).catch(() => null);
       }
-      triggerNotification("Order entry deleted from MongoDB!", "info");
+      triggerNotification("Order entry deleted successfully!", "info");
       await fetchOrders();
     } catch (err) {
-      triggerNotification("Error deleting order from MongoDB", "error");
+      triggerNotification("Error deleting order entry", "error");
     }
   };
 
@@ -849,13 +839,13 @@ export default function App() {
       });
       if (response.ok) {
         const resData = await safeJsonFetch(response);
-        triggerNotification(`Successfully deleted ${resData?.deletedCount || orderIdsList.length} orders from MongoDB!`, 'info');
+        triggerNotification(`Successfully deleted ${resData?.deletedCount || orderIdsList.length} order(s)!`, 'info');
         await fetchOrders();
       } else {
-        triggerNotification("Failed to bulk delete orders from MongoDB", "error");
+        triggerNotification("Failed to bulk delete orders", "error");
       }
     } catch (err) {
-      triggerNotification("Error connecting to MongoDB server for bulk delete", "error");
+      triggerNotification("Error connecting to server for bulk delete", "error");
     }
   };
 
@@ -869,13 +859,13 @@ export default function App() {
       });
       if (response.ok) {
         const resData = await safeJsonFetch(response);
-        triggerNotification(`Saved ${resData?.savedCount || batchList.length} orders directly to MongoDB!`, 'success');
+        triggerNotification(`Saved ${resData?.savedCount || batchList.length} order(s) successfully!`, 'success');
         await fetchOrders();
       } else {
-        triggerNotification("Failed to save batch orders to MongoDB", "error");
+        triggerNotification("Failed to save batch orders", "error");
       }
     } catch (err) {
-      triggerNotification("Error saving batch orders to MongoDB database", "error");
+      triggerNotification("Error saving batch orders", "error");
     }
   };
 
@@ -887,13 +877,13 @@ export default function App() {
         body: JSON.stringify(bulkData)
       });
       if (response.ok) {
-        triggerNotification(`Updated settlement & costs for SKU ${skuId} in MongoDB!`, 'success');
+        triggerNotification(`Updated settlement & costs for SKU ${skuId}!`, 'success');
         await fetchOrders();
       } else {
-        triggerNotification("Failed to update SKU orders in MongoDB", "error");
+        triggerNotification("Failed to update SKU orders", "error");
       }
     } catch (err) {
-      triggerNotification("Error updating SKU orders in MongoDB database", "error");
+      triggerNotification("Error updating SKU orders", "error");
     }
   };
 
@@ -912,7 +902,7 @@ export default function App() {
         triggerNotification(errRes?.message || "Failed to adjust prices for date frame", "error");
       }
     } catch (err) {
-      triggerNotification("Error adjusting date frame order prices in MongoDB", "error");
+      triggerNotification("Error adjusting date frame order prices", "error");
     }
   };
 
@@ -982,7 +972,6 @@ export default function App() {
           });
         }
         queueSyncOperation('DELETE', deletingType, deletingTransaction);
-        triggerNotification('Record deleted locally (Offline)', 'info');
       }
       setDeletingTransaction(null);
     } catch (err) {

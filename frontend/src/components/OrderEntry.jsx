@@ -1832,7 +1832,7 @@ export default function OrderEntry({
               </div>
               <div>
                 <h3 className="text-sm font-black text-slate-900 dark:text-white">Delete Selected Orders?</h3>
-                <p className="text-[11px] text-slate-400 font-bold">{selectedOrderIds.length} order entry(s) will be permanently deleted from MongoDB.</p>
+                <p className="text-[11px] text-slate-400 font-bold">{selectedOrderIds.length} order entry(s) will be permanently deleted.</p>
               </div>
             </div>
 
