@@ -23,8 +23,7 @@ import {
   ArrowRight,
   Calendar,
   Filter,
-  Tag,
-  Sliders
+  Tag
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { createWorker } from 'tesseract.js';
@@ -36,8 +35,7 @@ export default function OrderEntry({
   onSaveOrder,
   onSaveBatchOrders,
   onDeleteOrder,
-  onSaveBulkSku,
-  onSaveBulkDateFrame
+  onSaveBulkSku
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [paymentTypeFilter, setPaymentTypeFilter] = useState('all');
@@ -90,17 +88,7 @@ export default function OrderEntry({
     bankSettlement: ''
   });
 
-  // Bulk Date Frame Price Edit Modal State
-  const [bulkDateFrameModal, setBulkDateFrameModal] = useState({
-    isOpen: false,
-    startDate: '',
-    endDate: '',
-    skuId: 'ALL',
-    purchaseCost: '',
-    packagingCost: '',
-    otherCost: '',
-    bankSettlement: ''
-  });
+
 
   // Scanning & Deduplication States
   const [isScanning, setIsScanning] = useState(false);
@@ -744,46 +732,7 @@ export default function OrderEntry({
     setBulkSkuModal(prev => ({ ...prev, isOpen: false }));
   };
 
-  const handleOpenBulkDateFrameModal = () => {
-    const { start, end } = getEffectiveDateRange();
-    const formattedStart = start ? start.toISOString().split('T')[0] : (orderStartDate || new Date().toISOString().split('T')[0]);
-    const formattedEnd = end ? end.toISOString().split('T')[0] : (orderEndDate || new Date().toISOString().split('T')[0]);
 
-    const sample = filteredOrders.length > 0 ? filteredOrders[0] : {};
-
-    setBulkDateFrameModal({
-      isOpen: true,
-      startDate: formattedStart,
-      endDate: formattedEnd,
-      skuId: 'ALL',
-      purchaseCost: sample.purchaseCost !== undefined ? String(sample.purchaseCost) : '',
-      packagingCost: sample.packagingCost !== undefined ? String(sample.packagingCost) : '',
-      otherCost: sample.otherCost !== undefined ? String(sample.otherCost) : '',
-      bankSettlement: sample.bankSettlement !== undefined ? String(sample.bankSettlement) : ''
-    });
-  };
-
-  const handleBulkDateFrameSubmit = (e) => {
-    e.preventDefault();
-    if (!bulkDateFrameModal.startDate || !bulkDateFrameModal.endDate) {
-      alert('Please specify valid start and end dates.');
-      return;
-    }
-
-    if (onSaveBulkDateFrame) {
-      onSaveBulkDateFrame({
-        startDate: bulkDateFrameModal.startDate,
-        endDate: bulkDateFrameModal.endDate,
-        skuId: bulkDateFrameModal.skuId,
-        purchaseCost: Number(bulkDateFrameModal.purchaseCost || 0),
-        packagingCost: Number(bulkDateFrameModal.packagingCost || 0),
-        otherCost: Number(bulkDateFrameModal.otherCost || 0),
-        bankSettlement: Number(bulkDateFrameModal.bankSettlement || 0)
-      });
-    }
-
-    setBulkDateFrameModal(prev => ({ ...prev, isOpen: false }));
-  };
 
   const handleExportCSV = () => {
     if (filteredOrders.length === 0) {
@@ -854,15 +803,6 @@ export default function OrderEntry({
             {/* Secondary Actions Row - Side-by-Side 50/50 on Mobile */}
             <div className="order-2 sm:order-1 flex items-center gap-2 w-full sm:w-auto">
               <button
-                onClick={handleOpenBulkDateFrameModal}
-                className="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 bg-amber-400/20 hover:bg-amber-400/30 active:scale-95 text-amber-200 text-[11px] sm:text-xs font-black rounded-2xl flex items-center justify-center gap-1.5 backdrop-blur-md transition-all cursor-pointer border border-amber-300/30 shadow-sm whitespace-nowrap"
-                title="Adjust purchase/packaging costs and bank settlement for all orders in selected date frame"
-              >
-                <Sliders size={14} />
-                <span>Adjust Date Prices</span>
-              </button>
-
-              <button
                 onClick={handleExportCSV}
                 className="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 bg-white/15 hover:bg-white/25 active:scale-95 text-white text-[11px] sm:text-xs font-bold rounded-2xl flex items-center justify-center gap-1.5 backdrop-blur-md transition-all cursor-pointer border border-white/20 shadow-sm whitespace-nowrap"
               >
@@ -892,14 +832,6 @@ export default function OrderEntry({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleOpenBulkDateFrameModal}
-              className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-extrabold rounded-xl border border-amber-500/30 flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <Sliders size={13} />
-              <span>Adjust Prices for Date Frame</span>
-            </button>
-
             {dateFrameFilter !== 'all' && (
               <button
                 onClick={() => {
@@ -1776,131 +1708,7 @@ export default function OrderEntry({
         </div>
       )}
 
-      {/* =========================================================
-          7.5 BULK DATE FRAME PRICE ADJUSTMENT MODAL
-         ========================================================= */}
-      {bulkDateFrameModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-2xl space-y-4 animate-slide-up">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center justify-center shadow">
-                  <Sliders size={18} />
-                </div>
-                <div>
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                    Adjust Prices for Selected Date Frame
-                  </h3>
-                  <p className="text-[10.5px] text-slate-400">Updates financial costs & bank settlement for all orders in date range</p>
-                </div>
-              </div>
-              <button onClick={() => setBulkDateFrameModal(prev => ({ ...prev, isOpen: false }))} className="text-slate-400 hover:text-slate-600">
-                <X size={18} />
-              </button>
-            </div>
 
-            <form onSubmit={handleBulkDateFrameSubmit} className="space-y-4">
-              <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs">
-                <div className="font-extrabold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <Calendar size={14} className="text-blue-500" />
-                  <span>Target Date Frame Range</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 mb-0.5">Start Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={bulkDateFrameModal.startDate}
-                      onChange={(e) => setBulkDateFrameModal(prev => ({ ...prev, startDate: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 mb-0.5">End Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={bulkDateFrameModal.endDate}
-                      onChange={(e) => setBulkDateFrameModal(prev => ({ ...prev, endDate: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-bold"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Target SKU Filter (Optional)
-                  </label>
-                  <select
-                    value={bulkDateFrameModal.skuId}
-                    onChange={(e) => setBulkDateFrameModal(prev => ({ ...prev, skuId: e.target.value }))}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold"
-                  >
-                    <option value="ALL">All SKUs in Date Frame</option>
-                    {skuGroupedList.map(g => (
-                      <option key={g.skuId} value={g.skuId}>{g.skuId} ({g.count} orders)</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">New Purchase Cost (₹)</label>
-                    <input
-                      type="number"
-                      placeholder="0.00"
-                      value={bulkDateFrameModal.purchaseCost}
-                      onChange={(e) => setBulkDateFrameModal(prev => ({ ...prev, purchaseCost: e.target.value }))}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">New Packaging Cost (₹)</label>
-                    <input
-                      type="number"
-                      placeholder="0.00"
-                      value={bulkDateFrameModal.packagingCost}
-                      onChange={(e) => setBulkDateFrameModal(prev => ({ ...prev, packagingCost: e.target.value }))}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono font-bold"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">New Bank Settlement (₹)</label>
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    value={bulkDateFrameModal.bankSettlement}
-                    onChange={(e) => setBulkDateFrameModal(prev => ({ ...prev, bankSettlement: e.target.value }))}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-mono font-black text-emerald-600"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setBulkDateFrameModal(prev => ({ ...prev, isOpen: false }))}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 active:scale-95 text-slate-950 text-xs font-black rounded-xl shadow cursor-pointer flex items-center gap-1.5"
-                >
-                  <CheckCircle2 size={14} />
-                  <span>Apply Price Change for Date Frame</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* =========================================================
           8. PROOF IMAGE PREVIEW MODAL

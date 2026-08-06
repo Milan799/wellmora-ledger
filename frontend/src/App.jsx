@@ -1226,7 +1226,6 @@ export default function App() {
                 onSaveBatchOrders={handleSaveBatchOrders}
                 onDeleteOrder={handleDeleteOrder}
                 onSaveBulkSku={handleSaveBulkSkuOrders}
-                onSaveBulkDateFrame={handleSaveBulkDateFrameOrders}
               />
             )}
 
