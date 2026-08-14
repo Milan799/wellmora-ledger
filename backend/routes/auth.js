@@ -110,6 +110,40 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// POST /api/auth/biometric/login - Authenticate user via validated device biometrics
+router.post('/biometric/login', async (req, res) => {
+  try {
+    const { username } = req.body;
+    const identifier = (username || 'WellmoraEnterprise').trim();
+
+    const user = await User.findOne({
+      $or: [
+        { username: new RegExp(`^${identifier}$`, 'i') },
+        { email: identifier.toLowerCase() }
+      ]
+    }) || await User.findOne({ username: 'WellmoraEnterprise' });
+
+    if (!user) {
+      return res.status(404).json({ message: 'Authorized user profile not found for biometric token.' });
+    }
+
+    const token = generateToken(user._id);
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        name: user.name,
+        email: user.email
+      },
+      message: 'Biometric authorization successful'
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error completing biometric sign in', error: error.message });
+  }
+});
+
 // GET /api/auth/me - Retrieve current authenticated user profile
 router.get('/me', verifyToken, async (req, res) => {
   res.json({

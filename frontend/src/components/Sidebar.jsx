@@ -14,7 +14,10 @@ import {
   Menu,
   ChevronRight,
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  Fingerprint,
+  ScanFace,
+  Lock
 } from 'lucide-react';
 import Logo from './Logo';
 
@@ -27,7 +30,9 @@ export default function Sidebar({
   toggleTheme,
   authUser,
   onOpenAuth,
-  onLogout
+  onLogout,
+  onOpenBiometric,
+  isBiometricsConfigured
 }) {
   const menuItems = [
     { id: 'central', label: 'Main Dashboard', shortLabel: 'Dashboard', icon: LayoutDashboard, color: 'text-violet-500 bg-violet-500/10' },
@@ -239,6 +244,31 @@ export default function Sidebar({
                   <ShieldCheck size={16} />
                   Sign In / Register
                 </button>
+              )}
+
+              {/* Biometrics Mobile Security Controls */}
+              {onOpenBiometric && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Mobile Security</span>
+                    <span className="text-[10px] font-extrabold text-violet-600 dark:text-violet-400 uppercase tracking-wider">
+                      {isBiometricsConfigured ? 'Active' : 'Setup'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      onOpenBiometric('settings');
+                      onClose();
+                    }}
+                    className="w-full py-2.5 px-3 bg-violet-500/10 hover:bg-violet-500/15 border border-violet-500/20 text-violet-700 dark:text-violet-300 text-xs font-bold rounded-xl transition-all flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Fingerprint size={16} className="text-violet-600 dark:text-violet-400 shrink-0" />
+                      <span>Biometric Lock / Settings</span>
+                    </div>
+                    <ChevronRight size={14} className="text-violet-400" />
+                  </button>
+                </div>
               )}
 
               <div>
