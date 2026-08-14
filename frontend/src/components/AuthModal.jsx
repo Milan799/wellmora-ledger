@@ -98,7 +98,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, apiBaseUrl, 
                 className="w-full py-2.5 px-4 bg-violet-600 hover:bg-violet-500 text-white text-xs font-extrabold rounded-xl shadow-md shadow-violet-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
               >
                 <Fingerprint size={16} />
-                <span>Sign in with Touch ID / Face ID</span>
+                <span>Sign in with Touch ID</span>
               </button>
             </div>
           )}

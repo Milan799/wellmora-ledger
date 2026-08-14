@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Fingerprint, 
-  ScanFace, 
   ShieldCheck, 
   ShieldAlert, 
   X, 
@@ -34,7 +33,6 @@ export default function BiometricModal({
   const [scanState, setScanState] = useState('idle'); // 'idle' | 'scanning' | 'success' | 'error'
   const [scanProgress, setScanProgress] = useState(0); // 0 to 100
   const [errorMessage, setErrorMessage] = useState('');
-  const [bioType, setBioType] = useState('fingerprint'); // 'fingerprint' | 'face'
   const [isSupported, setIsSupported] = useState(true);
   const [config, setConfig] = useState(getBiometricConfig());
   const [registering, setRegistering] = useState(false);
@@ -73,7 +71,7 @@ export default function BiometricModal({
     }
   };
 
-  // User starts touching / holding finger on the screen sensor
+  // User starts touching / holding finger on the Touch ID sensor
   const handleTouchStart = (e) => {
     if (scanState === 'scanning' || scanState === 'success') return;
     
@@ -114,12 +112,12 @@ export default function BiometricModal({
     if (scanProgress < 100 && scanState === 'scanning') {
       setScanState('error');
       setScanProgress(0);
-      setErrorMessage('Finger lifted too early! Press & hold finger until scan completes.');
+      setErrorMessage('Finger lifted too early! Press & hold Touch ID sensor until scan completes.');
       triggerHapticFeedback('error');
     }
   };
 
-  // Verify biometric match after hold or hardware call
+  // Verify Touch ID fingerprint match after hold or hardware call
   const verifyAndUnlock = async () => {
     setScanState('scanning');
     setScanProgress(100);
@@ -151,7 +149,7 @@ export default function BiometricModal({
               return;
             }
           } catch (err) {
-            console.warn('Backend biometric auth fallback:', err);
+            console.warn('Backend Touch ID auth fallback:', err);
           }
         }
 
@@ -162,12 +160,12 @@ export default function BiometricModal({
     } catch (err) {
       setScanState('error');
       setScanProgress(0);
-      setErrorMessage(err.message || 'Fingerprint verification failed. Try again.');
+      setErrorMessage(err.message || 'Touch ID fingerprint verification failed. Try again.');
       triggerHapticFeedback('error');
     }
   };
 
-  // Explicit Trigger Native System Fingerprint Prompt (Android/iOS WebAuthn OS Dialog)
+  // Trigger Native OS Hardware Touch ID Prompt (Android / iOS)
   const handleNativeOsScan = async () => {
     stopScanHold();
     setScanState('scanning');
@@ -206,7 +204,7 @@ export default function BiometricModal({
     } catch (err) {
       setScanState('error');
       setScanProgress(0);
-      setErrorMessage(err.message || 'Native fingerprint scan failed.');
+      setErrorMessage(err.message || 'Native Touch ID scan failed.');
       triggerHapticFeedback('error');
     }
   };
@@ -220,7 +218,7 @@ export default function BiometricModal({
         setConfig(updated);
         triggerHapticFeedback('success');
       } catch (err) {
-        setErrorMessage(err.message || 'Failed to register biometric credential');
+        setErrorMessage(err.message || 'Failed to register Touch ID fingerprint');
         triggerHapticFeedback('error');
       } finally {
         setRegistering(false);
@@ -255,58 +253,32 @@ export default function BiometricModal({
           </button>
         )}
 
-        {/* Dynamic Mode Header */}
+        {/* Header Banner */}
         <div className="w-full pt-8 pb-3 px-6 text-center bg-gradient-to-b from-violet-500/10 via-purple-500/5 to-transparent dark:from-violet-500/15 dark:via-purple-500/5 dark:to-transparent flex flex-col items-center">
           
           <div className="flex items-center justify-center gap-2 mb-3">
             <span className="px-2.5 py-1 rounded-full bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 border border-violet-500/20">
               <Smartphone size={12} />
-              Mobile Biometric Guard
+              Touch ID Guard
             </span>
           </div>
 
           <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            {mode === 'unlock' && 'Fingerprint Required'}
-            {mode === 'login' && 'Biometric Sign In'}
-            {mode === 'settings' && 'Biometric Security Settings'}
+            {mode === 'unlock' && 'Touch ID Required'}
+            {mode === 'login' && 'Touch ID Sign In'}
+            {mode === 'settings' && 'Touch ID Security Settings'}
           </h2>
 
           <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400 max-w-[260px]">
-            {mode === 'unlock' && 'Touch and hold your finger on the sensor below to scan'}
-            {mode === 'login' && 'Verify fingerprint to access enterprise ledger'}
-            {mode === 'settings' && 'Configure mobile device fingerprint and Face ID access'}
+            {mode === 'unlock' && 'Press & hold your finger on the Touch ID sensor below'}
+            {mode === 'login' && 'Verify your Touch ID fingerprint to access ledger'}
+            {mode === 'settings' && 'Configure mobile Touch ID fingerprint sensor settings'}
           </p>
         </div>
 
-        {/* SCANNER INTERFACE (Unlock or Login Mode) */}
+        {/* TOUCH ID SCANNER INTERFACE (Unlock or Login Mode) */}
         {(mode === 'unlock' || mode === 'login') && (
           <div className="p-6 w-full flex flex-col items-center space-y-5">
-            
-            {/* Sensor Type Selector Switch */}
-            <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-800/70 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
-              <button
-                onClick={() => setBioType('fingerprint')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  bioType === 'fingerprint'
-                    ? 'bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                <Fingerprint size={14} />
-                Touch ID
-              </button>
-              <button
-                onClick={() => setBioType('face')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  bioType === 'face'
-                    ? 'bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                <ScanFace size={14} />
-                Face ID
-              </button>
-            </div>
 
             {/* INTERACTIVE FINGERPRINT TOUCH & HOLD SENSOR CONTAINER */}
             <div className="relative flex items-center justify-center my-2">
@@ -340,7 +312,7 @@ export default function BiometricModal({
                 />
               </svg>
 
-              {/* Main Sensor Button - Requires Active Touch & Hold */}
+              {/* Main Touch ID Sensor Button */}
               <div
                 onMouseDown={handleTouchStart}
                 onMouseUp={handleTouchEnd}
@@ -358,20 +330,13 @@ export default function BiometricModal({
                     : 'bg-slate-100 dark:bg-slate-800/90 text-violet-600 dark:text-violet-400 hover:bg-slate-200 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700'
                 }`}
               >
-                {/* Face ID Scanner Laser Beam Effect */}
-                {bioType === 'face' && scanState === 'scanning' && (
-                  <div className="absolute inset-x-2 h-0.5 bg-white shadow-[0_0_12px_#ffffff] animate-bounce z-10" />
-                )}
-
                 {/* Icon rendering */}
                 {scanState === 'success' ? (
                   <CheckCircle2 className="w-12 h-12 text-white animate-in zoom-in-75 duration-300" />
                 ) : scanState === 'error' ? (
                   <ShieldAlert className="w-12 h-12 text-white animate-in shake duration-300" />
-                ) : bioType === 'fingerprint' ? (
-                  <Fingerprint className={`w-12 h-12 ${scanState === 'scanning' ? 'text-white animate-pulse' : 'text-violet-600 dark:text-violet-400'}`} />
                 ) : (
-                  <ScanFace className={`w-12 h-12 ${scanState === 'scanning' ? 'text-white animate-pulse' : 'text-violet-600 dark:text-violet-400'}`} />
+                  <Fingerprint className={`w-12 h-12 ${scanState === 'scanning' ? 'text-white animate-pulse' : 'text-violet-600 dark:text-violet-400'}`} />
                 )}
 
                 <span className="text-[9px] font-black uppercase tracking-wider mt-1 opacity-90">
@@ -386,36 +351,36 @@ export default function BiometricModal({
               {scanState === 'scanning' && (
                 <p className="text-xs font-black text-violet-600 dark:text-violet-400 animate-pulse flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-violet-600 animate-ping" />
-                  Scanning Fingerprint... Keep holding ({scanProgress}%)
+                  Scanning Touch ID... Keep holding ({scanProgress}%)
                 </p>
               )}
               {scanState === 'success' && (
                 <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">
-                  Fingerprint Verified! Access Granted.
+                  Touch ID Verified! Access Granted.
                 </p>
               )}
               {scanState === 'error' && (
                 <p className="text-xs font-bold text-rose-600 dark:text-rose-400 leading-snug">
-                  {errorMessage || 'Fingerprint verification failed.'}
+                  {errorMessage || 'Touch ID verification failed.'}
                 </p>
               )}
               {scanState === 'idle' && (
                 <p className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                  Press & Hold sensor to scan fingerprint
+                  Press & Hold sensor for Touch ID scan
                 </p>
               )}
             </div>
 
             {/* NATIVE SYSTEM FINGERPRINT & ALTERNATIVE ACTIONS */}
             <div className="w-full space-y-2 pt-1">
-              {/* Trigger Native OS Fingerprint Dialog (Android / iOS) */}
+              {/* Trigger Native OS Touch ID Fingerprint Dialog */}
               <button
                 onClick={handleNativeOsScan}
                 disabled={scanState === 'scanning'}
                 className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-violet-50 dark:hover:bg-violet-950/30 text-violet-700 dark:text-violet-300 text-xs font-bold rounded-xl border border-violet-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
               >
                 <SmartphoneNfc size={16} />
-                <span>Open Device OS Fingerprint Prompt</span>
+                <span>Open Device Touch ID Sensor</span>
               </button>
 
               {mode === 'unlock' && onLogout && (
@@ -443,23 +408,23 @@ export default function BiometricModal({
               </div>
               <div className="overflow-hidden">
                 <div className="text-xs font-bold text-slate-900 dark:text-white">
-                  Hardware Authenticator
+                  Touch ID Hardware Authenticator
                 </div>
                 <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate">
-                  {isSupported ? 'Native Mobile Hardware Biometrics' : 'Interactive Touch Sensor'}
+                  {isSupported ? 'Touch ID Fingerprint Sensor Available' : 'Touch ID Touch Sensor Active'}
                 </div>
               </div>
             </div>
 
-            {/* Toggle Enable Biometrics */}
+            {/* Toggle Enable Touch ID */}
             <div className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
               <div className="space-y-0.5">
                 <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                   <Fingerprint size={14} className="text-violet-500" />
-                  Enable Mobile Biometrics
+                  Enable Touch ID
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                  Require fingerprint or Face ID
+                  Require fingerprint to open app
                 </div>
               </div>
 
@@ -483,7 +448,7 @@ export default function BiometricModal({
               <div className="space-y-0.5">
                 <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                   <Lock size={14} className="text-violet-500" />
-                  Auto-Lock Mobile App
+                  Auto-Lock with Touch ID
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400">
                   Lock when app is backgrounded
@@ -521,7 +486,7 @@ export default function BiometricModal({
               className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-200 dark:border-slate-700"
             >
               <Sparkles size={14} className="text-violet-500" />
-              {registering ? 'Registering Fingerprint...' : 'Register Mobile Fingerprint Sensor'}
+              {registering ? 'Registering Touch ID...' : 'Register Mobile Touch ID Sensor'}
             </button>
 
             {/* Close Button */}

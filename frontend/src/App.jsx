@@ -1103,7 +1103,7 @@ export default function App() {
             <button
               onClick={handleLockApp}
               className="p-2 text-violet-600 dark:text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 rounded-xl cursor-pointer transition-all active:scale-95 flex items-center justify-center"
-              title="Lock App with Mobile Biometrics"
+              title="Lock App with Touch ID"
             >
               <Fingerprint size={18} />
             </button>

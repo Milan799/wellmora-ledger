@@ -264,7 +264,7 @@ export default function Sidebar({
                   >
                     <div className="flex items-center gap-2">
                       <Fingerprint size={16} className="text-violet-600 dark:text-violet-400 shrink-0" />
-                      <span>Biometric Lock / Settings</span>
+                      <span>Touch ID Lock / Settings</span>
                     </div>
                     <ChevronRight size={14} className="text-violet-400" />
                   </button>
