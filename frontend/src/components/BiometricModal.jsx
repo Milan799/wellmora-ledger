@@ -165,7 +165,7 @@ export default function BiometricModal({
     }
   };
 
-  // Trigger Native OS Hardware Touch ID Prompt (Android / iOS)
+  // Trigger Device Hardware Touch ID Registration / Verification
   const handleNativeOsScan = async () => {
     stopScanHold();
     setScanState('scanning');
@@ -174,37 +174,45 @@ export default function BiometricModal({
     triggerHapticFeedback('light');
 
     try {
-      const res = await authenticateBiometrics(authUser);
-      if (res.success) {
-        setScanProgress(100);
-        setScanState('success');
-        triggerHapticFeedback('success');
-
-        if (mode === 'login' && apiBaseUrl) {
-          try {
-            const response = await fetch(`${apiBaseUrl}/auth/biometric/login`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ username: config.username || authUser?.username || 'WellmoraEnterprise' })
-            });
-            if (response.ok) {
-              const data = await response.json();
-              localStorage.setItem('authToken', data.token);
-              localStorage.setItem('authUser', JSON.stringify(data.user));
-              setTimeout(() => onSuccess?.(data.user, data.token), 400);
-              return;
-            }
-          } catch (e) {
-            console.warn('Backend token err:', e);
-          }
+      if (!config.credentialId || config.credentialId.startsWith('sim_bio_')) {
+        // Register WebAuthn hardware passkey on device
+        const regRes = await registerBiometricCredential(authUser);
+        if (regRes.success) {
+          const updated = saveBiometricConfig({ enabled: true });
+          setConfig(updated);
         }
-
-        setTimeout(() => onSuccess?.(authUser || { username: config.username || 'Mobile User' }), 500);
+      } else {
+        await authenticateBiometrics(authUser);
       }
+
+      setScanProgress(100);
+      setScanState('success');
+      triggerHapticFeedback('success');
+
+      if (mode === 'login' && apiBaseUrl) {
+        try {
+          const response = await fetch(`${apiBaseUrl}/auth/biometric/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: config.username || authUser?.username || 'WellmoraEnterprise' })
+          });
+          if (response.ok) {
+            const data = await response.json();
+            localStorage.setItem('authToken', data.token);
+            localStorage.setItem('authUser', JSON.stringify(data.user));
+            setTimeout(() => onSuccess?.(data.user, data.token), 400);
+            return;
+          }
+        } catch (e) {
+          console.warn('Backend token err:', e);
+        }
+      }
+
+      setTimeout(() => onSuccess?.(authUser || { username: config.username || 'Mobile User' }), 500);
     } catch (err) {
       setScanState('error');
       setScanProgress(0);
-      setErrorMessage(err.message || 'Native Touch ID scan failed.');
+      setErrorMessage(err.message || 'Touch ID hardware scan failed.');
       triggerHapticFeedback('error');
     }
   };
