@@ -250,36 +250,36 @@ export default function BiometricModal({
   const strokeDashoffset = circumference - (scanProgress / 100) * circumference;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col items-center select-none">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md">
+      <div className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto bg-slate-900 border border-violet-500/30 rounded-3xl shadow-[0_0_40px_rgba(124,58,237,0.2)] flex flex-col items-center select-none text-white">
         
         {/* Top Close Button (for settings or login mode) */}
         {mode !== 'unlock' && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors z-10"
+            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition-colors z-10 cursor-pointer"
           >
             <X size={18} />
           </button>
         )}
 
         {/* Header Banner */}
-        <div className="w-full pt-8 pb-3 px-6 text-center bg-gradient-to-b from-violet-500/10 via-purple-500/5 to-transparent dark:from-violet-500/15 dark:via-purple-500/5 dark:to-transparent flex flex-col items-center">
+        <div className="w-full pt-8 pb-3 px-6 text-center bg-gradient-to-b from-violet-500/20 via-purple-500/10 to-transparent flex flex-col items-center">
           
           <div className="flex items-center justify-center gap-2 mb-3">
-            <span className="px-2.5 py-1 rounded-full bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 border border-violet-500/20">
+            <span className="px-2.5 py-1 rounded-full bg-violet-950/80 text-violet-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 border border-violet-500/30">
               <Smartphone size={12} />
               Touch ID Guard
             </span>
           </div>
 
-          <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+          <h2 className="text-xl font-extrabold text-white tracking-tight">
             {mode === 'unlock' && 'Touch ID Required'}
             {mode === 'login' && 'Touch ID Sign In'}
             {mode === 'settings' && 'Touch ID Security Settings'}
           </h2>
 
-          <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400 max-w-[260px]">
+          <p className="mt-1.5 text-xs font-medium text-slate-300 max-w-[260px] leading-relaxed">
             {mode === 'unlock' && 'Press & hold your finger on the Touch ID sensor below'}
             {mode === 'login' && 'Verify your Touch ID fingerprint to access ledger'}
             {mode === 'settings' && 'Configure mobile Touch ID fingerprint sensor settings'}
@@ -300,7 +300,7 @@ export default function BiometricModal({
                   cx="72"
                   cy="72"
                   r={radius}
-                  className="text-slate-200 dark:text-slate-800"
+                  className="text-slate-800"
                   strokeWidth="6"
                   stroke="currentColor"
                   fill="transparent"
@@ -311,7 +311,7 @@ export default function BiometricModal({
                   cy="72"
                   r={radius}
                   className={`transition-all duration-100 ${
-                    scanState === 'success' ? 'text-emerald-500' : scanState === 'error' ? 'text-rose-500' : 'text-violet-600 dark:text-violet-400'
+                    scanState === 'success' ? 'text-emerald-400' : scanState === 'error' ? 'text-rose-400' : 'text-violet-400'
                   }`}
                   strokeWidth="6"
                   strokeDasharray={circumference}
@@ -337,7 +337,7 @@ export default function BiometricModal({
                     ? 'bg-emerald-600 text-white shadow-emerald-500/50'
                     : scanState === 'error'
                     ? 'bg-rose-600 text-white shadow-rose-500/50'
-                    : 'bg-slate-100 dark:bg-slate-800/90 text-violet-600 dark:text-violet-400 hover:bg-slate-200 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700'
+                    : 'bg-slate-800 text-violet-400 hover:bg-slate-750 border border-violet-500/30'
                 }`}
               >
                 {/* Icon rendering */}
@@ -346,10 +346,10 @@ export default function BiometricModal({
                 ) : scanState === 'error' ? (
                   <ShieldAlert className="w-12 h-12 text-white animate-in shake duration-300" />
                 ) : (
-                  <Fingerprint className={`w-12 h-12 ${scanState === 'scanning' ? 'text-white animate-pulse' : 'text-violet-600 dark:text-violet-400'}`} />
+                  <Fingerprint className={`w-12 h-12 ${scanState === 'scanning' ? 'text-white animate-pulse' : 'text-violet-400'}`} />
                 )}
 
-                <span className="text-[9px] font-black uppercase tracking-wider mt-1 opacity-90">
+                <span className="text-[9px] font-black uppercase tracking-wider mt-1 opacity-90 text-white">
                   {scanState === 'scanning' ? `${scanProgress}%` : 'Hold'}
                 </span>
               </div>
@@ -359,23 +359,23 @@ export default function BiometricModal({
             {/* STATUS MESSAGE & SCAN INSTRUCTIONS */}
             <div className="text-center min-h-[42px] flex flex-col items-center justify-center px-4">
               {scanState === 'scanning' && (
-                <p className="text-xs font-black text-violet-600 dark:text-violet-400 animate-pulse flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-violet-600 animate-ping" />
+                <p className="text-xs font-black text-violet-300 animate-pulse flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-violet-400 animate-ping" />
                   Scanning Touch ID... Keep holding ({scanProgress}%)
                 </p>
               )}
               {scanState === 'success' && (
-                <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">
+                <p className="text-xs font-black text-emerald-400">
                   Touch ID Verified! Access Granted.
                 </p>
               )}
               {scanState === 'error' && (
-                <p className="text-xs font-bold text-rose-600 dark:text-rose-400 leading-snug">
+                <p className="text-xs font-bold text-rose-400 leading-snug">
                   {errorMessage || 'Touch ID verification failed.'}
                 </p>
               )}
               {scanState === 'idle' && (
-                <p className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                <p className="text-xs font-bold text-slate-300">
                   Press & Hold sensor for Touch ID scan
                 </p>
               )}
@@ -387,7 +387,7 @@ export default function BiometricModal({
               <button
                 onClick={handleNativeOsScan}
                 disabled={scanState === 'scanning'}
-                className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-violet-50 dark:hover:bg-violet-950/30 text-violet-700 dark:text-violet-300 text-xs font-bold rounded-xl border border-violet-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                className="w-full py-2.5 px-4 bg-slate-800 hover:bg-violet-900/40 text-violet-300 text-xs font-bold rounded-xl border border-violet-500/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
               >
                 <SmartphoneNfc size={16} />
                 <span>Open Device Touch ID Sensor</span>
@@ -396,7 +396,7 @@ export default function BiometricModal({
               {mode === 'unlock' && onLogout && (
                 <button
                   onClick={onLogout}
-                  className="w-full py-2.5 px-4 bg-transparent hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full py-2.5 px-4 bg-transparent hover:bg-rose-950/40 text-rose-400 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <LogOut size={14} />
                   Sign Out of Account
