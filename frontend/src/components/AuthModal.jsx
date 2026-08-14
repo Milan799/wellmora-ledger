@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Lock, User, Eye, EyeOff, ShieldCheck, ArrowRight, Loader2, Fingerprint } from 'lucide-react';
+import { Lock, User, Eye, EyeOff, ShieldCheck, ArrowRight, Loader2 } from 'lucide-react';
 
-export default function AuthModal({ isOpen, onClose, onAuthSuccess, apiBaseUrl, onOpenBiometric }) {
+export default function AuthModal({ isOpen, onClose, onAuthSuccess, apiBaseUrl }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -53,14 +53,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, apiBaseUrl, 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors z-10"
-        >
-          ✕
-        </button>
-
         {/* Header decoration */}
         <div className="px-8 pt-8 pb-6 text-center bg-gradient-to-b from-emerald-50 to-transparent dark:from-emerald-950/20 dark:to-transparent">
           <div className="inline-flex items-center justify-center w-14 h-14 mb-4 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20">
@@ -82,32 +74,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, apiBaseUrl, 
               {error}
             </div>
           )}
-
-          {/* Quick Mobile Biometric Button */}
-          {onOpenBiometric && (
-            <div className="p-3 rounded-2xl bg-violet-500/10 dark:bg-violet-950/30 border border-violet-500/20 text-center space-y-2">
-              <div className="text-[11px] font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider">
-                Mobile Quick Sign In
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenBiometric('login');
-                }}
-                className="w-full py-2.5 px-4 bg-violet-600 hover:bg-violet-500 text-white text-xs font-extrabold rounded-xl shadow-md shadow-violet-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
-              >
-                <Fingerprint size={16} />
-                <span>Sign in with Touch ID</span>
-              </button>
-            </div>
-          )}
-
-          <div className="relative flex py-1 items-center">
-            <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-            <span className="flex-shrink mx-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Or use password</span>
-            <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-          </div>
 
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -169,4 +135,3 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess, apiBaseUrl, 
     </div>
   );
 }
-

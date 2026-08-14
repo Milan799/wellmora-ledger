@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { flushSync } from 'react-dom';
-import { AlertCircle, RefreshCw, Menu, Sun, Moon, ShieldCheck, LogOut, Fingerprint } from 'lucide-react';
+import { AlertCircle, RefreshCw, Menu, Sun, Moon, ShieldCheck, LogOut } from 'lucide-react';
 
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -23,8 +23,6 @@ import DeleteConfirmation from './components/DeleteConfirmation';
 import Notification from './components/Notification';
 import ExportDropdown from './components/ExportDropdown';
 import AuthModal from './components/AuthModal';
-import BiometricModal from './components/BiometricModal';
-import { getBiometricLockState, setBiometricLockState, isBiometricsEnabled, getBiometricConfig } from './utils/biometrics';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://wellmora-ledger-1.onrender.com/api';
 
@@ -77,61 +75,6 @@ export default function App() {
   });
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('authToken') || '');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-
-  // Mobile Biometric Lock & Modal State
-  const [isBiometricLocked, setIsBiometricLocked] = useState(() => getBiometricLockState());
-  const [biometricModal, setBiometricModal] = useState({ isOpen: false, mode: 'unlock' });
-
-  const handleOpenBiometric = (mode = 'unlock') => {
-    setBiometricModal({ isOpen: true, mode });
-  };
-
-  const handleLockApp = () => {
-    setBiometricLockState(true);
-    setIsBiometricLocked(true);
-    setBiometricModal({ isOpen: true, mode: 'unlock' });
-  };
-
-  const handleUnlockSuccess = (user, token) => {
-    setBiometricLockState(false);
-    setIsBiometricLocked(false);
-    setBiometricModal({ isOpen: false, mode: 'unlock' });
-
-    const effectiveToken = token || localStorage.getItem('authToken') || '';
-    let effectiveUser = user || authUser;
-    if (!effectiveUser || !effectiveUser.username) {
-      try {
-        const stored = localStorage.getItem('authUser');
-        if (stored) effectiveUser = JSON.parse(stored);
-      } catch (e) {}
-    }
-    if (!effectiveUser) {
-      effectiveUser = { username: 'WellmoraEnterprise', name: 'Wellmora Enterprise' };
-    }
-
-    setAuthUser(effectiveUser);
-    if (effectiveToken) {
-      setAuthToken(effectiveToken);
-    }
-    localStorage.setItem('authUser', JSON.stringify(effectiveUser));
-    if (effectiveToken) {
-      localStorage.setItem('authToken', effectiveToken);
-    }
-  };
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden && isBiometricsEnabled()) {
-        const config = getBiometricConfig();
-        if (config.autoLock && authUser) {
-          setBiometricLockState(true);
-          setIsBiometricLocked(true);
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [authUser]);
 
   const handleAuthSuccess = (user, token) => {
     setAuthUser(user);
@@ -1116,16 +1059,6 @@ export default function App() {
             {theme === 'dark' ? <Sun size={17} className="text-amber-500" /> : <Moon size={17} className="text-slate-600" />}
           </button>
 
-          {authUser && (
-            <button
-              onClick={handleLockApp}
-              className="p-2 text-violet-600 dark:text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 rounded-xl cursor-pointer transition-all active:scale-95 flex items-center justify-center"
-              title="Lock App with Touch ID"
-            >
-              <Fingerprint size={18} />
-            </button>
-          )}
-
           {authUser ? (
             <button
               onClick={handleLogout}
@@ -1157,8 +1090,6 @@ export default function App() {
         authUser={authUser}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
-        onOpenBiometric={handleOpenBiometric}
-        isBiometricsConfigured={isBiometricsEnabled()}
       />
 
       {/* 3. Main Content Scrollable Pane */}
@@ -1418,18 +1349,6 @@ export default function App() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onAuthSuccess={handleAuthSuccess}
-        apiBaseUrl={API_BASE_URL}
-        onOpenBiometric={handleOpenBiometric}
-      />
-
-      {/* Mobile View Biometric Guard Modal */}
-      <BiometricModal
-        isOpen={isBiometricLocked || biometricModal.isOpen}
-        mode={isBiometricLocked ? 'unlock' : biometricModal.mode}
-        onClose={() => setBiometricModal({ isOpen: false, mode: 'unlock' })}
-        onSuccess={handleUnlockSuccess}
-        onLogout={handleLogout}
-        authUser={authUser}
         apiBaseUrl={API_BASE_URL}
       />
 
