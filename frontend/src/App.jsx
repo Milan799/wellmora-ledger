@@ -96,9 +96,26 @@ export default function App() {
     setBiometricLockState(false);
     setIsBiometricLocked(false);
     setBiometricModal({ isOpen: false, mode: 'unlock' });
-    if (user && (!authUser || token)) {
-      setAuthUser(user);
-      if (token) setAuthToken(token);
+
+    const effectiveToken = token || localStorage.getItem('authToken') || '';
+    let effectiveUser = user || authUser;
+    if (!effectiveUser || !effectiveUser.username) {
+      try {
+        const stored = localStorage.getItem('authUser');
+        if (stored) effectiveUser = JSON.parse(stored);
+      } catch (e) {}
+    }
+    if (!effectiveUser) {
+      effectiveUser = { username: 'WellmoraEnterprise', name: 'Wellmora Enterprise' };
+    }
+
+    setAuthUser(effectiveUser);
+    if (effectiveToken) {
+      setAuthToken(effectiveToken);
+    }
+    localStorage.setItem('authUser', JSON.stringify(effectiveUser));
+    if (effectiveToken) {
+      localStorage.setItem('authToken', effectiveToken);
     }
   };
 

@@ -117,6 +117,55 @@ export default function BiometricModal({
     }
   };
 
+  // Helper to complete login authentication with backend or local cache
+  const completeAuthProcess = async () => {
+    let targetUser = authUser;
+    let targetToken = localStorage.getItem('authToken') || '';
+
+    try {
+      const storedUserRaw = localStorage.getItem('authUser');
+      if (storedUserRaw) {
+        targetUser = JSON.parse(storedUserRaw);
+      }
+    } catch {
+      // Ignore JSON parse error
+    }
+
+    if (mode === 'login' && apiBaseUrl) {
+      try {
+        const usernameToAuth = config.username || targetUser?.username || 'WellmoraEnterprise';
+        const response = await fetch(`${apiBaseUrl}/auth/biometric/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: usernameToAuth })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          targetToken = data.token;
+          targetUser = data.user;
+          localStorage.setItem('authToken', data.token);
+          localStorage.setItem('authUser', JSON.stringify(data.user));
+        }
+      } catch (err) {
+        console.warn('Backend Touch ID auth token fetch warning:', err);
+      }
+    }
+
+    if (!targetUser) {
+      targetUser = {
+        username: 'WellmoraEnterprise',
+        name: 'Wellmora Enterprise',
+        email: 'admin@wellmoraenterprise.com'
+      };
+      localStorage.setItem('authUser', JSON.stringify(targetUser));
+    }
+
+    setTimeout(() => {
+      onSuccess?.(targetUser, targetToken);
+    }, 400);
+  };
+
   // Verify Touch ID fingerprint match after hold or hardware call
   const verifyAndUnlock = async () => {
     setScanState('scanning');
@@ -127,35 +176,7 @@ export default function BiometricModal({
       if (res.success) {
         setScanState('success');
         triggerHapticFeedback('success');
-
-        // Request server auth token if in login mode
-        if (mode === 'login' && apiBaseUrl) {
-          try {
-            const response = await fetch(`${apiBaseUrl}/auth/biometric/login`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                username: config.username || authUser?.username || 'WellmoraEnterprise'
-              })
-            });
-
-            if (response.ok) {
-              const data = await response.json();
-              localStorage.setItem('authToken', data.token);
-              localStorage.setItem('authUser', JSON.stringify(data.user));
-              setTimeout(() => {
-                onSuccess?.(data.user, data.token);
-              }, 400);
-              return;
-            }
-          } catch (err) {
-            console.warn('Backend Touch ID auth fallback:', err);
-          }
-        }
-
-        setTimeout(() => {
-          onSuccess?.(authUser || { username: config.username || 'Mobile User' });
-        }, 500);
+        await completeAuthProcess();
       }
     } catch (err) {
       setScanState('error');
@@ -189,26 +210,7 @@ export default function BiometricModal({
       setScanState('success');
       triggerHapticFeedback('success');
 
-      if (mode === 'login' && apiBaseUrl) {
-        try {
-          const response = await fetch(`${apiBaseUrl}/auth/biometric/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: config.username || authUser?.username || 'WellmoraEnterprise' })
-          });
-          if (response.ok) {
-            const data = await response.json();
-            localStorage.setItem('authToken', data.token);
-            localStorage.setItem('authUser', JSON.stringify(data.user));
-            setTimeout(() => onSuccess?.(data.user, data.token), 400);
-            return;
-          }
-        } catch (e) {
-          console.warn('Backend token err:', e);
-        }
-      }
-
-      setTimeout(() => onSuccess?.(authUser || { username: config.username || 'Mobile User' }), 500);
+      await completeAuthProcess();
     } catch (err) {
       setScanState('error');
       setScanProgress(0);
