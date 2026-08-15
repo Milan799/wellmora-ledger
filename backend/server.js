@@ -48,6 +48,15 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
+// Anti-caching HTTP headers for all API routes to ensure real-time consistency across devices
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  next();
+});
+
 // 3. NoSQL Query Injection Prevention
 app.use(mongoSanitize());
 

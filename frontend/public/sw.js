@@ -47,8 +47,19 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Bypass API requests so backend data is always fresh
-  if (url.pathname.startsWith('/api/')) {
+  // Bypass API and financial data endpoints so backend data is always live and never served from SW cache
+  const path = url.pathname;
+  if (
+    path.startsWith('/api/') || 
+    path.startsWith('/auth/') || 
+    path.startsWith('/transactions') || 
+    path.startsWith('/bank-transactions') || 
+    path.startsWith('/partner-flows') || 
+    path.startsWith('/orders') || 
+    path.startsWith('/reports') || 
+    path.startsWith('/digest') || 
+    path.startsWith('/backups')
+  ) {
     return;
   }
 

@@ -41,12 +41,24 @@ const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
   try {
     const token = localStorage.getItem('authToken');
     const headers = {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       ...options.headers,
       ...(token ? { 'Authorization': `Bearer ${token}` } : {})
     };
-    const response = await fetch(url, {
+
+    let requestUrl = url;
+    const method = (options.method || 'GET').toUpperCase();
+    if (method === 'GET') {
+      const separator = requestUrl.includes('?') ? '&' : '?';
+      requestUrl = `${requestUrl}${separator}_t=${Date.now()}`;
+    }
+
+    const response = await fetch(requestUrl, {
       ...options,
+      cache: 'no-store',
       headers,
       signal: controller.signal
     });
@@ -242,35 +254,60 @@ export default function App() {
   });
   const [loadingOrders, setLoadingOrders] = useState(false);
 
-  // Fetch all categories on mount & run real-time auto-sync polling
+  const refreshAllData = async (isSilent = false) => {
+    try {
+      await Promise.allSettled([
+        fetchTransactions(),
+        fetchBankTransactions(),
+        fetchPartnerTransactions(),
+        fetchOrders(isSilent)
+      ]);
+    } catch (err) {
+      console.error("Auto-sync refresh error:", err);
+    }
+  };
+
+  // Fetch all modules on mount & run real-time auto-sync polling + focus/visibility listeners
   useEffect(() => {
     if (authUser && authToken) {
-      fetchTransactions();
-      fetchBankTransactions();
-      fetchPartnerTransactions();
-      fetchOrders();
+      refreshAllData();
 
-      // Real-time cross-device auto-sync polling (every 15 seconds)
+      // Real-time cross-device auto-sync polling (every 10 seconds)
       const syncInterval = setInterval(() => {
-        fetchOrders(true); // Silent background refresh without triggering loading spinner
-        fetchTransactions();
-        fetchBankTransactions();
-        fetchPartnerTransactions();
-      }, 15000);
+        refreshAllData(true);
+      }, 10000);
 
-      // Multi-tab storage sync listener
-      const handleStorageChange = (e) => {
-        if (e.key === 'cached_orders' && e.newValue) {
-          try {
-            setOrders(JSON.parse(e.newValue));
-          } catch (err) {}
+      // Auto-sync on window/tab focus, visibility change, and network reconnection
+      const handleFocusOrVisible = () => {
+        if (document.visibilityState === 'visible') {
+          refreshAllData(true);
         }
       };
+
+      // Multi-tab storage sync listener across all data modules
+      const handleStorageChange = (e) => {
+        if (e.key === 'cached_transactions' && e.newValue) {
+          try { setTransactions(JSON.parse(e.newValue)); } catch (err) {}
+        } else if (e.key === 'cached_bankTransactions' && e.newValue) {
+          try { setBankTransactions(JSON.parse(e.newValue)); } catch (err) {}
+        } else if (e.key === 'cached_partnerTransactions' && e.newValue) {
+          try { setPartnerTransactions(JSON.parse(e.newValue)); } catch (err) {}
+        } else if (e.key === 'cached_orders' && e.newValue) {
+          try { setOrders(JSON.parse(e.newValue)); } catch (err) {}
+        }
+      };
+
       window.addEventListener('storage', handleStorageChange);
+      window.addEventListener('visibilitychange', handleFocusOrVisible);
+      window.addEventListener('focus', handleFocusOrVisible);
+      window.addEventListener('online', handleFocusOrVisible);
 
       return () => {
         clearInterval(syncInterval);
         window.removeEventListener('storage', handleStorageChange);
+        window.removeEventListener('visibilitychange', handleFocusOrVisible);
+        window.removeEventListener('focus', handleFocusOrVisible);
+        window.removeEventListener('online', handleFocusOrVisible);
       };
     } else {
       setTransactions([]);
@@ -1130,6 +1167,8 @@ export default function App() {
                 onDeleteBank={(t) => handleDeleteTrigger(t, 'bank')}
                 onEditPartner={(t) => { setEditingPartnerTransaction(t); setIsPartnerFormOpen(true); }}
                 onDeletePartner={(t) => handleDeleteTrigger(t, 'partner')}
+                onRefresh={() => refreshAllData(false)}
+                loading={loadingLedger || loadingBank || loadingPartner}
               />
             )}
 
@@ -1149,9 +1188,9 @@ export default function App() {
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto sm:justify-end">
                     <button
-                      onClick={fetchTransactions}
+                      onClick={() => refreshAllData(false)}
                       className="p-2 bg-slate-100/50 dark:bg-slate-900/50 hover:bg-slate-200/50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-all active:scale-95 cursor-pointer shrink-0"
-                      title="Refresh ledger"
+                      title="Refresh all financial data"
                     >
                       <RefreshCw size={14} className={loadingLedger ? 'animate-spin' : ''} />
                     </button>

@@ -16,7 +16,8 @@ import {
   Download, 
   Layers,
   Sparkles,
-  ArrowUpDown
+  ArrowUpDown,
+  RefreshCw
 } from 'lucide-react';
 import ExportDropdown from './ExportDropdown';
 import Pagination from './Pagination';
@@ -30,7 +31,9 @@ export default function CentralDashboard({
   onEditBank,
   onDeleteBank,
   onEditPartner,
-  onDeletePartner
+  onDeletePartner,
+  onRefresh,
+  loading = false
 }) {
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState('All'); // 'All' | 'ledger' | 'bank' | 'partner'
@@ -355,6 +358,16 @@ export default function CentralDashboard({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="px-3 py-2 bg-slate-100/80 dark:bg-slate-900/80 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-sm"
+              title="Sync & refresh real-time financial data"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">Sync Live Data</span>
+            </button>
+          )}
           <ExportDropdown onExport={exportCentralToExcel} />
         </div>
       </div>
