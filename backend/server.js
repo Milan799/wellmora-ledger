@@ -35,12 +35,36 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://trymilan971_db_use
 const corsOptions = {
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Cache-Control',
+    'cache-control',
+    'Pragma',
+    'pragma',
+    'Expires',
+    'expires',
+    'Surrogate-Control'
+  ],
   credentials: false
 };
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+
+// Explicit CORS Header Fallback for Preflight Requests
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, cache-control, Pragma, pragma, Expires, expires, Surrogate-Control');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 // 2. Security HTTP Headers with cross-origin policies configured for API access
 app.use(helmet({
