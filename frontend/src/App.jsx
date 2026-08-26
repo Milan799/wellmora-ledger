@@ -1135,53 +1135,64 @@ export default function App() {
     ? transactions.filter(t => t.isHandCash)
     : transactions;
 
-  const filteredLedger = ledgerTransactionsToDisplay.filter(t => {
-    const matchesSearch = (t.description || '').toLowerCase().includes(search.toLowerCase()) ||
-      (t.category || '').toLowerCase().includes(search.toLowerCase());
-    const matchesType = filterType === 'All' || t.type === filterType;
-    const matchesCategory = filterCategory === 'All' || t.category === filterCategory;
+  const filteredLedger = React.useMemo(() => {
+    const sorted = [...ledgerTransactionsToDisplay].sort((a, b) => {
+      const tA = new Date(a.date || a.createdAt || 0).getTime();
+      const tB = new Date(b.date || b.createdAt || 0).getTime();
+      return tB - tA;
+    });
 
-    if (!matchesSearch || !matchesType || !matchesCategory) return false;
+    return sorted.filter(t => {
+      const matchesSearch = (t.description || '').toLowerCase().includes(search.toLowerCase()) ||
+        (t.category || '').toLowerCase().includes(search.toLowerCase());
+      const matchesType = filterType === 'All' || t.type === filterType;
+      const matchesCategory = filterCategory === 'All' || t.category === filterCategory;
 
-    // Date filtering
-    const itemDate = new Date(t.date || t.createdAt);
-    if (isNaN(itemDate.getTime())) return true;
-    const now = new Date();
+      if (!matchesSearch || !matchesType || !matchesCategory) return false;
 
-    if (ledgerDateRange === 'today') {
-      return itemDate.getDate() === now.getDate() &&
-        itemDate.getMonth() === now.getMonth() &&
-        itemDate.getFullYear() === now.getFullYear();
-    } else if (ledgerDateRange === 'week') {
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(now.getDate() - 7);
-      return itemDate >= oneWeekAgo;
-    } else if (ledgerDateRange === 'month') {
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      return itemDate >= startOfMonth;
-    } else if (ledgerDateRange === 'quarter') {
-      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
-      const startOfQuarter = new Date(now.getFullYear(), quarterStartMonth, 1);
-      return itemDate >= startOfQuarter;
-    } else if (ledgerDateRange === 'year') {
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
-      return itemDate >= startOfYear;
-    } else if (ledgerDateRange === 'custom') {
-      if (ledgerStartDate) {
-        const s = new Date(ledgerStartDate);
-        s.setHours(0, 0, 0, 0);
-        if (itemDate < s) return false;
+      const rawDate = t.date || t.createdAt;
+      if (!rawDate) return true;
+
+      const dateStr = String(rawDate).split('T')[0];
+      const itemDate = new Date(dateStr + 'T12:00:00Z');
+      if (isNaN(itemDate.getTime())) return true;
+
+      const now = new Date();
+      const todayNoon = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0));
+
+      if (ledgerDateRange === 'today') {
+        return itemDate.getUTCFullYear() === todayNoon.getUTCFullYear() &&
+          itemDate.getUTCMonth() === todayNoon.getUTCMonth() &&
+          itemDate.getUTCDate() === todayNoon.getUTCDate();
+      } else if (ledgerDateRange === 'week') {
+        const oneWeekAgo = new Date(todayNoon);
+        oneWeekAgo.setUTCDate(todayNoon.getUTCDate() - 7);
+        return itemDate >= oneWeekAgo;
+      } else if (ledgerDateRange === 'month') {
+        const startOfMonth = new Date(Date.UTC(todayNoon.getUTCFullYear(), todayNoon.getUTCMonth(), 1));
+        return itemDate >= startOfMonth;
+      } else if (ledgerDateRange === 'quarter') {
+        const quarterStartMonth = Math.floor(todayNoon.getUTCMonth() / 3) * 3;
+        const startOfQuarter = new Date(Date.UTC(todayNoon.getUTCFullYear(), quarterStartMonth, 1));
+        return itemDate >= startOfQuarter;
+      } else if (ledgerDateRange === 'year') {
+        const startOfYear = new Date(Date.UTC(todayNoon.getUTCFullYear(), 0, 1));
+        return itemDate >= startOfYear;
+      } else if (ledgerDateRange === 'custom') {
+        if (ledgerStartDate) {
+          const s = new Date(ledgerStartDate + 'T00:00:00Z');
+          if (itemDate < s) return false;
+        }
+        if (ledgerEndDate) {
+          const e = new Date(ledgerEndDate + 'T23:59:59Z');
+          if (itemDate > e) return false;
+        }
+        return true;
       }
-      if (ledgerEndDate) {
-        const e = new Date(ledgerEndDate);
-        e.setHours(23, 59, 59, 999);
-        if (itemDate > e) return false;
-      }
+
       return true;
-    }
-
-    return true;
-  });
+    });
+  }, [ledgerTransactionsToDisplay, search, filterType, filterCategory, ledgerDateRange, ledgerStartDate, ledgerEndDate]);
 
   const isOnline = !errorLedger;
 

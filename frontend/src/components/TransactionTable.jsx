@@ -14,10 +14,29 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
   const paginatedTransactions = itemsPerPage === 'all'
     ? transactions
     : transactions.slice((currentPage - 1) * effectiveItemsPerPage, currentPage * effectiveItemsPerPage);
-  // Format Date (Indian format, e.g. 14 Jul 2026)
-  const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('en-IN', options);
+  // Format Date (Exact Date, e.g. 26 Aug 2026)
+  const formatDate = (dateInput) => {
+    if (!dateInput) return 'N/A';
+    try {
+      const str = String(dateInput).trim();
+      if (str.includes('T')) {
+        const [datePart] = str.split('T');
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          const [y, m, d] = datePart.split('-').map(Number);
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          return `${d} ${months[m - 1]} ${y}`;
+        }
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+        const [y, m, d] = str.split('-').map(Number);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${d} ${months[m - 1]} ${y}`;
+      }
+      const dt = new Date(dateInput);
+      if (isNaN(dt.getTime())) return 'N/A';
+      return dt.toLocaleDateString('en-IN', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' });
+    } catch (e) {
+      return 'N/A';
+    }
   };
 
   // Format Currency (Indian format with Rupees)

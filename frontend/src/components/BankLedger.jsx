@@ -14,9 +14,28 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('en-IN', options);
+  const formatDate = (dateInput) => {
+    if (!dateInput) return 'N/A';
+    try {
+      const str = String(dateInput).trim();
+      if (str.includes('T')) {
+        const [datePart] = str.split('T');
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          const [y, m, d] = datePart.split('-').map(Number);
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          return `${d} ${months[m - 1]} ${y}`;
+        }
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+        const [y, m, d] = str.split('-').map(Number);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${d} ${months[m - 1]} ${y}`;
+      }
+      const dt = new Date(dateInput);
+      if (isNaN(dt.getTime())) return 'N/A';
+      return dt.toLocaleDateString('en-IN', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' });
+    } catch (e) {
+      return 'N/A';
+    }
   };
 
   const formatCurrency = (val) => {

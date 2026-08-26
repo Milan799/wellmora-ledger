@@ -29,6 +29,30 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { createWorker } from 'tesseract.js';
 import Pagination from './Pagination';
 
+const formatDate = (dateInput) => {
+  if (!dateInput) return 'N/A';
+  try {
+    const str = String(dateInput).trim();
+    if (str.includes('T')) {
+      const [datePart] = str.split('T');
+      if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+        const [y, m, d] = datePart.split('-').map(Number);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${d} ${months[m - 1]} ${y}`;
+      }
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      const [y, m, d] = str.split('-').map(Number);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${d} ${months[m - 1]} ${y}`;
+    }
+    const dt = new Date(dateInput);
+    if (isNaN(dt.getTime())) return 'N/A';
+    return dt.toLocaleDateString('en-IN', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' });
+  } catch (e) {
+    return 'N/A';
+  }
+};
+
 export default function OrderEntry({
   orders = [],
   loading = false,
@@ -674,30 +698,36 @@ export default function OrderEntry({
     return { start, end };
   };
 
-  // Filtering Orders
-  const filteredOrders = orders.filter((o) => {
-    const matchesSearch =
-      (o.orderNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (o.awbNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (o.productName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (o.skuId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (o.customerName || '').toLowerCase().includes(searchTerm.toLowerCase());
+  // Filtering & Sorting Orders (Newest First)
+  const filteredOrders = [...(orders || [])]
+    .sort((a, b) => {
+      const tA = new Date(a.orderDate || a.createdAt || 0).getTime();
+      const tB = new Date(b.orderDate || b.createdAt || 0).getTime();
+      return tB - tA;
+    })
+    .filter((o) => {
+      const matchesSearch =
+        (o.orderNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (o.awbNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (o.productName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (o.skuId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (o.customerName || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesPayment =
-      paymentTypeFilter === 'all' ||
-      (o.paymentType || 'PREPAID').toUpperCase() === paymentTypeFilter.toUpperCase();
+      const matchesPayment =
+        paymentTypeFilter === 'all' ||
+        (o.paymentType || 'PREPAID').toUpperCase() === paymentTypeFilter.toUpperCase();
 
-    const { start, end } = getEffectiveDateRange();
-    let matchesDate = true;
-    const rawDate = o.orderDate || o.createdAt;
-    if (rawDate && (start || end)) {
-      const oDate = new Date(rawDate);
-      if (start && oDate < start) matchesDate = false;
-      if (end && oDate > end) matchesDate = false;
-    }
+      const { start, end } = getEffectiveDateRange();
+      let matchesDate = true;
+      const rawDate = o.orderDate || o.createdAt;
+      if (rawDate && (start || end)) {
+        const oDate = new Date(rawDate);
+        if (start && oDate < start) matchesDate = false;
+        if (end && oDate > end) matchesDate = false;
+      }
 
-    return matchesSearch && matchesPayment && matchesDate;
-  });
+      return matchesSearch && matchesPayment && matchesDate;
+    });
 
   // SKU Grouping calculation
   const skuGroupedMap = new Map();
@@ -1115,9 +1145,7 @@ export default function OrderEntry({
                   paginatedOrders.map((o) => {
                     const margin = (o.bankSettlement || 0) - (o.totalCost || 0);
                     const rawDate = o.orderDate || o.createdAt;
-                    const dateFormatted = rawDate
-                      ? new Date(rawDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                      : 'N/A';
+                    const dateFormatted = formatDate(rawDate);
                     return (
                       <tr key={o._id} className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${selectedOrderIds.includes(o._id || o.orderNumber) ? 'bg-blue-50/50 dark:bg-blue-950/30' : ''}`}>
                         <td className="py-3.5 px-3 text-center">
@@ -1226,9 +1254,7 @@ export default function OrderEntry({
               paginatedOrders.map((o) => {
                 const margin = (o.bankSettlement || 0) - (o.totalCost || 0);
                 const rawDate = o.orderDate || o.createdAt;
-                const dateFormatted = rawDate
-                  ? new Date(rawDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                  : 'N/A';
+                const dateFormatted = formatDate(rawDate);
 
                 return (
                   <div key={o._id} className={`p-4 space-y-3 ${selectedOrderIds.includes(o._id || o.orderNumber) ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''}`}>

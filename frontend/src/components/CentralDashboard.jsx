@@ -55,16 +55,29 @@ export default function CentralDashboard({
     }).format(val || 0);
   };
 
-  // Format date helper (Indian locale)
+  // Format date helper (Exact Date, e.g. 26 Aug 2026)
   const formatDate = (dateInput) => {
     if (!dateInput) return 'N/A';
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return 'N/A';
-    return d.toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    try {
+      const str = String(dateInput).trim();
+      if (str.includes('T')) {
+        const [datePart] = str.split('T');
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          const [y, m, d] = datePart.split('-').map(Number);
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          return `${d} ${months[m - 1]} ${y}`;
+        }
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+        const [y, m, d] = str.split('-').map(Number);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${d} ${months[m - 1]} ${y}`;
+      }
+      const dt = new Date(dateInput);
+      if (isNaN(dt.getTime())) return 'N/A';
+      return dt.toLocaleDateString('en-IN', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' });
+    } catch (e) {
+      return 'N/A';
+    }
   };
 
   // Normalize Ledger & Bank transactions into combined data structure
