@@ -16,7 +16,6 @@ import PartnerLedger from './components/PartnerLedger';
 import PartnerForm from './components/PartnerForm';
 import FinancialSummary from './components/FinancialSummary';
 import CentralDashboard from './components/CentralDashboard';
-import CustomReportBuilder from './components/CustomReportBuilder';
 import OrderEntry from './components/OrderEntry';
 
 import DeleteConfirmation from './components/DeleteConfirmation';
@@ -108,7 +107,9 @@ const fetchWithTimeout = async (url, options = {}, timeout = 25000) => {
 
 export default function App() {
   const [activePage, setActivePage] = useState(() => {
-    return localStorage.getItem('activePage') || 'central';
+    const saved = localStorage.getItem('activePage');
+    if (!saved || saved === 'report_builder') return 'central';
+    return saved;
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile drawer state
 
@@ -1462,17 +1463,6 @@ export default function App() {
             {activePage === 'summary' && (
               <div className="animate-slide-up">
                 <FinancialSummary
-                  transactions={transactions}
-                  bankTransactions={bankTransactions}
-                  partnerTransactions={partnerTransactions}
-                />
-              </div>
-            )}
-
-            {/* Render PAGE 5: CUSTOM FINANCIAL REPORT BUILDER */}
-            {activePage === 'report_builder' && (
-              <div className="animate-slide-up">
-                <CustomReportBuilder
                   transactions={transactions}
                   bankTransactions={bankTransactions}
                   partnerTransactions={partnerTransactions}

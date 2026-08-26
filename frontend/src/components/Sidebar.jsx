@@ -35,8 +35,7 @@ export default function Sidebar({
     { id: 'orders', label: 'Order Entry', shortLabel: 'Orders', icon: ShoppingBag, color: 'text-blue-500 bg-blue-500/10' },
     { id: 'bank', label: 'Bank Accounts', shortLabel: 'Banks', icon: Building2, color: 'text-sky-500 bg-sky-500/10' },
     { id: 'partner', label: 'Partner Investments', shortLabel: 'Partners', icon: Users2, color: 'text-indigo-500 bg-indigo-500/10' },
-    { id: 'summary', label: 'Financial Overview', shortLabel: 'Overview', icon: BarChart3, color: 'text-amber-500 bg-amber-500/10' },
-    { id: 'report_builder', label: 'Custom Financial Reports', shortLabel: 'Reports', icon: BarChart2, color: 'text-rose-500 bg-rose-500/10' }
+    { id: 'summary', label: 'Financial Overview', shortLabel: 'Overview', icon: BarChart3, color: 'text-amber-500 bg-amber-500/10' }
   ];
 
   return (
@@ -288,8 +287,7 @@ export default function Sidebar({
           { id: 'orders', label: 'Orders', icon: ShoppingBag },
           { id: 'bank', label: 'Banks', icon: Building2 },
           { id: 'partner', label: 'Partners', icon: Users2 },
-          { id: 'summary', label: 'Overview', icon: BarChart3 },
-          { id: 'report_builder', label: 'Reports', icon: BarChart2 }
+          { id: 'summary', label: 'Overview', icon: BarChart3 }
         ].map(nav => {
           const Icon = nav.icon;
           const isActive = activePage === nav.id;
