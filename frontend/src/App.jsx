@@ -36,6 +36,41 @@ const safeJsonFetch = async (response) => {
   }
 };
 
+const safeSetLocalStorage = (key, data) => {
+  try {
+    let cleanData = data;
+    if (key === 'cached_orders' && Array.isArray(data)) {
+      // Exclude heavy base64 label images from cached orders to prevent localStorage quota exhaustion
+      cleanData = data.map(order => {
+        if (order && order.labelImage && order.labelImage.length > 300) {
+          const { labelImage, ...rest } = order;
+          return rest;
+        }
+        return order;
+      });
+    }
+    const serialized = typeof cleanData === 'string' ? cleanData : JSON.stringify(cleanData);
+    localStorage.setItem(key, serialized);
+  } catch (err) {
+    console.warn(`⚠️ localStorage quota warning for "${key}":`, err.message);
+    try {
+      if (Array.isArray(data)) {
+        // Compact fallback: keep most recent 50 entries without image payloads
+        const compact = data.slice(0, 50).map(item => {
+          if (item && typeof item === 'object') {
+            const { labelImage, receiptImage, ...rest } = item;
+            return rest;
+          }
+          return item;
+        });
+        localStorage.setItem(key, JSON.stringify(compact));
+      }
+    } catch (fallbackErr) {
+      console.warn(`⚠️ Storage fallback error for "${key}":`, fallbackErr.message);
+    }
+  }
+};
+
 const fetchWithTimeout = async (url, options = {}, timeout = 25000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
@@ -344,9 +379,13 @@ export default function App() {
   };
 
   const queueSyncOperation = (action, type, data) => {
-    const queue = JSON.parse(localStorage.getItem('unsynced_ops') || '[]');
-    queue.push({ action, type, data });
-    localStorage.setItem('unsynced_ops', JSON.stringify(queue));
+    try {
+      const queue = JSON.parse(localStorage.getItem('unsynced_ops') || '[]');
+      queue.push({ action, type, data });
+      safeSetLocalStorage('unsynced_ops', queue);
+    } catch (e) {
+      console.warn("Failed to queue sync operation:", e);
+    }
   };
 
   const syncOfflineOperations = async () => {
@@ -396,25 +435,25 @@ export default function App() {
             if (op.type === 'ledger') {
               setTransactions(prev => {
                 const newL = prev.map(t => t._id === oldLocalId ? savedItem : t);
-                localStorage.setItem('cached_transactions', JSON.stringify(newL));
+                safeSetLocalStorage('cached_transactions', newL);
                 return newL;
               });
             } else if (op.type === 'bank') {
               setBankTransactions(prev => {
                 const newL = prev.map(t => t._id === oldLocalId ? savedItem : t);
-                localStorage.setItem('cached_bankTransactions', JSON.stringify(newL));
+                safeSetLocalStorage('cached_bankTransactions', newL);
                 return newL;
               });
             } else if (op.type === 'partner') {
               setPartnerTransactions(prev => {
                 const newL = prev.map(t => t._id === oldLocalId ? savedItem : t);
-                localStorage.setItem('cached_partnerTransactions', JSON.stringify(newL));
+                safeSetLocalStorage('cached_partnerTransactions', newL);
                 return newL;
               });
             } else if (op.type === 'orders') {
               setOrders(prev => {
                 const newL = prev.map(o => o._id === oldLocalId ? savedItem : o);
-                localStorage.setItem('cached_orders', JSON.stringify(newL));
+                safeSetLocalStorage('cached_orders', newL);
                 return newL;
               });
             }
@@ -472,7 +511,7 @@ export default function App() {
       }
     }
 
-    localStorage.setItem('unsynced_ops', JSON.stringify(failedOps));
+    safeSetLocalStorage('unsynced_ops', failedOps);
   };
 
   // ==========================================
@@ -494,16 +533,16 @@ export default function App() {
       const data = await safeJsonFetch(response);
       if (!data) throw new Error('Invalid server response');
       setTransactions(data);
-      localStorage.setItem('cached_transactions', JSON.stringify(data));
+      safeSetLocalStorage('cached_transactions', data);
       syncOfflineOperations();
     } catch (err) {
-      console.error(err);
+      console.warn("fetchTransactions error:", err.message);
       const cached = localStorage.getItem('cached_transactions');
       if (cached) {
-        setTransactions(JSON.parse(cached));
-      } else {
+        try { setTransactions(JSON.parse(cached)); } catch (e) {}
+      }
+      if (!navigator.onLine || err.name === 'AbortError' || (err.message && err.message.includes('Failed to fetch'))) {
         setErrorLedger('Backend connection offline.');
-        triggerNotification('Ledger connection offline', 'error');
       }
     } finally {
       setLoadingLedger(false);
@@ -523,7 +562,7 @@ export default function App() {
           if (!updated) throw new Error('Invalid server response');
           setTransactions(prev => {
             const newL = prev.map(t => t._id === updated._id ? updated : t);
-            localStorage.setItem('cached_transactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_transactions', newL);
             return newL;
           });
           triggerNotification('Ledger entry updated successfully!', 'success');
@@ -532,7 +571,7 @@ export default function App() {
           const updatedLocally = { ...editingTransaction, ...formData, updatedAt: new Date().toISOString() };
           setTransactions(prev => {
             const newL = prev.map(t => t._id === editingTransaction._id ? updatedLocally : t);
-            localStorage.setItem('cached_transactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_transactions', newL);
             return newL;
           });
           queueSyncOperation('EDIT', 'ledger', updatedLocally);
@@ -548,7 +587,7 @@ export default function App() {
           if (!saved) throw new Error('Invalid server response');
           setTransactions(prev => {
             const newL = [saved, ...prev];
-            localStorage.setItem('cached_transactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_transactions', newL);
             return newL;
           });
           triggerNotification('Ledger entry added successfully!', 'success');
@@ -557,7 +596,7 @@ export default function App() {
           const localNew = { ...formData, _id: `local_${Date.now()}`, date: formData.date || new Date().toISOString(), createdAt: new Date().toISOString() };
           setTransactions(prev => {
             const newL = [localNew, ...prev];
-            localStorage.setItem('cached_transactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_transactions', newL);
             return newL;
           });
           queueSyncOperation('ADD', 'ledger', localNew);
@@ -680,13 +719,14 @@ export default function App() {
       const data = await safeJsonFetch(response);
       if (!data) throw new Error('Invalid server response');
       setBankTransactions(data);
-      localStorage.setItem('cached_bankTransactions', JSON.stringify(data));
+      safeSetLocalStorage('cached_bankTransactions', data);
     } catch (err) {
-      console.error(err);
+      console.warn("fetchBankTransactions error:", err.message);
       const cached = localStorage.getItem('cached_bankTransactions');
       if (cached) {
-        setBankTransactions(JSON.parse(cached));
-      } else {
+        try { setBankTransactions(JSON.parse(cached)); } catch (e) {}
+      }
+      if (!navigator.onLine || err.name === 'AbortError' || (err.message && err.message.includes('Failed to fetch'))) {
         setErrorBank('Bank API offline.');
       }
     } finally {
@@ -707,7 +747,7 @@ export default function App() {
           if (!updated) throw new Error('Invalid server response');
           setBankTransactions(prev => {
             const newL = prev.map(t => t._id === updated._id ? updated : t);
-            localStorage.setItem('cached_bankTransactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_bankTransactions', newL);
             return newL;
           });
           triggerNotification('Bank record updated successfully!', 'success');
@@ -716,7 +756,7 @@ export default function App() {
           const updatedLocally = { ...editingBankTransaction, ...formData, updatedAt: new Date().toISOString() };
           setBankTransactions(prev => {
             const newL = prev.map(t => t._id === editingBankTransaction._id ? updatedLocally : t);
-            localStorage.setItem('cached_bankTransactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_bankTransactions', newL);
             return newL;
           });
           queueSyncOperation('EDIT', 'bank', updatedLocally);
@@ -732,7 +772,7 @@ export default function App() {
           if (!saved) throw new Error('Invalid server response');
           setBankTransactions(prev => {
             const newL = [saved, ...prev];
-            localStorage.setItem('cached_bankTransactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_bankTransactions', newL);
             return newL;
           });
           triggerNotification('Bank record added successfully!', 'success');
@@ -741,7 +781,7 @@ export default function App() {
           const localNew = { ...formData, _id: `local_${Date.now()}`, date: formData.date || new Date().toISOString(), createdAt: new Date().toISOString() };
           setBankTransactions(prev => {
             const newL = [localNew, ...prev];
-            localStorage.setItem('cached_bankTransactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_bankTransactions', newL);
             return newL;
           });
           queueSyncOperation('ADD', 'bank', localNew);
@@ -793,13 +833,14 @@ export default function App() {
       const data = await safeJsonFetch(response);
       if (!data) throw new Error('Invalid server response');
       setPartnerTransactions(data);
-      localStorage.setItem('cached_partnerTransactions', JSON.stringify(data));
+      safeSetLocalStorage('cached_partnerTransactions', data);
     } catch (err) {
-      console.error(err);
+      console.warn("fetchPartnerTransactions error:", err.message);
       const cached = localStorage.getItem('cached_partnerTransactions');
       if (cached) {
-        setPartnerTransactions(JSON.parse(cached));
-      } else {
+        try { setPartnerTransactions(JSON.parse(cached)); } catch (e) {}
+      }
+      if (!navigator.onLine || err.name === 'AbortError' || (err.message && err.message.includes('Failed to fetch'))) {
         setErrorPartner('Partner API offline.');
       }
     } finally {
@@ -820,7 +861,7 @@ export default function App() {
           if (!updated) throw new Error('Invalid server response');
           setPartnerTransactions(prev => {
             const newL = prev.map(t => t._id === updated._id ? updated : t);
-            localStorage.setItem('cached_partnerTransactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_partnerTransactions', newL);
             return newL;
           });
           triggerNotification('Partner flow updated successfully!', 'success');
@@ -829,7 +870,7 @@ export default function App() {
           const updatedLocally = { ...editingPartnerTransaction, ...formData, updatedAt: new Date().toISOString() };
           setPartnerTransactions(prev => {
             const newL = prev.map(t => t._id === editingPartnerTransaction._id ? updatedLocally : t);
-            localStorage.setItem('cached_partnerTransactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_partnerTransactions', newL);
             return newL;
           });
           queueSyncOperation('EDIT', 'partner', updatedLocally);
@@ -845,7 +886,7 @@ export default function App() {
           if (!saved) throw new Error('Invalid server response');
           setPartnerTransactions(prev => {
             const newL = [saved, ...prev];
-            localStorage.setItem('cached_partnerTransactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_partnerTransactions', newL);
             return newL;
           });
           triggerNotification('Partner flow added successfully!', 'success');
@@ -854,7 +895,7 @@ export default function App() {
           const localNew = { ...formData, _id: `local_${Date.now()}`, date: formData.date || new Date().toISOString(), createdAt: new Date().toISOString() };
           setPartnerTransactions(prev => {
             const newL = [localNew, ...prev];
-            localStorage.setItem('cached_partnerTransactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_partnerTransactions', newL);
             return newL;
           });
           queueSyncOperation('ADD', 'partner', localNew);
@@ -888,10 +929,10 @@ export default function App() {
       const data = await safeJsonFetch(response);
       if (data && Array.isArray(data)) {
         setOrders(data);
-        localStorage.setItem('cached_orders', JSON.stringify(data));
+        safeSetLocalStorage('cached_orders', data);
       }
     } catch (err) {
-      console.warn("Failed to fetch orders from MongoDB:", err);
+      console.warn("Failed to fetch orders from MongoDB:", err.message);
       const cached = localStorage.getItem('cached_orders');
       if (cached) {
         try { setOrders(JSON.parse(cached)); } catch (e) {}
@@ -1041,19 +1082,19 @@ export default function App() {
         if (deletingType === 'ledger') {
           setTransactions(prev => {
             const newL = prev.filter(t => t._id !== deletingTransaction._id);
-            localStorage.setItem('cached_transactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_transactions', newL);
             return newL;
           });
         } else if (deletingType === 'bank') {
           setBankTransactions(prev => {
             const newL = prev.filter(t => t._id !== deletingTransaction._id);
-            localStorage.setItem('cached_bankTransactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_bankTransactions', newL);
             return newL;
           });
         } else {
           setPartnerTransactions(prev => {
             const newL = prev.filter(t => t._id !== deletingTransaction._id);
-            localStorage.setItem('cached_partnerTransactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_partnerTransactions', newL);
             return newL;
           });
         }
@@ -1064,19 +1105,19 @@ export default function App() {
         if (deletingType === 'ledger') {
           setTransactions(prev => {
             const newL = prev.filter(t => t._id !== deletingTransaction._id);
-            localStorage.setItem('cached_transactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_transactions', newL);
             return newL;
           });
         } else if (deletingType === 'bank') {
           setBankTransactions(prev => {
             const newL = prev.filter(t => t._id !== deletingTransaction._id);
-            localStorage.setItem('cached_bankTransactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_bankTransactions', newL);
             return newL;
           });
         } else {
           setPartnerTransactions(prev => {
             const newL = prev.filter(t => t._id !== deletingTransaction._id);
-            localStorage.setItem('cached_partnerTransactions', JSON.stringify(newL));
+            safeSetLocalStorage('cached_partnerTransactions', newL);
             return newL;
           });
         }
