@@ -47,6 +47,16 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
+  // Bypass cross-origin API requests completely (e.g. backend hosted on Render or separate host)
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Bypass non-GET mutation requests (POST, PUT, DELETE, PATCH) so they are never intercepted by SW
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   // Bypass API and financial data endpoints so backend data is always live and never served from SW cache
   const path = url.pathname;
   if (

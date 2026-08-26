@@ -35,7 +35,7 @@ const safeJsonFetch = async (response) => {
   return null;
 };
 
-const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
+const fetchWithTimeout = async (url, options = {}, timeout = 25000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   try {
@@ -300,6 +300,7 @@ export default function App() {
       window.addEventListener('storage', handleStorageChange);
       window.addEventListener('visibilitychange', handleFocusOrVisible);
       window.addEventListener('focus', handleFocusOrVisible);
+      window.addEventListener('pageshow', handleFocusOrVisible);
       window.addEventListener('online', handleFocusOrVisible);
 
       return () => {
@@ -307,6 +308,7 @@ export default function App() {
         window.removeEventListener('storage', handleStorageChange);
         window.removeEventListener('visibilitychange', handleFocusOrVisible);
         window.removeEventListener('focus', handleFocusOrVisible);
+        window.removeEventListener('pageshow', handleFocusOrVisible);
         window.removeEventListener('online', handleFocusOrVisible);
       };
     } else {
@@ -334,8 +336,10 @@ export default function App() {
 
     console.log(`🔄 Syncing ${queue.length} offline operations to server...`);
     let failedOps = [];
+    const workingQueue = [...queue];
 
-    for (const op of queue) {
+    for (let i = 0; i < workingQueue.length; i++) {
+      const op = workingQueue[i];
       try {
         if (op.action === 'ADD') {
           // Remove local temporary ID
@@ -355,18 +359,52 @@ export default function App() {
             method: 'POST',
             body: JSON.stringify(cleanData)
           });
+
+          if (response.status === 401) {
+            console.warn("Session expired during offline sync.");
+            handleLogout();
+            triggerNotification('Session expired. Please log in again to sync changes.', 'error');
+            return;
+          }
+
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
           const savedItem = await safeJsonFetch(response);
-          if (savedItem) {
+          if (savedItem && savedItem._id) {
+            const oldLocalId = op.data._id;
+            const newServerId = savedItem._id;
+
             if (op.type === 'ledger') {
-              setTransactions(prev => prev.map(t => t._id === op.data._id ? savedItem : t));
+              setTransactions(prev => {
+                const newL = prev.map(t => t._id === oldLocalId ? savedItem : t);
+                localStorage.setItem('cached_transactions', JSON.stringify(newL));
+                return newL;
+              });
             } else if (op.type === 'bank') {
-              setBankTransactions(prev => prev.map(t => t._id === op.data._id ? savedItem : t));
+              setBankTransactions(prev => {
+                const newL = prev.map(t => t._id === oldLocalId ? savedItem : t);
+                localStorage.setItem('cached_bankTransactions', JSON.stringify(newL));
+                return newL;
+              });
             } else if (op.type === 'partner') {
-              setPartnerTransactions(prev => prev.map(t => t._id === op.data._id ? savedItem : t));
+              setPartnerTransactions(prev => {
+                const newL = prev.map(t => t._id === oldLocalId ? savedItem : t);
+                localStorage.setItem('cached_partnerTransactions', JSON.stringify(newL));
+                return newL;
+              });
             } else if (op.type === 'orders') {
-              setOrders(prev => prev.map(o => o._id === op.data._id ? savedItem : o));
+              setOrders(prev => {
+                const newL = prev.map(o => o._id === oldLocalId ? savedItem : o);
+                localStorage.setItem('cached_orders', JSON.stringify(newL));
+                return newL;
+              });
+            }
+
+            // Map old local ID to permanent server ID for subsequent queued operations
+            for (let j = i + 1; j < workingQueue.length; j++) {
+              if (workingQueue[j].data && workingQueue[j].data._id === oldLocalId) {
+                workingQueue[j].data._id = newServerId;
+              }
             }
           }
         } else if (op.action === 'EDIT') {
@@ -382,7 +420,14 @@ export default function App() {
             method: 'PUT',
             body: JSON.stringify(op.data)
           });
-          if (!response.ok) throw new Error();
+
+          if (response.status === 401) {
+            handleLogout();
+            triggerNotification('Session expired. Please log in again.', 'error');
+            return;
+          }
+
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
         } else if (op.action === 'DELETE') {
           let url = '';
           if (op.type === 'ledger') url = `${API_BASE_URL}/transactions/${op.data._id}`;
@@ -393,7 +438,14 @@ export default function App() {
           if (op.data._id.startsWith('local_')) continue;
 
           const response = await fetchWithTimeout(url, { method: 'DELETE' });
-          if (!response.ok) throw new Error();
+
+          if (response.status === 401) {
+            handleLogout();
+            triggerNotification('Session expired. Please log in again.', 'error');
+            return;
+          }
+
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
         }
       } catch (err) {
         console.error('Failed to sync operation:', op, err);
@@ -402,27 +454,6 @@ export default function App() {
     }
 
     localStorage.setItem('unsynced_ops', JSON.stringify(failedOps));
-    if (failedOps.length === 0) {
-      // Quietly reload backend data
-      const r1 = await fetchWithTimeout(`${API_BASE_URL}/transactions`).catch(() => null);
-      const res1 = r1 ? await safeJsonFetch(r1) : null;
-      if (res1) {
-        setTransactions(res1);
-        localStorage.setItem('cached_transactions', JSON.stringify(res1));
-      }
-      const r2 = await fetchWithTimeout(`${API_BASE_URL}/bank-transactions`).catch(() => null);
-      const res2 = r2 ? await safeJsonFetch(r2) : null;
-      if (res2) {
-        setBankTransactions(res2);
-        localStorage.setItem('cached_bankTransactions', JSON.stringify(res2));
-      }
-      const r3 = await fetchWithTimeout(`${API_BASE_URL}/partner-flows`).catch(() => null);
-      const res3 = r3 ? await safeJsonFetch(r3) : null;
-      if (res3) {
-        setPartnerTransactions(res3);
-        localStorage.setItem('cached_partnerTransactions', JSON.stringify(res3));
-      }
-    }
   };
 
   // ==========================================
@@ -435,6 +466,11 @@ export default function App() {
     setErrorLedger(null);
     try {
       const response = await fetchWithTimeout(`${API_BASE_URL}/transactions`);
+      if (response.status === 401) {
+        handleLogout();
+        triggerNotification('Session expired. Please log in again.', 'error');
+        return;
+      }
       if (!response.ok) throw new Error('Failed to fetch transactions');
       const data = await safeJsonFetch(response);
       if (!data) throw new Error('Invalid server response');
@@ -616,6 +652,11 @@ export default function App() {
     setErrorBank(null);
     try {
       const response = await fetchWithTimeout(`${API_BASE_URL}/bank-transactions`);
+      if (response.status === 401) {
+        handleLogout();
+        triggerNotification('Session expired. Please log in again.', 'error');
+        return;
+      }
       if (!response.ok) throw new Error('Failed to fetch bank transactions');
       const data = await safeJsonFetch(response);
       if (!data) throw new Error('Invalid server response');
@@ -724,6 +765,11 @@ export default function App() {
     setErrorPartner(null);
     try {
       const response = await fetchWithTimeout(`${API_BASE_URL}/partner-flows`);
+      if (response.status === 401) {
+        handleLogout();
+        triggerNotification('Session expired. Please log in again.', 'error');
+        return;
+      }
       if (!response.ok) throw new Error('Failed to fetch partner transactions');
       const data = await safeJsonFetch(response);
       if (!data) throw new Error('Invalid server response');
@@ -814,6 +860,11 @@ export default function App() {
     }
     try {
       const response = await fetchWithTimeout(`${API_BASE_URL}/orders`);
+      if (response.status === 401) {
+        handleLogout();
+        triggerNotification('Session expired. Please log in again.', 'error');
+        return;
+      }
       if (!response.ok) throw new Error("Failed to retrieve order entries");
       const data = await safeJsonFetch(response);
       if (data && Array.isArray(data)) {
@@ -1075,11 +1126,18 @@ export default function App() {
   const isOnline = !errorLedger;
 
   return (
-    <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100">
+    <div className="flex flex-col md:flex-row h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100">
 
       {/* 1. Mobile Top Navigation Bar */}
       <div className="md:hidden flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 z-20 shrink-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-2 -ml-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors"
+            title="Open Navigation Menu"
+          >
+            <Menu size={20} />
+          </button>
           <Logo size={24} />
           <span className="font-black text-xs text-slate-900 dark:text-slate-100 uppercase tracking-wider">Wellmora</span>
           <span className="px-1.5 py-0.5 bg-violet-500/10 dark:bg-violet-950/45 text-[9px] font-bold text-violet-600 dark:text-violet-400 rounded tracking-wide uppercase">
