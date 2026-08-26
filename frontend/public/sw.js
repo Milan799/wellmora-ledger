@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wellmora-cache-__BUILD_TIMESTAMP__';
+const CACHE_NAME = 'wellmora-v3.0-cache-__BUILD_TIMESTAMP__';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -91,20 +91,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Stale-While-Revalidate strategy for static assets
+  // Network-First strategy for static assets so live updates are served immediately
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
-          }
-          return networkResponse;
-        })
-        .catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
-    })
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request);
+      })
   );
 });

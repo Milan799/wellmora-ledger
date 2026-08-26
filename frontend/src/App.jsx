@@ -28,11 +28,12 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://wellmora-ledg
 
 const safeJsonFetch = async (response) => {
   if (!response) return null;
-  const contentType = response.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
+  try {
     return await response.json();
+  } catch (err) {
+    console.warn("Failed to parse JSON response:", err);
+    return null;
   }
-  return null;
 };
 
 const fetchWithTimeout = async (url, options = {}, timeout = 25000) => {
@@ -265,6 +266,24 @@ export default function App() {
     } catch (err) {
       console.error("Auto-sync refresh error:", err);
     }
+  };
+
+  const forceHardRefresh = async () => {
+    localStorage.removeItem('cached_transactions');
+    localStorage.removeItem('cached_bankTransactions');
+    localStorage.removeItem('cached_partnerTransactions');
+    localStorage.removeItem('cached_orders');
+
+    if ('caches' in window) {
+      try {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      } catch (e) {}
+    }
+
+    triggerNotification('Clearing cache and loading live database records...', 'info');
+    await refreshAllData(false);
+    triggerNotification('Database re-synced successfully!', 'success');
   };
 
   // Fetch all modules on mount & run real-time auto-sync polling + focus/visibility listeners
@@ -1147,6 +1166,14 @@ export default function App() {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={forceHardRefresh}
+            className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors active:scale-95"
+            title="Clear Cache & Force Refresh Live Data"
+          >
+            <RefreshCw size={17} className={loadingLedger || loadingBank || loadingPartner || loadingOrders ? 'animate-spin text-emerald-500' : 'text-slate-600 dark:text-slate-300'} />
+          </button>
+
+          <button
             onClick={toggleTheme}
             className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors"
             title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
@@ -1246,9 +1273,9 @@ export default function App() {
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto sm:justify-end">
                     <button
-                      onClick={() => refreshAllData(false)}
+                      onClick={forceHardRefresh}
                       className="p-2 bg-slate-100/50 dark:bg-slate-900/50 hover:bg-slate-200/50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-all active:scale-95 cursor-pointer shrink-0"
-                      title="Refresh all financial data"
+                      title="Clear local cache & force refresh live database records"
                     >
                       <RefreshCw size={14} className={loadingLedger ? 'animate-spin' : ''} />
                     </button>
