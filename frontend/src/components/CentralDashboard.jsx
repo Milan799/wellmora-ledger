@@ -15,10 +15,7 @@ import {
   Layers,
   Sparkles,
   ArrowUpDown,
-  RefreshCw,
-  Wallet,
-  Landmark,
-  IndianRupee
+  RefreshCw
 } from 'lucide-react';
 import ExportDropdown from './ExportDropdown';
 import Pagination from './Pagination';
@@ -79,45 +76,7 @@ export default function CentralDashboard({
   };
 
   // ----------------------------------------------------
-  // 1. ALL-TIME AVAILABLE BALANCES (Current Liquidity Position)
-  // ----------------------------------------------------
-  const availableBalances = useMemo(() => {
-    // Bank Available Balance: All completed deposits minus withdrawals
-    const totalBankDeposits = (bankTransactions || [])
-      .filter(t => (t.type === 'Deposit' || t.type === 'Credit') && t.status !== 'Failed')
-      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-    const totalBankWithdrawals = (bankTransactions || [])
-      .filter(t => (t.type === 'Withdrawal' || t.type === 'ATM Withdrawal' || t.type === 'Debit') && t.status !== 'Failed')
-      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-    const bankBalance = totalBankDeposits - totalBankWithdrawals;
-
-    // Expenses & Cash Available Balance: All cash credits minus expenses/debits
-    const totalCashCredits = (transactions || [])
-      .filter(t => t.type === 'Credit')
-      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-    const totalCashDebits = (transactions || [])
-      .filter(t => t.type === 'Debit')
-      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-    const cashBalance = totalCashCredits - totalCashDebits;
-    const totalAvailable = bankBalance + cashBalance;
-
-    return {
-      totalAvailable,
-      bankBalance,
-      totalBankDeposits,
-      totalBankWithdrawals,
-      cashBalance,
-      totalCashCredits,
-      totalCashDebits
-    };
-  }, [transactions, bankTransactions]);
-
-  // ----------------------------------------------------
-  // 2. COMBINED NORMALIZED STREAM (Bank + Expenses)
+  // COMBINED NORMALIZED STREAM (Bank + Expenses)
   // ----------------------------------------------------
   const allCombinedTransactions = useMemo(() => {
     const ledgerItems = (transactions || []).map(t => {
@@ -444,95 +403,7 @@ export default function CentralDashboard({
         </div>
       </div>
 
-      {/* 2. REAL-TIME AVAILABLE BALANCE CARDS (Total, Bank, and Expenses/Cash) */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
-            <Wallet size={13} className="text-violet-500" />
-            Current Available Balances
-          </span>
-          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
-            Real-Time Liquidity Position
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Total Available Balance */}
-          <div className={`glass-panel glass-panel-hover rounded-2xl p-5 relative overflow-hidden transition-all duration-300 border ${
-            availableBalances.totalAvailable >= 0 ? 'glow-indigo border-indigo-500/25' : 'glow-rose border-rose-500/25'
-          }`}>
-            <div className={`absolute top-0 right-0 w-28 h-28 rounded-full -mr-8 -mt-8 blur-2xl ${
-              availableBalances.totalAvailable >= 0 ? 'bg-indigo-500/10' : 'bg-rose-500/10'
-            }`}></div>
-            <div className="flex items-center justify-between mb-3 relative z-10">
-              <span className="text-slate-500 dark:text-slate-400 font-extrabold text-[10px] tracking-wider uppercase flex items-center gap-1.5">
-                <Wallet size={14} className="text-violet-500" />
-                Total Available Balance
-              </span>
-              <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
-                Bank + Cash
-              </span>
-            </div>
-            <h3 className={`text-2xl sm:text-3xl font-black tracking-tight relative z-10 ${
-              availableBalances.totalAvailable >= 0 ? 'text-slate-900 dark:text-slate-50' : 'text-rose-600 dark:text-rose-400'
-            }`}>
-              {formatCurrency(availableBalances.totalAvailable)}
-            </h3>
-            <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] font-bold text-slate-500 dark:text-slate-400 relative z-10">
-              <span>Bank: <strong className="text-sky-600 dark:text-sky-400">{formatCurrency(availableBalances.bankBalance)}</strong></span>
-              <span>Cash: <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(availableBalances.cashBalance)}</strong></span>
-            </div>
-          </div>
-
-          {/* Bank Available Balance */}
-          <div className="glass-panel glass-panel-hover rounded-2xl p-5 glow-indigo relative overflow-hidden transition-all duration-300 border border-sky-500/25">
-            <div className="absolute top-0 right-0 w-28 h-28 bg-sky-500/10 rounded-full -mr-8 -mt-8 blur-2xl"></div>
-            <div className="flex items-center justify-between mb-3 relative z-10">
-              <span className="text-slate-500 dark:text-slate-400 font-extrabold text-[10px] tracking-wider uppercase flex items-center gap-1.5">
-                <Building2 size={14} className="text-sky-500" />
-                Bank Available Balance
-              </span>
-              <div className="p-1.5 bg-sky-500/10 dark:bg-sky-500/20 rounded-lg text-sky-600 dark:text-sky-400">
-                <Landmark size={15} />
-              </div>
-            </div>
-            <h3 className={`text-2xl sm:text-3xl font-black tracking-tight relative z-10 ${
-              availableBalances.bankBalance >= 0 ? 'text-sky-600 dark:text-sky-400' : 'text-rose-600 dark:text-rose-400'
-            }`}>
-              {formatCurrency(availableBalances.bankBalance)}
-            </h3>
-            <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] font-medium text-slate-500 dark:text-slate-400 relative z-10">
-              <span>In: {formatCurrency(availableBalances.totalBankDeposits)}</span>
-              <span>Out: {formatCurrency(availableBalances.totalBankWithdrawals)}</span>
-            </div>
-          </div>
-
-          {/* Expenses & Cash Available Balance */}
-          <div className="glass-panel glass-panel-hover rounded-2xl p-5 glow-green relative overflow-hidden transition-all duration-300 border border-emerald-500/25">
-            <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/10 rounded-full -mr-8 -mt-8 blur-2xl"></div>
-            <div className="flex items-center justify-between mb-3 relative z-10">
-              <span className="text-slate-500 dark:text-slate-400 font-extrabold text-[10px] tracking-wider uppercase flex items-center gap-1.5">
-                <BookOpen size={14} className="text-emerald-500" />
-                Expenses & Cash Balance
-              </span>
-              <div className="p-1.5 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400">
-                <IndianRupee size={15} />
-              </div>
-            </div>
-            <h3 className={`text-2xl sm:text-3xl font-black tracking-tight relative z-10 ${
-              availableBalances.cashBalance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-            }`}>
-              {formatCurrency(availableBalances.cashBalance)}
-            </h3>
-            <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] font-medium text-slate-500 dark:text-slate-400 relative z-10">
-              <span>Cash In: {formatCurrency(availableBalances.totalCashCredits)}</span>
-              <span>Expenses: {formatCurrency(availableBalances.totalCashDebits)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. PERIOD CASH FLOW IN & OUT FLOWS */}
+      {/* PERIOD CASH FLOW IN & OUT FLOWS */}
       <div className="space-y-2">
         <div className="flex items-center justify-between px-1">
           <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
