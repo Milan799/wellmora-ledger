@@ -21,9 +21,7 @@ import DeleteConfirmation from './components/DeleteConfirmation';
 import Notification from './components/Notification';
 import ExportDropdown from './components/ExportDropdown';
 import AuthModal from './components/AuthModal';
-import BackupManagerModal from './components/BackupManagerModal';
-import DigestSettingsModal from './components/DigestSettingsModal';
-import CustomReportBuilder from './components/CustomReportBuilder';
+
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL !== undefined 
   ? import.meta.env.VITE_API_BASE_URL 
@@ -101,9 +99,9 @@ const fetchWithTimeout = async (url, options = {}, timeout = 25000) => {
 export default function App() {
   const [activePage, setActivePage] = useState(() => {
     const saved = localStorage.getItem('activePage');
-    if (!saved || saved === 'orders') {
+    if (!saved || saved === 'orders' || saved === 'report_builder') {
       localStorage.removeItem('cached_orders');
-      if (saved === 'orders') localStorage.setItem('activePage', 'central');
+      if (saved === 'orders' || saved === 'report_builder') localStorage.setItem('activePage', 'central');
       return 'central';
     }
     return saved;
@@ -269,9 +267,7 @@ export default function App() {
   const [isPartnerFormOpen, setIsPartnerFormOpen] = useState(false);
   const [editingPartnerTransaction, setEditingPartnerTransaction] = useState(null);
 
-  // System Tool Modals State
-  const [isBackupsOpen, setIsBackupsOpen] = useState(false);
-  const [isDigestOpen, setIsDigestOpen] = useState(false);
+
 
   // Delete modal state
   const [deletingTransaction, setDeletingTransaction] = useState(null);
@@ -1098,8 +1094,6 @@ export default function App() {
         authUser={authUser}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
-        onOpenBackups={() => setIsBackupsOpen(true)}
-        onOpenDigest={() => setIsDigestOpen(true)}
       />
 
       {/* 3. Main Content Scrollable Pane */}
@@ -1291,16 +1285,7 @@ export default function App() {
               </div>
             )}
 
-            {/* Render PAGE 5: CUSTOM REPORT BUILDER */}
-            {activePage === 'report_builder' && (
-              <div className="animate-slide-up">
-                <CustomReportBuilder
-                  transactions={transactions}
-                  bankTransactions={bankTransactions}
-                  partnerTransactions={partnerTransactions}
-                />
-              </div>
-            )}
+
           </>
         )}
 
@@ -1342,17 +1327,7 @@ export default function App() {
         type={deletingType}
       />
 
-      {/* 5. Database Backup Manager Modal */}
-      <BackupManagerModal
-        isOpen={isBackupsOpen}
-        onClose={() => setIsBackupsOpen(false)}
-      />
 
-      {/* 6. Daily Digest Settings Modal */}
-      <DigestSettingsModal
-        isOpen={isDigestOpen}
-        onClose={() => setIsDigestOpen(false)}
-      />
 
       {/* Auth Modal */}
       <AuthModal

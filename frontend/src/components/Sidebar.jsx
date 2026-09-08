@@ -10,12 +10,9 @@ import {
   LogOut, 
   ShieldCheck, 
   LayoutDashboard, 
-  BarChart2, 
   Menu,
   ChevronRight,
-  Sparkles,
-  Database,
-  Bell
+  Sparkles
 } from 'lucide-react';
 import Logo from './Logo';
 
@@ -28,17 +25,14 @@ export default function Sidebar({
   toggleTheme,
   authUser,
   onOpenAuth,
-  onLogout,
-  onOpenBackups,
-  onOpenDigest
+  onLogout
 }) {
   const menuItems = [
     { id: 'central', label: 'Main Dashboard', shortLabel: 'Dashboard', icon: LayoutDashboard, color: 'text-violet-500 bg-violet-500/10' },
     { id: 'ledger', label: 'Expenses & Cash', shortLabel: 'Expenses', icon: BookOpen, color: 'text-emerald-500 bg-emerald-500/10' },
     { id: 'bank', label: 'Bank Accounts', shortLabel: 'Banks', icon: Building2, color: 'text-sky-500 bg-sky-500/10' },
     { id: 'partner', label: 'Partner Investments', shortLabel: 'Partners', icon: Users2, color: 'text-indigo-500 bg-indigo-500/10' },
-    { id: 'summary', label: 'Financial Overview', shortLabel: 'Overview', icon: BarChart3, color: 'text-amber-500 bg-amber-500/10' },
-    { id: 'report_builder', label: 'Custom Reports', shortLabel: 'Reports', icon: BarChart2, color: 'text-teal-500 bg-teal-500/10' }
+    { id: 'summary', label: 'Financial Overview', shortLabel: 'Overview', icon: BarChart3, color: 'text-amber-500 bg-amber-500/10' }
   ];
 
   return (
@@ -80,32 +74,7 @@ export default function Sidebar({
           })}
         </nav>
 
-        {/* PC System Tools */}
-        {(onOpenBackups || onOpenDigest) && (
-          <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800/85 space-y-1 shrink-0">
-            <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 px-3 uppercase tracking-wider mb-1">
-              System Tools
-            </div>
-            {onOpenBackups && (
-              <button
-                onClick={onOpenBackups}
-                className="w-full flex items-center gap-3 px-4 py-2 rounded-xl font-bold text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200 transition-colors cursor-pointer"
-              >
-                <Database size={15} className="text-cyan-500" />
-                <span>Database Backups</span>
-              </button>
-            )}
-            {onOpenDigest && (
-              <button
-                onClick={onOpenDigest}
-                className="w-full flex items-center gap-3 px-4 py-2 rounded-xl font-bold text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200 transition-colors cursor-pointer"
-              >
-                <Bell size={15} className="text-amber-500" />
-                <span>Daily Digest Alerts</span>
-              </button>
-            )}
-          </div>
-        )}
+
 
         {/* PC User & Appearance Controls */}
         <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800/85 space-y-3 shrink-0">
@@ -235,32 +204,7 @@ export default function Sidebar({
               })}
             </nav>
 
-            {/* Mobile System Tools */}
-            {(onOpenBackups || onOpenDigest) && (
-              <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800/85 space-y-1 shrink-0">
-                <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 px-3 uppercase tracking-wider mb-1">
-                  System Tools
-                </div>
-                {onOpenBackups && (
-                  <button
-                    onClick={() => { onOpenBackups(); onClose(); }}
-                    className="w-full flex items-center gap-3 px-4 py-2 rounded-xl font-bold text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                  >
-                    <Database size={15} className="text-cyan-500" />
-                    <span>Database Backups</span>
-                  </button>
-                )}
-                {onOpenDigest && (
-                  <button
-                    onClick={() => { onOpenDigest(); onClose(); }}
-                    className="w-full flex items-center gap-3 px-4 py-2 rounded-xl font-bold text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                  >
-                    <Bell size={15} className="text-amber-500" />
-                    <span>Daily Digest Alerts</span>
-                  </button>
-                )}
-              </div>
-            )}
+
 
             {/* Mobile User & Appearance Controls */}
             <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800/85 space-y-3 shrink-0">
@@ -343,8 +287,7 @@ export default function Sidebar({
           { id: 'ledger', label: 'Expenses', icon: BookOpen },
           { id: 'bank', label: 'Banks', icon: Building2 },
           { id: 'partner', label: 'Partners', icon: Users2 },
-          { id: 'summary', label: 'Overview', icon: BarChart3 },
-          { id: 'report_builder', label: 'Reports', icon: BarChart2 }
+          { id: 'summary', label: 'Overview', icon: BarChart3 }
         ].map(nav => {
           const Icon = nav.icon;
           const isActive = activePage === nav.id;
