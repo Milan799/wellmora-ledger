@@ -16,14 +16,18 @@ import PartnerLedger from './components/PartnerLedger';
 import PartnerForm from './components/PartnerForm';
 import FinancialSummary from './components/FinancialSummary';
 import CentralDashboard from './components/CentralDashboard';
-import OrderEntry from './components/OrderEntry';
 
 import DeleteConfirmation from './components/DeleteConfirmation';
 import Notification from './components/Notification';
 import ExportDropdown from './components/ExportDropdown';
 import AuthModal from './components/AuthModal';
+import BackupManagerModal from './components/BackupManagerModal';
+import DigestSettingsModal from './components/DigestSettingsModal';
+import CustomReportBuilder from './components/CustomReportBuilder';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://wellmora-ledger-1.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL !== undefined 
+  ? import.meta.env.VITE_API_BASE_URL 
+  : (import.meta.env.DEV ? '/api' : 'https://wellmora-ledger-1.onrender.com/api');
 
 const safeJsonFetch = async (response) => {
   if (!response) return null;
@@ -37,27 +41,16 @@ const safeJsonFetch = async (response) => {
 
 const safeSetLocalStorage = (key, data) => {
   try {
-    let cleanData = data;
-    if (key === 'cached_orders' && Array.isArray(data)) {
-      // Exclude heavy base64 label images from cached orders to prevent localStorage quota exhaustion
-      cleanData = data.map(order => {
-        if (order && order.labelImage && order.labelImage.length > 300) {
-          const { labelImage, ...rest } = order;
-          return rest;
-        }
-        return order;
-      });
-    }
-    const serialized = typeof cleanData === 'string' ? cleanData : JSON.stringify(cleanData);
+    const serialized = typeof data === 'string' ? data : JSON.stringify(data);
     localStorage.setItem(key, serialized);
   } catch (err) {
     console.warn(`⚠️ localStorage quota warning for "${key}":`, err.message);
     try {
       if (Array.isArray(data)) {
-        // Compact fallback: keep most recent 50 entries without image payloads
+        // Compact fallback: keep most recent 50 entries
         const compact = data.slice(0, 50).map(item => {
           if (item && typeof item === 'object') {
-            const { labelImage, receiptImage, ...rest } = item;
+            const { receiptImage, ...rest } = item;
             return rest;
           }
           return item;
@@ -108,7 +101,11 @@ const fetchWithTimeout = async (url, options = {}, timeout = 25000) => {
 export default function App() {
   const [activePage, setActivePage] = useState(() => {
     const saved = localStorage.getItem('activePage');
-    if (!saved || saved === 'report_builder') return 'central';
+    if (!saved || saved === 'orders') {
+      localStorage.removeItem('cached_orders');
+      if (saved === 'orders') localStorage.setItem('activePage', 'central');
+      return 'central';
+    }
     return saved;
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile drawer state
@@ -272,6 +269,10 @@ export default function App() {
   const [isPartnerFormOpen, setIsPartnerFormOpen] = useState(false);
   const [editingPartnerTransaction, setEditingPartnerTransaction] = useState(null);
 
+  // System Tool Modals State
+  const [isBackupsOpen, setIsBackupsOpen] = useState(false);
+  const [isDigestOpen, setIsDigestOpen] = useState(false);
+
   // Delete modal state
   const [deletingTransaction, setDeletingTransaction] = useState(null);
   const [deletingType, setDeletingType] = useState('ledger'); // 'ledger' | 'bank' | 'partner'
@@ -280,24 +281,12 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [ledgerSubTab, setLedgerSubTab] = useState('all'); // 'all' | 'cash'
 
-  const [orders, setOrders] = useState(() => {
-    if (!localStorage.getItem('authUser')) return [];
-    try {
-      const cached = localStorage.getItem('cached_orders');
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [loadingOrders, setLoadingOrders] = useState(false);
-
   const refreshAllData = async (isSilent = false) => {
     try {
       await Promise.allSettled([
         fetchTransactions(),
         fetchBankTransactions(),
-        fetchPartnerTransactions(),
-        fetchOrders(isSilent)
+        fetchPartnerTransactions()
       ]);
     } catch (err) {
       console.error("Auto-sync refresh error:", err);
@@ -327,10 +316,12 @@ export default function App() {
     if (authUser && authToken) {
       refreshAllData();
 
-      // Real-time cross-device auto-sync polling (every 10 seconds)
+      // Real-time cross-device auto-sync polling (every 30 seconds when tab is active)
       const syncInterval = setInterval(() => {
-        refreshAllData(true);
-      }, 10000);
+        if (document.visibilityState === 'visible') {
+          refreshAllData(true);
+        }
+      }, 30000);
 
       // Auto-sync on window/tab focus, visibility change, and network reconnection
       const handleFocusOrVisible = () => {
@@ -347,8 +338,6 @@ export default function App() {
           try { setBankTransactions(JSON.parse(e.newValue)); } catch (err) {}
         } else if (e.key === 'cached_partnerTransactions' && e.newValue) {
           try { setPartnerTransactions(JSON.parse(e.newValue)); } catch (err) {}
-        } else if (e.key === 'cached_orders' && e.newValue) {
-          try { setOrders(JSON.parse(e.newValue)); } catch (err) {}
         }
       };
 
@@ -370,7 +359,6 @@ export default function App() {
       setTransactions([]);
       setBankTransactions([]);
       setPartnerTransactions([]);
-      setOrders([]);
       setIsAuthModalOpen(true);
     }
   }, [authUser, authToken]);
@@ -412,7 +400,6 @@ export default function App() {
           }
           else if (op.type === 'bank') url = `${API_BASE_URL}/bank-transactions`;
           else if (op.type === 'partner') url = `${API_BASE_URL}/partner-flows`;
-          else if (op.type === 'orders') url = `${API_BASE_URL}/orders`;
 
           const response = await fetchWithTimeout(url, {
             method: 'POST',
@@ -451,12 +438,6 @@ export default function App() {
                 safeSetLocalStorage('cached_partnerTransactions', newL);
                 return newL;
               });
-            } else if (op.type === 'orders') {
-              setOrders(prev => {
-                const newL = prev.map(o => o._id === oldLocalId ? savedItem : o);
-                safeSetLocalStorage('cached_orders', newL);
-                return newL;
-              });
             }
 
             // Map old local ID to permanent server ID for subsequent queued operations
@@ -471,7 +452,6 @@ export default function App() {
           if (op.type === 'ledger') url = `${API_BASE_URL}/transactions/${op.data._id}`;
           else if (op.type === 'bank') url = `${API_BASE_URL}/bank-transactions/${op.data._id}`;
           else if (op.type === 'partner') url = `${API_BASE_URL}/partner-flows/${op.data._id}`;
-          else if (op.type === 'orders') url = `${API_BASE_URL}/orders/${op.data._id}`;
 
           if (op.data._id.startsWith('local_')) continue;
 
@@ -492,7 +472,6 @@ export default function App() {
           if (op.type === 'ledger') url = `${API_BASE_URL}/transactions/${op.data._id}`;
           else if (op.type === 'bank') url = `${API_BASE_URL}/bank-transactions/${op.data._id}`;
           else if (op.type === 'partner') url = `${API_BASE_URL}/partner-flows/${op.data._id}`;
-          else if (op.type === 'orders') url = `${API_BASE_URL}/orders/${op.data._id}`;
 
           if (op.data._id.startsWith('local_')) continue;
 
@@ -907,153 +886,7 @@ export default function App() {
     } catch (err) {
       console.error(err);
       triggerNotification(err.message, 'error');
-    }
-  };
-
-  // ==========================================
-  // API Operations: Orders & Settlement
-  // ==========================================
-  // API Operations: Orders & Settlement (Direct MongoDB Storage)
-  // ==========================================
-  const fetchOrders = async (isSilent = false) => {
-    if (!isSilent && !localStorage.getItem('cached_orders')) {
-      setLoadingOrders(true);
-    }
-    try {
-      const response = await fetchWithTimeout(`${API_BASE_URL}/orders`);
-      if (response.status === 401) {
-        handleLogout();
-        triggerNotification('Session expired. Please log in again.', 'error');
-        return;
-      }
-      if (!response.ok) throw new Error("Failed to retrieve order entries");
-      const data = await safeJsonFetch(response);
-      if (data && Array.isArray(data)) {
-        setOrders(data);
-        safeSetLocalStorage('cached_orders', data);
-      }
-    } catch (err) {
-      console.warn("Failed to fetch orders from MongoDB:", err.message);
-      const cached = localStorage.getItem('cached_orders');
-      if (cached) {
-        try { setOrders(JSON.parse(cached)); } catch (e) {}
-      }
-    } finally {
-      if (!isSilent) {
-        setLoadingOrders(false);
-      }
-    }
-  };
-
-  const handleSaveOrder = async (orderData) => {
-    const isEdit = !!orderData._id && !String(orderData._id).startsWith('local_');
-    try {
-      const endpoint = isEdit ? `${API_BASE_URL}/orders/${orderData._id}` : `${API_BASE_URL}/orders`;
-      const method = isEdit ? 'PUT' : 'POST';
-      const response = await fetchWithTimeout(endpoint, {
-        method,
-        body: JSON.stringify(orderData)
-      });
-      if (response.ok) {
-        triggerNotification("Order entry saved successfully!", "success");
-        await fetchOrders();
-      } else {
-        const errorRes = await safeJsonFetch(response);
-        triggerNotification(errorRes?.message || "Failed to save order entry", "error");
-      }
-    } catch (err) {
-      triggerNotification("Error connecting to server", "error");
-    }
-  };
-
-  const handleDeleteOrder = async (orderId, orderNumber) => {
-    try {
-      if (orderId && !String(orderId).startsWith('local_')) {
-        await fetchWithTimeout(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}`, { method: 'DELETE' }).catch(() => null);
-      }
-      if (orderNumber && orderNumber.trim()) {
-        await fetchWithTimeout(`${API_BASE_URL}/orders/${encodeURIComponent(orderNumber.trim())}`, { method: 'DELETE' }).catch(() => null);
-      }
-      triggerNotification("Order entry deleted successfully!", "info");
-      await fetchOrders();
-    } catch (err) {
-      triggerNotification("Error deleting order entry", "error");
-    }
-  };
-
-  const handleDeleteBatchOrders = async (orderIdsList) => {
-    if (!Array.isArray(orderIdsList) || orderIdsList.length === 0) return;
-    try {
-      const response = await fetchWithTimeout(`${API_BASE_URL}/orders/bulk-delete`, {
-        method: 'POST',
-        body: JSON.stringify({ ids: orderIdsList })
-      });
-      if (response.ok) {
-        const resData = await safeJsonFetch(response);
-        triggerNotification(`Successfully deleted ${resData?.deletedCount || orderIdsList.length} order(s)!`, 'info');
-        await fetchOrders();
-      } else {
-        triggerNotification("Failed to bulk delete orders", "error");
-      }
-    } catch (err) {
-      triggerNotification("Error connecting to server for bulk delete", "error");
-    }
-  };
-
-  const handleSaveBatchOrders = async (batchList) => {
-    if (!Array.isArray(batchList) || batchList.length === 0) return;
-
-    try {
-      const response = await fetchWithTimeout(`${API_BASE_URL}/orders/batch`, {
-        method: 'POST',
-        body: JSON.stringify({ orders: batchList })
-      });
-      if (response.ok) {
-        const resData = await safeJsonFetch(response);
-        triggerNotification(`Saved ${resData?.savedCount || batchList.length} order(s) successfully!`, 'success');
-        await fetchOrders();
-      } else {
-        triggerNotification("Failed to save batch orders", "error");
-      }
-    } catch (err) {
-      triggerNotification("Error saving batch orders", "error");
-    }
-  };
-
-  const handleSaveBulkSkuOrders = async (bulkData) => {
-    const { skuId } = bulkData;
-    try {
-      const response = await fetchWithTimeout(`${API_BASE_URL}/orders/bulk-sku`, {
-        method: 'PUT',
-        body: JSON.stringify(bulkData)
-      });
-      if (response.ok) {
-        triggerNotification(`Updated settlement & costs for SKU ${skuId}!`, 'success');
-        await fetchOrders();
-      } else {
-        triggerNotification("Failed to update SKU orders", "error");
-      }
-    } catch (err) {
-      triggerNotification("Error updating SKU orders", "error");
-    }
-  };
-
-  const handleSaveBulkDateFrameOrders = async (bulkDateFrameData) => {
-    try {
-      const response = await fetchWithTimeout(`${API_BASE_URL}/orders/bulk-date-frame`, {
-        method: 'PUT',
-        body: JSON.stringify(bulkDateFrameData)
-      });
-      if (response.ok) {
-        const resData = await safeJsonFetch(response);
-        triggerNotification(`Successfully adjusted prices for ${resData?.count || 0} orders in selected Date Frame!`, 'success');
-        await fetchOrders();
-      } else {
-        const errRes = await safeJsonFetch(response);
-        triggerNotification(errRes?.message || "Failed to adjust prices for date frame", "error");
-      }
-    } catch (err) {
-      triggerNotification("Error adjusting date frame order prices", "error");
+  
     }
   };
 
@@ -1223,7 +1056,7 @@ export default function App() {
             className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors active:scale-95"
             title="Clear Cache & Force Refresh Live Data"
           >
-            <RefreshCw size={17} className={loadingLedger || loadingBank || loadingPartner || loadingOrders ? 'animate-spin text-emerald-500' : 'text-slate-600 dark:text-slate-300'} />
+            <RefreshCw size={17} className={loadingLedger || loadingBank || loadingPartner ? 'animate-spin text-emerald-500' : 'text-slate-600 dark:text-slate-300'} />
           </button>
 
           <button
@@ -1265,6 +1098,8 @@ export default function App() {
         authUser={authUser}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
+        onOpenBackups={() => setIsBackupsOpen(true)}
+        onOpenDigest={() => setIsDigestOpen(true)}
       />
 
       {/* 3. Main Content Scrollable Pane */}
@@ -1415,20 +1250,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Render PAGE: ORDER ENTRY & SETTLEMENT */}
-            {activePage === 'orders' && (
-              <OrderEntry
-                orders={orders}
-                loading={loadingOrders}
-                onRefresh={fetchOrders}
-                onSaveOrder={handleSaveOrder}
-                onSaveBatchOrders={handleSaveBatchOrders}
-                onDeleteOrder={handleDeleteOrder}
-                onDeleteBatchOrders={handleDeleteBatchOrders}
-                onSaveBulkSku={handleSaveBulkSkuOrders}
-              />
-            )}
-
             {/* Render PAGE 2: BANK */}
             {activePage === 'bank' && (
               <div className="animate-slide-up">
@@ -1463,6 +1284,17 @@ export default function App() {
             {activePage === 'summary' && (
               <div className="animate-slide-up">
                 <FinancialSummary
+                  transactions={transactions}
+                  bankTransactions={bankTransactions}
+                  partnerTransactions={partnerTransactions}
+                />
+              </div>
+            )}
+
+            {/* Render PAGE 5: CUSTOM REPORT BUILDER */}
+            {activePage === 'report_builder' && (
+              <div className="animate-slide-up">
+                <CustomReportBuilder
                   transactions={transactions}
                   bankTransactions={bankTransactions}
                   partnerTransactions={partnerTransactions}
@@ -1508,6 +1340,18 @@ export default function App() {
         onConfirm={handleDeleteConfirm}
         transaction={deletingTransaction}
         type={deletingType}
+      />
+
+      {/* 5. Database Backup Manager Modal */}
+      <BackupManagerModal
+        isOpen={isBackupsOpen}
+        onClose={() => setIsBackupsOpen(false)}
+      />
+
+      {/* 6. Daily Digest Settings Modal */}
+      <DigestSettingsModal
+        isOpen={isDigestOpen}
+        onClose={() => setIsDigestOpen(false)}
       />
 
       {/* Auth Modal */}

@@ -89,7 +89,7 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
     .reduce((sum, t) => sum + t.amount, 0);
 
   const bankWithdrawals = activeBank
-    .filter(t => t.type === 'Withdrawal' && t.status === 'Completed')
+    .filter(t => (t.type === 'Withdrawal' || t.type === 'ATM Withdrawal') && t.status === 'Completed')
     .reduce((sum, t) => sum + t.amount, 0);
 
   const bankNet = bankDeposits - bankWithdrawals;
@@ -104,7 +104,7 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
     }
     if (t.type === 'Deposit') {
       bankAccountsMap[key].deposits += t.amount;
-    } else {
+    } else if (t.type === 'Withdrawal' || t.type === 'ATM Withdrawal') {
       bankAccountsMap[key].withdrawals += t.amount;
     }
   });
@@ -127,8 +127,12 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
 
   const partnerNet = partnerContribution - partnerWithdrawal;
 
-  // Predefined partners list
-  const partners = ['Milan Javiya', 'Krushang Prajapati', 'Umang Prajapati', 'Moksh Shah'];
+  // Dynamically discovered partners list merged with defaults
+  const defaultPartners = ['Milan Javiya', 'Krushang Prajapati', 'Umang Prajapati', 'Moksh Shah'];
+  const partners = Array.from(new Set([
+    ...defaultPartners,
+    ...activePartner.map(t => t.partnerName).filter(Boolean)
+  ]));
   
   const partnerBreakdown = partners.map(name => {
     const flows = activePartner.filter(t => t.partnerName === name);
@@ -146,8 +150,13 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
     };
   });
 
-  // 4. Combined calculations
-  const totalCombinedInflows = ledgerInflow + bankDeposits + partnerContribution;
+  // Internal cash transfer detection to avoid double counting
+  const internalCashInflow = activeLedger
+    .filter(t => t.type === 'Credit' && (t.category === 'ATM Cash Withdrawal' || t.category === 'Internal Transfer'))
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  // 4. Combined calculations (excluding internal transfers from top-line inflows)
+  const totalCombinedInflows = (ledgerInflow - internalCashInflow) + bankDeposits + partnerContribution;
   const totalCombinedOutflows = ledgerOutflow + bankWithdrawals + partnerWithdrawal;
   const totalNetLiquidAssets = inHandCashNet + bankNet;
 
@@ -183,13 +192,17 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
     color: getCategoryColor(item.category)
   }));
 
+  const partnerPalette = ['#6366f1', '#10b981', '#f59e0b', '#a855f7', '#ec4899', '#06b6d4', '#84cc16'];
   const getPartnerColor = (name) => {
     switch (name) {
       case 'Milan Javiya': return '#6366f1'; // Indigo
       case 'Krushang Prajapati': return '#10b981'; // Emerald
       case 'Umang Prajapati': return '#f59e0b'; // Amber
       case 'Moksh Shah': return '#a855f7'; // Purple
-      default: return '#64748b';
+      default: {
+        const hash = Math.abs(String(name).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0));
+        return partnerPalette[hash % partnerPalette.length];
+      }
     }
   };
 

@@ -9,7 +9,11 @@ export default function PartnerCapitalStatement({ isOpen, onClose, partnerTransa
   const [isExporting, setIsExporting] = useState(false);
   const statementRef = useRef(null);
 
-  const partners = ['Milan Javiya', 'Krushang Prajapati', 'Umang Prajapati', 'Moksh Shah'];
+  const defaultPartners = ['Milan Javiya', 'Krushang Prajapati', 'Umang Prajapati', 'Moksh Shah'];
+  const partners = Array.from(new Set([
+    ...defaultPartners,
+    ...partnerTransactions.map(t => t.partnerName).filter(Boolean)
+  ]));
 
   if (!isOpen) return null;
 

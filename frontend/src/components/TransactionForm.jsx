@@ -96,7 +96,10 @@ export default function TransactionForm({ isOpen, onClose, onSubmit, transaction
     }
   };
 
-  const categories = ['Sales', 'Purchase', 'Logistics', 'Marketing', 'Office Expense', 'Others'];
+  const baseCategories = ['Sales', 'Purchase', 'Logistics', 'Marketing', 'Office Expense', 'ATM Cash Withdrawal', 'Others'];
+  const categories = formData.category && !baseCategories.includes(formData.category)
+    ? [...baseCategories, formData.category]
+    : baseCategories;
 
   const isEdit = !!transaction;
 

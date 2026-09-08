@@ -6,11 +6,14 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [transactions]);
+  const effectiveItemsPerPage = itemsPerPage === 'all' ? (transactions.length || 1) : Number(itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(transactions.length / effectiveItemsPerPage));
 
-  const effectiveItemsPerPage = itemsPerPage === 'all' ? transactions.length : Number(itemsPerPage);
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [transactions.length, totalPages, currentPage]);
   const paginatedTransactions = itemsPerPage === 'all'
     ? transactions
     : transactions.slice((currentPage - 1) * effectiveItemsPerPage, currentPage * effectiveItemsPerPage);

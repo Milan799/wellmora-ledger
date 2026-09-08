@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wellmora-v3.0-cache-__BUILD_TIMESTAMP__';
+const CACHE_NAME = 'wellmora-v4.0-cache-__BUILD_TIMESTAMP__';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -65,7 +65,6 @@ self.addEventListener('fetch', (event) => {
     path.startsWith('/transactions') || 
     path.startsWith('/bank-transactions') || 
     path.startsWith('/partner-flows') || 
-    path.startsWith('/orders') || 
     path.startsWith('/reports') || 
     path.startsWith('/digest') || 
     path.startsWith('/backups')

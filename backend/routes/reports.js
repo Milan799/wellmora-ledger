@@ -21,17 +21,27 @@ function filterByDate(items, startDate, endDate) {
 
 // Compute financial metric breakdown for a given list of data
 function computeStatementMetrics(transactions, bankTransactions, partnerFlows) {
-  // Operating Ledger
+  // Operating Ledger (Exclude internal cash-in transfers from business revenue)
+  const isInternalTransfer = (cat) => {
+    const c = String(cat || '').toLowerCase().trim();
+    return c === 'atm cash withdrawal' || c === 'cash transfer' || c === 'internal transfer' || c === 'transfer';
+  };
+
+  const isPurchase = (cat) => {
+    const c = String(cat || '').toLowerCase().trim();
+    return c === 'purchase' || c === 'stock' || c === 'purchases' || c === 'raw materials';
+  };
+
   const revenue = transactions
-    .filter(t => t.type === 'Credit')
+    .filter(t => t.type === 'Credit' && !isInternalTransfer(t.category))
     .reduce((sum, t) => sum + t.amount, 0);
 
   const purchases = transactions
-    .filter(t => t.type === 'Debit' && (t.category === 'Purchase' || t.category === 'Stock'))
+    .filter(t => t.type === 'Debit' && isPurchase(t.category))
     .reduce((sum, t) => sum + t.amount, 0);
 
   const operatingExpenses = transactions
-    .filter(t => t.type === 'Debit' && t.category !== 'Purchase' && t.category !== 'Stock')
+    .filter(t => t.type === 'Debit' && !isPurchase(t.category))
     .reduce((sum, t) => sum + t.amount, 0);
 
   const totalExpenses = purchases + operatingExpenses;
@@ -47,12 +57,12 @@ function computeStatementMetrics(transactions, bankTransactions, partnerFlows) {
     .reduce((sum, t) => sum + t.amount, 0);
   const inHandCashNet = inHandCashInflow - inHandCashOutflow;
 
-  // Bank Balances
+  // Bank Balances (Includes both standard Withdrawal and ATM Withdrawal)
   const bankDeposits = bankTransactions
     .filter(t => t.type === 'Deposit' && t.status === 'Completed')
     .reduce((sum, t) => sum + t.amount, 0);
   const bankWithdrawals = bankTransactions
-    .filter(t => t.type === 'Withdrawal' && t.status === 'Completed')
+    .filter(t => (t.type === 'Withdrawal' || t.type === 'ATM Withdrawal') && t.status === 'Completed')
     .reduce((sum, t) => sum + t.amount, 0);
   const bankNet = bankDeposits - bankWithdrawals;
 
@@ -68,10 +78,10 @@ function computeStatementMetrics(transactions, bankTransactions, partnerFlows) {
     .reduce((sum, t) => sum + t.amount, 0);
   const netPartnerEquity = partnerContributions - partnerDrawings;
 
-  // Cash Flow Items
+  // Cash Flow Items (Operating Cash Flow + Financing Cash Flow)
   const operatingCashFlow = revenue - totalExpenses;
   const financingCashFlow = partnerContributions - partnerDrawings;
-  const netCashFlow = operatingCashFlow + financingCashFlow + bankNet;
+  const netCashFlow = operatingCashFlow + financingCashFlow;
 
   return {
     pnl: {
@@ -177,21 +187,27 @@ router.post('/partner-dividends', async (req, res, next) => {
     const { netProfit, equityPercentages, periodName } = req.body;
     const profitVal = parseFloat(netProfit) || 0;
 
-    const partners = ['Milan Javiya', 'Krushang Prajapati', 'Umang Prajapati', 'Moksh Shah'];
-    const eqMap = equityPercentages || {
-      'Milan Javiya': 35,
-      'Krushang Prajapati': 25,
-      'Umang Prajapati': 20,
-      'Moksh Shah': 20
-    };
+    // Discover partner names dynamically from database or custom input
+    let partners = [];
+    if (equityPercentages && typeof equityPercentages === 'object') {
+      partners = Object.keys(equityPercentages);
+    } else {
+      const dbPartners = await PartnerFlow.distinct('partnerName');
+      partners = dbPartners.length > 0 
+        ? dbPartners 
+        : ['Milan Javiya', 'Krushang Prajapati', 'Umang Prajapati', 'Moksh Shah'];
+    }
+
+    const defaultEqualPct = partners.length > 0 ? (100 / partners.length) : 0;
+    const eqMap = equityPercentages || {};
 
     const distributions = partners.map(name => {
-      const pct = parseFloat(eqMap[name] || 0);
+      const pct = eqMap[name] !== undefined ? parseFloat(eqMap[name]) : defaultEqualPct;
       const amount = (profitVal * pct) / 100;
       return {
         partnerName: name,
-        equityPct: pct,
-        dividendAmount: amount
+        equityPct: Number(pct.toFixed(2)),
+        dividendAmount: Number(amount.toFixed(2))
       };
     });
 

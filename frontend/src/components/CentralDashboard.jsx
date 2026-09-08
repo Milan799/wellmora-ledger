@@ -118,8 +118,26 @@ export default function CentralDashboard({
       status: t.status || 'Completed'
     }));
 
-    return [...ledgerItems, ...bankItems];
-  }, [transactions, bankTransactions]);
+    const partnerItems = (partnerTransactions || []).map(t => ({
+      _id: t._id,
+      raw: t,
+      sourceModule: 'partner',
+      sourceLabel: 'Partner Flow',
+      date: t.date || t.createdAt || new Date().toISOString(),
+      timestamp: new Date(t.date || t.createdAt || Date.now()).getTime(),
+      description: t.description || `${t.type} - ${t.partnerName || 'Partner'}`,
+      entityInfo: t.partnerName || 'Partner',
+      subCategory: t.type || 'Capital Movement',
+      flowType: t.type === 'Capital Contribution' ? 'Inflow' : 'Outflow',
+      originalType: t.type,
+      paymentMode: 'Partner Transfer',
+      amount: Number(t.amount || 0),
+      refNo: '',
+      status: 'Completed'
+    }));
+
+    return [...ledgerItems, ...bankItems, ...partnerItems];
+  }, [transactions, bankTransactions, partnerTransactions]);
 
   // Date-filtered transactions
   const dateFilteredTransactions = useMemo(() => {
@@ -173,6 +191,7 @@ export default function CentralDashboard({
 
     let ledgerIn = 0, ledgerOut = 0;
     let bankIn = 0, bankOut = 0;
+    let partnerIn = 0, partnerOut = 0;
 
     dateFilteredTransactions.forEach(t => {
       if (t.status === 'Failed') return;
@@ -180,10 +199,12 @@ export default function CentralDashboard({
         totalInflow += t.amount;
         if (t.sourceModule === 'ledger') ledgerIn += t.amount;
         if (t.sourceModule === 'bank') bankIn += t.amount;
+        if (t.sourceModule === 'partner') partnerIn += t.amount;
       } else {
         totalOutflow += t.amount;
         if (t.sourceModule === 'ledger') ledgerOut += t.amount;
         if (t.sourceModule === 'bank') bankOut += t.amount;
+        if (t.sourceModule === 'partner') partnerOut += t.amount;
       }
     });
 
@@ -195,6 +216,8 @@ export default function CentralDashboard({
       ledgerOut,
       bankIn,
       bankOut,
+      partnerIn,
+      partnerOut,
       totalCount: dateFilteredTransactions.length
     };
   }, [dateFilteredTransactions]);
@@ -344,6 +367,13 @@ export default function CentralDashboard({
             Bank
           </span>
         );
+      case 'partner':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+            <Users2 size={11} />
+            Partner
+          </span>
+        );
       default:
         return null;
     }
@@ -400,8 +430,9 @@ export default function CentralDashboard({
             {formatCurrency(kpiData.totalInflow)}
           </h3>
           <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 text-[9.5px] font-semibold text-slate-500 dark:text-slate-400">
-            <span>Ledger In: {formatCurrency(kpiData.ledgerIn)}</span>
-            <span>Bank In: {formatCurrency(kpiData.bankIn)}</span>
+            <span>Ledger: {formatCurrency(kpiData.ledgerIn)}</span>
+            <span>Bank: {formatCurrency(kpiData.bankIn)}</span>
+            {kpiData.partnerIn > 0 && <span>Partner: {formatCurrency(kpiData.partnerIn)}</span>}
           </div>
         </div>
 
@@ -418,8 +449,9 @@ export default function CentralDashboard({
             {formatCurrency(kpiData.totalOutflow)}
           </h3>
           <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 text-[9.5px] font-semibold text-slate-500 dark:text-slate-400">
-            <span>Ledger Out: {formatCurrency(kpiData.ledgerOut)}</span>
-            <span>Bank Out: {formatCurrency(kpiData.bankOut)}</span>
+            <span>Ledger: {formatCurrency(kpiData.ledgerOut)}</span>
+            <span>Bank: {formatCurrency(kpiData.bankOut)}</span>
+            {kpiData.partnerOut > 0 && <span>Partner: {formatCurrency(kpiData.partnerOut)}</span>}
           </div>
         </div>
 
@@ -490,7 +522,8 @@ export default function CentralDashboard({
             {[
               { id: 'All', label: 'All' },
               { id: 'ledger', label: 'Ledger' },
-              { id: 'bank', label: 'Bank' }
+              { id: 'bank', label: 'Bank' },
+              { id: 'partner', label: 'Partner' }
             ].map(opt => (
               <button
                 key={opt.id}

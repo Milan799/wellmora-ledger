@@ -2,6 +2,7 @@ import express from 'express';
 import Transaction from '../models/Transaction.js';
 import BankTransaction from '../models/BankTransaction.js';
 import PartnerFlow from '../models/PartnerFlow.js';
+import { isSafeWebhookUrl } from './backups.js';
 
 const router = express.Router();
 
@@ -25,14 +26,20 @@ async function generateDigestPayload() {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  // Today's activities
+  // Today's activities (Exclude internal transfer credits from operating inflow)
   const todayLedger = transactions.filter(t => new Date(t.date || t.createdAt) >= todayStart);
-  const todayInflow = todayLedger.filter(t => t.type === 'Credit').reduce((sum, t) => sum + t.amount, 0);
+  const todayInflow = todayLedger
+    .filter(t => t.type === 'Credit' && t.category !== 'ATM Cash Withdrawal')
+    .reduce((sum, t) => sum + t.amount, 0);
   const todayOutflow = todayLedger.filter(t => t.type === 'Debit').reduce((sum, t) => sum + t.amount, 0);
 
-  // Bank Position
-  const bankDeposits = bankTransactions.filter(t => t.type === 'Deposit' && t.status === 'Completed').reduce((s, t) => s + t.amount, 0);
-  const bankWithdrawals = bankTransactions.filter(t => t.type === 'Withdrawal' && t.status === 'Completed').reduce((s, t) => s + t.amount, 0);
+  // Bank Position (Include both Withdrawal and ATM Withdrawal)
+  const bankDeposits = bankTransactions
+    .filter(t => t.type === 'Deposit' && t.status === 'Completed')
+    .reduce((s, t) => s + t.amount, 0);
+  const bankWithdrawals = bankTransactions
+    .filter(t => (t.type === 'Withdrawal' || t.type === 'ATM Withdrawal') && t.status === 'Completed')
+    .reduce((s, t) => s + t.amount, 0);
   const totalBankBalance = bankDeposits - bankWithdrawals;
 
   // In-Hand Cash
@@ -133,26 +140,30 @@ router.post('/send', async (req, res, next) => {
     let dispatchStatus = 'Preview Generated';
 
     if (channel === 'Email') {
-      dispatchStatus = `Email Digest ready for ${req.body.emailRecipient || digestConfig.emailRecipient}!`;
+      dispatchStatus = `Email Digest preview prepared for ${req.body.emailRecipient || digestConfig.emailRecipient} (Configure SMTP for direct email delivery)`;
     } else if (targetWebhook) {
-      try {
-        const resp = await fetch(targetWebhook, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: digestData.textDigest,
-            html: digestData.htmlDigest,
-            data: digestData
-          })
-        });
+      if (!isSafeWebhookUrl(targetWebhook)) {
+        dispatchStatus = `Webhook blocked: Target URL is invalid or forbidden (SSRF protection).`;
+      } else {
+        try {
+          const resp = await fetch(targetWebhook, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: digestData.textDigest,
+              html: digestData.htmlDigest,
+              data: digestData
+            })
+          });
 
-        if (resp.ok) {
-          dispatchStatus = `Successfully sent digest to ${channel} Webhook!`;
-        } else {
-          dispatchStatus = `Webhook returned HTTP ${resp.status}`;
+          if (resp.ok) {
+            dispatchStatus = `Successfully sent digest to ${channel} Webhook!`;
+          } else {
+            dispatchStatus = `Webhook returned HTTP ${resp.status}`;
+          }
+        } catch (webhookErr) {
+          dispatchStatus = `Webhook dispatch error: ${webhookErr.message}`;
         }
-      } catch (webhookErr) {
-        dispatchStatus = `Webhook dispatch error: ${webhookErr.message}`;
       }
     }
 

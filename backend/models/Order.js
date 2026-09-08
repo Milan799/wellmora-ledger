@@ -95,7 +95,7 @@ const orderSchema = new mongoose.Schema({
 });
 
 // Index for fast query deduplication and date range filtering
-orderSchema.index({ orderNumber: 1 });
+orderSchema.index({ orderNumber: 1 }, { unique: true });
 orderSchema.index({ orderDate: -1 });
 
 export default mongoose.model('Order', orderSchema);

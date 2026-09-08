@@ -4,10 +4,42 @@ import Order from '../models/Order.js';
 
 const router = express.Router();
 
-// GET all Order entries (newest first, with optional date range query)
+// Helper to batch-sync SKU pricing using a single MongoDB updateMany aggregation operation
+async function syncSkuPrices(skuId, excludeOrderId, pCost, pkgCost, oCost, bSettlement) {
+  if (!skuId || !skuId.trim()) return;
+  const cleanSku = skuId.trim();
+  const unitCostSum = Number(pCost || 0) + Number(pkgCost || 0) + Number(oCost || 0);
+
+  const filter = { skuId: cleanSku };
+  if (excludeOrderId) {
+    filter._id = { $ne: excludeOrderId };
+  }
+
+  await Order.updateMany(
+    filter,
+    [
+      {
+        $set: {
+          purchaseCost: Number(pCost || 0),
+          packagingCost: Number(pkgCost || 0),
+          otherCost: Number(oCost || 0),
+          bankSettlement: Number(bSettlement || 0),
+          totalCost: {
+            $multiply: [
+              unitCostSum,
+              { $ifNull: ["$quantity", 1] }
+            ]
+          }
+        }
+      }
+    ]
+  );
+}
+
+// GET all Order entries (supports optional date range, optional pagination, and projects out heavy label images by default)
 router.get('/', async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, page, limit, includeImages } = req.query;
     const filter = {};
 
     if (startDate || endDate) {
@@ -26,14 +58,48 @@ router.get('/', async (req, res) => {
       ];
     }
 
-    const orders = await Order.find(filter).sort({ orderDate: -1, createdAt: -1 }).lean();
+    let query = Order.find(filter).sort({ orderDate: -1, createdAt: -1 });
+
+    // Exclude heavy base64 image strings unless explicitly requested
+    if (includeImages !== 'true') {
+      query = query.select('-labelImage');
+    }
+
+    // Optional server-side pagination
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    if (!isNaN(pageNum) && !isNaN(limitNum) && limitNum > 0) {
+      query = query.skip((pageNum - 1) * limitNum).limit(limitNum);
+    }
+
+    const orders = await query.lean();
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: 'Error retrieving order entries', error: error.message });
   }
 });
 
-// POST a new Order entry (Enforces Unique Order ID via Upsert & Auto-Syncs SKU Prices)
+// GET label image for a single order
+router.get('/:id/label', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let order = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      order = await Order.findById(id).select('labelImage orderNumber');
+    }
+    if (!order && id) {
+      order = await Order.findOne({ orderNumber: id.trim() }).select('labelImage orderNumber');
+    }
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    res.json({ labelImage: order.labelImage || '', orderNumber: order.orderNumber });
+  } catch (error) {
+    res.status(500).json({ message: 'Error retrieving order label', error: error.message });
+  }
+});
+
+// POST a new Order entry (Enforces Unique Order ID & Auto-Syncs SKU Prices via single bulk update)
 router.post('/', async (req, res) => {
   try {
     const { 
@@ -59,7 +125,8 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: 'Order ID (OD...) is required' });
     }
     
-    const existing = await Order.findOne({ orderNumber: orderNumber.trim() });
+    const cleanOrderNumber = orderNumber.trim();
+    const existing = await Order.findOne({ orderNumber: cleanOrderNumber });
     
     const cleanSku = skuId ? skuId.trim() : (existing ? existing.skuId : '');
     let existingSku = null;
@@ -101,9 +168,9 @@ router.post('/', async (req, res) => {
       if (!isNaN(d.getTime())) parsedOrderDate = d;
     }
 
-    const filter = { orderNumber: orderNumber.trim() };
+    const filter = { orderNumber: cleanOrderNumber };
     const updateData = {
-      orderNumber: orderNumber.trim(),
+      orderNumber: cleanOrderNumber,
       awbNumber: awbNumber || (existing ? existing.awbNumber : ''),
       paymentType: paymentType || (existing ? existing.paymentType : 'PREPAID'),
       productName: productName || (existing ? existing.productName : ''),
@@ -124,23 +191,9 @@ router.post('/', async (req, res) => {
     
     const savedOrder = await Order.findOneAndUpdate(filter, updateData, { new: true, upsert: true, runValidators: true });
 
-    // Auto-propagate costs to all other orders sharing the same SKU ID
+    // Single-query bulk auto-propagation for SKU prices (Eliminates N+1 loop)
     if (cleanSku) {
-      const sameSkuOrders = await Order.find({ skuId: cleanSku, _id: { $ne: savedOrder._id } });
-      if (sameSkuOrders.length > 0) {
-        const autoSyncPromises = sameSkuOrders.map(ord => {
-          const oQty = ord.quantity || 1;
-          const oTotalCost = (pCost + pkgCost + oCost) * oQty;
-          return Order.findByIdAndUpdate(ord._id, {
-            purchaseCost: pCost,
-            packagingCost: pkgCost,
-            otherCost: oCost,
-            bankSettlement: bSettlement,
-            totalCost: oTotalCost
-          });
-        });
-        await Promise.all(autoSyncPromises);
-      }
+      await syncSkuPrices(cleanSku, savedOrder._id, pCost, pkgCost, oCost, bSettlement);
     }
 
     res.status(200).json(savedOrder);
@@ -149,7 +202,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// POST batch multi-file / multi-page Order entries (Preserves & Auto-Syncs SKU Prices)
+// POST batch multi-file / multi-page Order entries
 router.post('/batch', async (req, res) => {
   try {
     const { orders: batchOrders } = req.body;
@@ -158,10 +211,13 @@ router.post('/batch', async (req, res) => {
     }
 
     const savedResults = [];
+    const updatedSkusMap = new Map();
+
     for (const item of batchOrders) {
       if (!item.orderNumber || !item.orderNumber.trim()) continue;
+      const cleanOrderNumber = item.orderNumber.trim();
       
-      const existing = await Order.findOne({ orderNumber: item.orderNumber.trim() });
+      const existing = await Order.findOne({ orderNumber: cleanOrderNumber });
       const cleanSku = item.skuId ? item.skuId.trim() : (existing ? existing.skuId : '');
       let existingSku = null;
       if (cleanSku) {
@@ -191,9 +247,9 @@ router.post('/batch', async (req, res) => {
         if (!isNaN(d.getTime())) parsedOrderDate = d;
       }
 
-      const filter = { orderNumber: item.orderNumber.trim() };
+      const filter = { orderNumber: cleanOrderNumber };
       const updateData = {
-        orderNumber: item.orderNumber.trim(),
+        orderNumber: cleanOrderNumber,
         awbNumber: item.awbNumber || (existing ? existing.awbNumber : ''),
         paymentType: item.paymentType || (existing ? existing.paymentType : 'PREPAID'),
         productName: item.productName || item.itemDescription || (existing ? existing.productName : ''),
@@ -213,26 +269,16 @@ router.post('/batch', async (req, res) => {
       };
       
       const saved = await Order.findOneAndUpdate(filter, updateData, { new: true, upsert: true });
-
-      if (cleanSku) {
-        const sameSkuOrders = await Order.find({ skuId: cleanSku, _id: { $ne: saved._id } });
-        if (sameSkuOrders.length > 0) {
-          const autoSyncPromises = sameSkuOrders.map(ord => {
-            const oQty = ord.quantity || 1;
-            const oTotalCost = (pCost + pkgCost + oCost) * oQty;
-            return Order.findByIdAndUpdate(ord._id, {
-              purchaseCost: pCost,
-              packagingCost: pkgCost,
-              otherCost: oCost,
-              bankSettlement: bSettlement,
-              totalCost: oTotalCost
-            });
-          });
-          await Promise.all(autoSyncPromises);
-        }
-      }
-
       savedResults.push(saved);
+
+      if (cleanSku && (pCost > 0 || pkgCost > 0 || oCost > 0 || bSettlement > 0)) {
+        updatedSkusMap.set(cleanSku, { pCost, pkgCost, oCost, bSettlement });
+      }
+    }
+
+    // Sync prices for distinct SKUs updated during batch
+    for (const [skuId, costs] of updatedSkusMap.entries()) {
+      await syncSkuPrices(skuId, null, costs.pCost, costs.pkgCost, costs.oCost, costs.bSettlement);
     }
 
     res.status(200).json({ message: 'Batch orders saved successfully', savedCount: savedResults.length, orders: savedResults });
@@ -241,7 +287,7 @@ router.post('/batch', async (req, res) => {
   }
 });
 
-// PUT (bulk update) all order entries for a specific SKU ID
+// PUT (bulk update) all order entries for a specific SKU ID using single updateMany
 router.put('/bulk-sku', async (req, res) => {
   try {
     const { skuId, purchaseCost, packagingCost, otherCost, bankSettlement } = req.body;
@@ -249,36 +295,40 @@ router.put('/bulk-sku', async (req, res) => {
       return res.status(400).json({ message: 'SKU ID is required for bulk SKU update' });
     }
 
+    const cleanSku = skuId.trim();
     const pCost = Number(purchaseCost || 0);
     const pkgCost = Number(packagingCost || 0);
     const oCost = Number(otherCost || 0);
     const bSettlement = Number(bankSettlement || 0);
+    const unitCostSum = pCost + pkgCost + oCost;
 
-    const targetOrders = await Order.find({ skuId: skuId.trim() });
-    const updatePromises = targetOrders.map(ord => {
-      const qty = ord.quantity || 1;
-      const calculatedTotalCost = (pCost + pkgCost + oCost) * qty;
-      return Order.findByIdAndUpdate(
-        ord._id,
+    const result = await Order.updateMany(
+      { skuId: cleanSku },
+      [
         {
-          purchaseCost: pCost,
-          packagingCost: pkgCost,
-          otherCost: oCost,
-          bankSettlement: bSettlement,
-          totalCost: calculatedTotalCost
-        },
-        { new: true }
-      );
-    });
+          $set: {
+            purchaseCost: pCost,
+            packagingCost: pkgCost,
+            otherCost: oCost,
+            bankSettlement: bSettlement,
+            totalCost: {
+              $multiply: [
+                unitCostSum,
+                { $ifNull: ["$quantity", 1] }
+              ]
+            }
+          }
+        }
+      ]
+    );
 
-    const updatedOrders = await Promise.all(updatePromises);
-    res.json({ message: `Successfully updated ${updatedOrders.length} orders for SKU ${skuId}`, count: updatedOrders.length, orders: updatedOrders });
+    res.json({ message: `Successfully updated ${result.modifiedCount} orders for SKU ${cleanSku}`, count: result.modifiedCount });
   } catch (error) {
     res.status(400).json({ message: 'Error performing bulk SKU update', error: error.message });
   }
 });
 
-// PUT (bulk date-frame price adjustment) update prices for all order entries within a date frame
+// PUT (bulk date-frame price adjustment)
 router.put('/bulk-date-frame', async (req, res) => {
   try {
     const { startDate, endDate, skuId, purchaseCost, packagingCost, otherCost, bankSettlement } = req.body;
@@ -306,38 +356,35 @@ router.put('/bulk-date-frame', async (req, res) => {
       queryCondition.skuId = skuId.trim();
     }
 
-    const targetOrders = await Order.find(queryCondition);
-    
-    if (targetOrders.length === 0) {
-      return res.status(404).json({ message: 'No orders found within the specified date frame' });
-    }
+    const pCost = Number(purchaseCost || 0);
+    const pkgCost = Number(packagingCost || 0);
+    const oCost = Number(otherCost || 0);
+    const bSettlement = Number(bankSettlement || 0);
+    const unitCostSum = pCost + pkgCost + oCost;
 
-    const updatePromises = targetOrders.map(ord => {
-      const qty = ord.quantity || 1;
-      const pCost = purchaseCost !== undefined ? Number(purchaseCost) : ord.purchaseCost;
-      const pkgCost = packagingCost !== undefined ? Number(packagingCost) : ord.packagingCost;
-      const oCost = otherCost !== undefined ? Number(otherCost) : ord.otherCost;
-      const bSettlement = bankSettlement !== undefined ? Number(bankSettlement) : ord.bankSettlement;
-      const calculatedTotalCost = (pCost + pkgCost + oCost) * qty;
-
-      return Order.findByIdAndUpdate(
-        ord._id,
+    const result = await Order.updateMany(
+      queryCondition,
+      [
         {
-          purchaseCost: pCost,
-          packagingCost: pkgCost,
-          otherCost: oCost,
-          bankSettlement: bSettlement,
-          totalCost: calculatedTotalCost
-        },
-        { new: true }
-      );
-    });
+          $set: {
+            purchaseCost: pCost,
+            packagingCost: pkgCost,
+            otherCost: oCost,
+            bankSettlement: bSettlement,
+            totalCost: {
+              $multiply: [
+                unitCostSum,
+                { $ifNull: ["$quantity", 1] }
+              ]
+            }
+          }
+        }
+      ]
+    );
 
-    const updatedOrders = await Promise.all(updatePromises);
     res.json({
-      message: `Successfully adjusted prices for ${updatedOrders.length} orders in date frame ${startDate} to ${endDate}`,
-      count: updatedOrders.length,
-      orders: updatedOrders
+      message: `Successfully adjusted prices for ${result.modifiedCount} orders in date frame`,
+      count: result.modifiedCount
     });
   } catch (error) {
     res.status(400).json({ message: 'Error performing bulk date frame price adjustment', error: error.message });
@@ -384,14 +431,17 @@ router.put('/:id', async (req, res) => {
       purchaseCost: pCost, 
       packagingCost: pkgCost, 
       otherCost: oCost, 
-      bankSettlement: bSettlement,
+      bankSettlement: bSettlement, 
       totalCost: calculatedTotalCost, 
       sellerName: sellerName || 'WELLMORA ENTERPRISE', 
       customerName: customerName || '', 
       shippingAddress: shippingAddress || '', 
-      pincode: pincode || '', 
-      labelImage: labelImage || '' 
+      pincode: pincode || '' 
     };
+
+    if (labelImage !== undefined) {
+      updateData.labelImage = labelImage;
+    }
 
     if (orderDate) {
       const d = new Date(orderDate);
@@ -407,7 +457,7 @@ router.put('/:id', async (req, res) => {
       updatedOrder = await Order.findOneAndUpdate(
         { orderNumber: orderNumber.trim() },
         updateData,
-        { new: true, upsert: true, runValidators: true }
+        { new: true, runValidators: true }
       );
     }
 
@@ -415,24 +465,10 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Order entry not found' });
     }
 
-    // Auto-propagate costs to all other orders sharing the same SKU ID
+    // Auto-propagate costs to other orders with the same SKU
     const cleanSku = updateData.skuId ? updateData.skuId.trim() : '';
     if (cleanSku) {
-      const sameSkuOrders = await Order.find({ skuId: cleanSku, _id: { $ne: updatedOrder._id } });
-      if (sameSkuOrders.length > 0) {
-        const autoSyncPromises = sameSkuOrders.map(ord => {
-          const oQty = ord.quantity || 1;
-          const oTotalCost = (pCost + pkgCost + oCost) * oQty;
-          return Order.findByIdAndUpdate(ord._id, {
-            purchaseCost: pCost,
-            packagingCost: pkgCost,
-            otherCost: oCost,
-            bankSettlement: bSettlement,
-            totalCost: oTotalCost
-          });
-        });
-        await Promise.all(autoSyncPromises);
-      }
+      await syncSkuPrices(cleanSku, updatedOrder._id, pCost, pkgCost, oCost, bSettlement);
     }
 
     res.json(updatedOrder);
@@ -466,7 +502,7 @@ router.post('/bulk-delete', async (req, res) => {
   }
 });
 
-// DELETE an Order entry (by ObjectId or orderNumber)
+// DELETE an Order entry
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -476,21 +512,19 @@ router.delete('/:id', async (req, res) => {
       return res.status(400).json({ message: 'Order ID parameter is required' });
     }
 
-    const query = [];
+    let deleted = null;
     if (mongoose.Types.ObjectId.isValid(trimmedId)) {
-      query.push({ _id: trimmedId });
+      deleted = await Order.findByIdAndDelete(trimmedId);
     }
-    query.push({ orderNumber: trimmedId });
-    const escapedStr = trimmedId.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-    query.push({ orderNumber: new RegExp(`^${escapedStr}$`, 'i') });
+    if (!deleted) {
+      deleted = await Order.findOneAndDelete({ orderNumber: trimmedId });
+    }
 
-    const deletedResult = await Order.deleteMany({ $or: query });
-
-    if (deletedResult.deletedCount === 0) {
+    if (!deleted) {
       return res.status(404).json({ message: 'Order entry not found' });
     }
 
-    res.json({ message: 'Order entry successfully deleted', deletedCount: deletedResult.deletedCount, id: trimmedId });
+    res.json({ message: 'Order entry successfully deleted', id: trimmedId });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting order entry', error: error.message });
   }

@@ -29,7 +29,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://trymilan971_db_user:milan123@cluster0.emzxezj.mongodb.net/?appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/wellmora_ledger';
 
 // 1. Fully Permissive CORS Middleware with Preflight OPTIONS Support
 const corsOptions = {
@@ -114,14 +114,14 @@ app.use('/auth', authLimiter);
 app.use('/api/auth', authRouter);
 app.use('/auth', authRouter);
 
-// 7. Protected Financial Data Routes & Orders Endpoint
+// 7. Protected Financial Data Routes & Orders Endpoint (Protected by verifyToken)
 app.use('/api/transactions', verifyToken, transactionRouter);
 app.use('/api/bank-transactions', verifyToken, bankTransactionRouter);
 app.use('/api/partner-flows', verifyToken, partnerFlowRouter);
 app.use('/api/backups', verifyToken, backupRouter);
 app.use('/api/reports', verifyToken, reportsRouter);
 app.use('/api/digest', verifyToken, digestRouter);
-app.use('/api/orders', ordersRouter);
+app.use('/api/orders', verifyToken, ordersRouter);
 
 // Also mount data routes on root level fallback for convenience
 app.use('/transactions', verifyToken, transactionRouter);
@@ -130,7 +130,7 @@ app.use('/partner-flows', verifyToken, partnerFlowRouter);
 app.use('/backups', verifyToken, backupRouter);
 app.use('/reports', verifyToken, reportsRouter);
 app.use('/digest', verifyToken, digestRouter);
-app.use('/orders', ordersRouter);
+app.use('/orders', verifyToken, ordersRouter);
 
 // Health Check Endpoint
 app.get(['/api/health', '/health'], (req, res) => {
@@ -149,12 +149,15 @@ app.use((req, res) => {
 
 // Centralized Error Handling Middleware
 app.use((err, req, res, next) => {
-  console.error('⚠️ Express Error:', err.message);
+  console.error('⚠️ Express Error:', err);
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ message: 'Uploaded file payload is too large (max 50MB)' });
+  }
   const status = err.status || err.statusCode || 500;
   const isProd = process.env.NODE_ENV === 'production';
   res.status(status).json({
     message: err.message || 'Internal Server Error',
-    ...(isProd ? {} : { stack: err.stack })
+    ...(isProd ? {} : { stack: err.stack, error: err })
   });
 });
 
@@ -176,17 +179,6 @@ Transaction.on('index', err => {
 });
 BankTransaction.on('index', err => {
   if (err) console.error('⚠️ BankTransaction model auto-indexing failed:', err.message);
-});
-// Global Error Handling Middleware
-app.use((err, req, res, next) => {
-  console.error('⚠️ Unhandled Server Error:', err);
-  if (err && err.type === 'entity.too.large') {
-    return res.status(413).json({ message: 'Uploaded file payload is too large (max 50MB)' });
-  }
-  res.status(err.status || 500).json({
-    message: err.message || 'Internal Server Error',
-    error: process.env.NODE_ENV === 'development' ? err : undefined
-  });
 });
 
 // Connect to MongoDB

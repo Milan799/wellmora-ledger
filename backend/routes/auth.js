@@ -5,53 +5,53 @@ import User from '../models/User.js';
 import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'wellmora_default_secure_jwt_secret_key_2026_!@#';
+const getJwtSecret = () => process.env.JWT_SECRET || 'wellmora_secure_jwt_secret_key_2026_ledger_auth';
 
 /**
  * Helper to generate JWT token
  */
 const generateToken = (userId) => {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ userId }, getJwtSecret(), { expiresIn: '7d' });
 };
 
 /**
- * Automatically seed / update fixed secure admin credentials on server startup
+ * Helper to safely escape regular expression special characters
+ */
+const escapeRegex = (str) => {
+  return String(str).replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+};
+
+/**
+ * Automatically seed default secure admin credentials on first startup if no admin exists
  */
 export const ensureDefaultAdmin = async () => {
   try {
-    const defaultUsername = 'WellmoraEnterprise';
-    const defaultPassword = 'Wellmora@194226';
-    const defaultName = 'Wellmora Enterprise';
-    const defaultEmail = 'admin@wellmoraenterprise.com';
+    const defaultUsername = process.env.ADMIN_USERNAME || 'WellmoraEnterprise';
+    const defaultPassword = process.env.ADMIN_PASSWORD || 'Wellmora@194226';
+    const defaultName = process.env.ADMIN_NAME || 'Wellmora Enterprise';
+    const defaultEmail = process.env.ADMIN_EMAIL || 'admin@wellmoraenterprise.com';
 
+    const safeUsername = escapeRegex(defaultUsername);
     let user = await User.findOne({ 
       $or: [
-        { username: new RegExp(`^${defaultUsername}$`, 'i') },
-        { email: defaultEmail }
+        { username: new RegExp(`^${safeUsername}$`, 'i') },
+        { email: defaultEmail.toLowerCase() }
       ]
     });
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(defaultPassword, salt);
-
     if (!user) {
-      user = new User({
-        username: defaultUsername,
-        name: defaultName,
-        email: defaultEmail,
-        password: hashedPassword
-      });
-      await user.save();
-      console.log(`🔐 Fixed secure admin account initialized: Username: "${defaultUsername}"`);
-    } else {
-      // Ensure fixed credentials match latest configured password
-      const isMatch = await bcrypt.compare(defaultPassword, user.password);
-      if (!isMatch || user.username !== defaultUsername) {
-        user.username = defaultUsername;
-        user.password = hashedPassword;
-        user.name = defaultName;
+      const existingUserCount = await User.countDocuments();
+      if (existingUserCount === 0) {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(defaultPassword, salt);
+        user = new User({
+          username: defaultUsername,
+          name: defaultName,
+          email: defaultEmail.toLowerCase(),
+          password: hashedPassword
+        });
         await user.save();
-        console.log(`🔐 Updated admin account to fixed credentials: Username: "${defaultUsername}"`);
+        console.log(`🔐 Initial admin account initialized: Username: "${defaultUsername}"`);
       }
     }
   } catch (err) {
@@ -76,10 +76,11 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Username and password are required.' });
     }
 
-    // Find user by username or email
+    // Safely find user by username or email with escaped regex to prevent ReDoS
+    const safeIdentifier = escapeRegex(identifier);
     const user = await User.findOne({
       $or: [
-        { username: new RegExp(`^${identifier}$`, 'i') },
+        { username: new RegExp(`^${safeIdentifier}$`, 'i') },
         { email: identifier.toLowerCase() }
       ]
     });

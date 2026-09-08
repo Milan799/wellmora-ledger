@@ -3,10 +3,30 @@ import Transaction from '../models/Transaction.js';
 
 const router = express.Router();
 
-// GET all transactions (newest first by date, then by creation date)
+// GET transactions (with optional date filtering and pagination)
 router.get('/', async (req, res) => {
   try {
-    const transactions = await Transaction.find().sort({ date: -1, createdAt: -1 });
+    const { page, limit, startDate, endDate, category, type } = req.query;
+    const filter = {};
+
+    if (startDate || endDate) {
+      filter.date = {};
+      if (startDate) filter.date.$gte = new Date(startDate);
+      if (endDate) filter.date.$lte = new Date(endDate);
+    }
+    if (category) filter.category = category;
+    if (type) filter.type = type;
+
+    let query = Transaction.find(filter).sort({ date: -1, createdAt: -1 });
+
+    if (limit !== undefined && Number(limit) > 0) {
+      const pageNum = Math.max(1, Number(page) || 1);
+      const limitNum = Number(limit);
+      const skip = (pageNum - 1) * limitNum;
+      query = query.skip(skip).limit(limitNum);
+    }
+
+    const transactions = await query;
     res.json(transactions);
   } catch (error) {
     res.status(500).json({ message: 'Error retrieving transactions', error: error.message });

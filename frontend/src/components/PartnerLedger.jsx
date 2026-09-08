@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Search, RefreshCw, Trash2, Edit2, Users, Wallet, Landmark, Calculator } from 'lucide-react';
+import { Calendar, Search, RefreshCw, Trash2, Edit2, Users, Wallet, Landmark, Calculator, FileText } from 'lucide-react';
 import ExportDropdown from './ExportDropdown';
 import DividendCalculatorModal from './DividendCalculatorModal';
+import PartnerCapitalStatement from './PartnerCapitalStatement';
 import Pagination from './Pagination';
 
 export default function PartnerLedger({ 
@@ -25,6 +26,7 @@ export default function PartnerLedger({
   const [itemsPerPage, setItemsPerPage] = useState(10);
   
   const [isDividendOpen, setIsDividendOpen] = useState(false);
+  const [isStatementOpen, setIsStatementOpen] = useState(false);
 
   const formatDate = (dateInput) => {
     if (!dateInput) return 'N/A';
@@ -244,6 +246,13 @@ export default function PartnerLedger({
         onPostShareDistribution={onAddPartnerFlow}
       />
 
+      {/* Partner Capital Statement Modal */}
+      <PartnerCapitalStatement
+        isOpen={isStatementOpen}
+        onClose={() => setIsStatementOpen(false)}
+        partnerTransactions={transactions}
+      />
+
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
         <div>
@@ -273,6 +282,15 @@ export default function PartnerLedger({
               <Calculator size={14} /> Dividend Calculator
             </button>
           </div>
+
+          <button
+            onClick={() => setIsStatementOpen(true)}
+            className="px-3 py-2 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold text-xs rounded-xl flex items-center gap-1.5 border border-indigo-200 dark:border-indigo-800 transition-all active:scale-95 cursor-pointer shrink-0"
+            title="Generate Capital Account Statement / Certificate"
+          >
+            <FileText size={14} />
+            <span className="hidden sm:inline">Statement</span>
+          </button>
 
           <button
             onClick={onRefresh}

@@ -8,22 +8,24 @@ import dotenv from 'dotenv';
 import Transaction from './models/Transaction.js';
 import BankTransaction from './models/BankTransaction.js';
 import PartnerFlow from './models/PartnerFlow.js';
+import Order from './models/Order.js';
+import User from './models/User.js';
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const BACKUPS_DIR = path.join(__dirname, 'backups');
+export const BACKUPS_DIR = path.join(__dirname, 'backups');
 
 // Helper to check mongoose connection
 async function ensureDbConnection() {
   if (mongoose.connection.readyState === 1) return;
-  const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://trymilan971_db_user:milan123@cluster0.emzxezj.mongodb.net/?appName=Cluster0';
+  const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/wellmora_ledger';
   await mongoose.connect(MONGODB_URI);
 }
 
 /**
- * Creates a complete JSON backup of all ledger tables
+ * Creates a complete JSON backup of all ledger tables (including Orders & Users)
  */
 export async function createBackup() {
   try {
@@ -36,25 +38,40 @@ export async function createBackup() {
 
     console.log('📦 Starting database backup operation...');
     
-    const [transactions, bankTransactions, partnerFlows] = await Promise.all([
-      Transaction.find({}),
-      BankTransaction.find({}),
-      PartnerFlow.find({})
+    const [transactions, bankTransactions, partnerFlows, rawOrders, users] = await Promise.all([
+      Transaction.find({}).lean(),
+      BankTransaction.find({}).lean(),
+      PartnerFlow.find({}).lean(),
+      Order.find({}).lean(),
+      User.find({}).select('-password').lean()
     ]);
+
+    // Strip heavy base64 label images from backup to keep file size compact and manageable
+    const cleanOrders = (rawOrders || []).map(order => {
+      if (order && order.labelImage && order.labelImage.length > 300) {
+        const { labelImage, ...rest } = order;
+        return rest;
+      }
+      return order;
+    });
 
     const backupPayload = {
       system: 'Wellmora Ledger Backup',
-      version: '1.0',
+      version: '2.0',
       timestamp: new Date().toISOString(),
       counts: {
         transactions: transactions.length,
         bankTransactions: bankTransactions.length,
-        partnerFlows: partnerFlows.length
+        partnerFlows: partnerFlows.length,
+        orders: cleanOrders.length,
+        users: users.length
       },
       data: {
         transactions,
         bankTransactions,
-        partnerFlows
+        partnerFlows,
+        orders: cleanOrders,
+        users
       }
     };
 
@@ -65,7 +82,7 @@ export async function createBackup() {
     fs.writeFileSync(filePath, JSON.stringify(backupPayload, null, 2), 'utf8');
     
     console.log(`✅ Backup successfully created at: ${filePath}`);
-    console.log(`📊 Statistics: ${transactions.length} Ledger entries, ${bankTransactions.length} Bank items, ${partnerFlows.length} Partner flows saved.`);
+    console.log(`📊 Statistics: ${transactions.length} Ledger, ${bankTransactions.length} Bank, ${partnerFlows.length} Partner, ${cleanOrders.length} Orders saved.`);
     
     return filePath;
   } catch (error) {
@@ -75,7 +92,7 @@ export async function createBackup() {
 }
 
 /**
- * Restores all database collections from a JSON backup file path
+ * Restores all database collections from a JSON backup file path with pre-restore safety snapshot
  */
 export async function restoreBackup(backupFilePath) {
   try {
@@ -89,30 +106,7 @@ export async function restoreBackup(backupFilePath) {
     const backupContent = fs.readFileSync(backupFilePath, 'utf8');
     const backupPayload = JSON.parse(backupContent);
 
-    if (backupPayload.system !== 'Wellmora Ledger Backup') {
-      throw new Error('Invalid backup file signature. Must be a Wellmora Ledger Backup file.');
-    }
-
-    const { transactions, bankTransactions, partnerFlows } = backupPayload.data;
-    
-    console.log('⚠️ Warning: Dropping existing collections to replace with backup data...');
-    
-    // Clear collections
-    await Promise.all([
-      Transaction.deleteMany({}),
-      BankTransaction.deleteMany({}),
-      PartnerFlow.deleteMany({})
-    ]);
-
-    // Insert backup data
-    await Promise.all([
-      transactions.length ? Transaction.insertMany(transactions) : Promise.resolve(),
-      bankTransactions.length ? BankTransaction.insertMany(bankTransactions) : Promise.resolve(),
-      partnerFlows.length ? PartnerFlow.insertMany(partnerFlows) : Promise.resolve()
-    ]);
-
-    console.log('✅ Database restore operation completed successfully!');
-    console.log(`📊 Statistics restored: ${transactions.length} Ledger, ${bankTransactions.length} Bank, ${partnerFlows.length} Partner entries.`);
+    return await restoreFromData(backupPayload);
   } catch (error) {
     console.error('❌ Database restore operation failed:', error.message);
     throw error;
@@ -153,27 +147,38 @@ export async function restoreFromData(backupPayload) {
       throw new Error('Invalid backup data structure. Must be a valid Wellmora Ledger Backup.');
     }
 
-    const { transactions, bankTransactions, partnerFlows } = backupPayload.data || {};
+    const { transactions, bankTransactions, partnerFlows, orders } = backupPayload.data || {};
     
-    console.log('⚠️ Warning: Replacing existing database collections with backup snapshot...');
+    console.log('⚠️ Capturing safety snapshot before restore...');
+    // Capture safety snapshot before clearing
+    try {
+      await createBackup();
+    } catch (snapshotErr) {
+      console.warn('Could not create pre-restore snapshot, proceeding with caution:', snapshotErr.message);
+    }
+
+    console.log('⚠️ Replacing existing database collections with backup snapshot...');
 
     await Promise.all([
       Transaction.deleteMany({}),
       BankTransaction.deleteMany({}),
-      PartnerFlow.deleteMany({})
+      PartnerFlow.deleteMany({}),
+      ...(orders && Array.isArray(orders) ? [Order.deleteMany({})] : [])
     ]);
 
     await Promise.all([
       transactions && transactions.length ? Transaction.insertMany(transactions) : Promise.resolve(),
       bankTransactions && bankTransactions.length ? BankTransaction.insertMany(bankTransactions) : Promise.resolve(),
-      partnerFlows && partnerFlows.length ? PartnerFlow.insertMany(partnerFlows) : Promise.resolve()
+      partnerFlows && partnerFlows.length ? PartnerFlow.insertMany(partnerFlows) : Promise.resolve(),
+      orders && orders.length ? Order.insertMany(orders) : Promise.resolve()
     ]);
 
-    console.log(`✅ Successfully restored: ${transactions?.length || 0} Ledger, ${bankTransactions?.length || 0} Bank, ${partnerFlows?.length || 0} Partner items.`);
+    console.log(`✅ Successfully restored: ${transactions?.length || 0} Ledger, ${bankTransactions?.length || 0} Bank, ${partnerFlows?.length || 0} Partner, ${orders?.length || 0} Orders.`);
     return {
       transactions: transactions?.length || 0,
       bankTransactions: bankTransactions?.length || 0,
-      partnerFlows: partnerFlows?.length || 0
+      partnerFlows: partnerFlows?.length || 0,
+      orders: orders?.length || 0
     };
   } catch (error) {
     console.error('❌ Restore from data failed:', error.message);
