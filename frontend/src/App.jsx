@@ -1127,15 +1127,12 @@ export default function App() {
               <CentralDashboard
                 transactions={transactions}
                 bankTransactions={bankTransactions}
-                partnerTransactions={partnerTransactions}
                 onEditLedger={(t) => { setEditingTransaction(t); setIsFormOpen(true); }}
                 onDeleteLedger={(t) => handleDeleteTrigger(t, 'ledger')}
                 onEditBank={(t) => { setEditingBankTransaction(t); setIsBankFormOpen(true); }}
                 onDeleteBank={(t) => handleDeleteTrigger(t, 'bank')}
-                onEditPartner={(t) => { setEditingPartnerTransaction(t); setIsPartnerFormOpen(true); }}
-                onDeletePartner={(t) => handleDeleteTrigger(t, 'partner')}
                 onRefresh={() => refreshAllData(false)}
-                loading={loadingLedger || loadingBank || loadingPartner}
+                loading={loadingLedger || loadingBank}
               />
             )}
 

@@ -5,7 +5,6 @@ import {
   TrendingDown, 
   BookOpen, 
   Building2, 
-  Users2, 
   Search, 
   Calendar, 
   ArrowUpRight, 
@@ -13,11 +12,13 @@ import {
   Edit2, 
   Trash2, 
   Filter, 
-  Download, 
   Layers,
   Sparkles,
   ArrowUpDown,
-  RefreshCw
+  RefreshCw,
+  Wallet,
+  Landmark,
+  IndianRupee
 } from 'lucide-react';
 import ExportDropdown from './ExportDropdown';
 import Pagination from './Pagination';
@@ -25,18 +26,15 @@ import Pagination from './Pagination';
 export default function CentralDashboard({
   transactions = [],
   bankTransactions = [],
-  partnerTransactions = [],
   onEditLedger,
   onDeleteLedger,
   onEditBank,
   onDeleteBank,
-  onEditPartner,
-  onDeletePartner,
   onRefresh,
   loading = false
 }) {
   const [search, setSearch] = useState('');
-  const [sourceFilter, setSourceFilter] = useState('All'); // 'All' | 'ledger' | 'bank' | 'partner'
+  const [sourceFilter, setSourceFilter] = useState('All'); // 'All' | 'ledger' | 'bank'
   const [typeFilter, setTypeFilter] = useState('All'); // 'All' | 'Inflow' | 'Outflow'
   const [dateRange, setDateRange] = useState('all'); // 'all' | 'today' | 'week' | 'month' | 'quarter' | 'year' | 'custom'
   const [startDate, setStartDate] = useState('');
@@ -80,102 +78,141 @@ export default function CentralDashboard({
     }
   };
 
-  // Normalize Ledger & Bank transactions into combined data structure
+  // ----------------------------------------------------
+  // 1. ALL-TIME AVAILABLE BALANCES (Current Liquidity Position)
+  // ----------------------------------------------------
+  const availableBalances = useMemo(() => {
+    // Bank Available Balance: All completed deposits minus withdrawals
+    const totalBankDeposits = (bankTransactions || [])
+      .filter(t => (t.type === 'Deposit' || t.type === 'Credit') && t.status !== 'Failed')
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+    const totalBankWithdrawals = (bankTransactions || [])
+      .filter(t => (t.type === 'Withdrawal' || t.type === 'ATM Withdrawal' || t.type === 'Debit') && t.status !== 'Failed')
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+    const bankBalance = totalBankDeposits - totalBankWithdrawals;
+
+    // Expenses & Cash Available Balance: All cash credits minus expenses/debits
+    const totalCashCredits = (transactions || [])
+      .filter(t => t.type === 'Credit')
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+    const totalCashDebits = (transactions || [])
+      .filter(t => t.type === 'Debit')
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+    const cashBalance = totalCashCredits - totalCashDebits;
+    const totalAvailable = bankBalance + cashBalance;
+
+    return {
+      totalAvailable,
+      bankBalance,
+      totalBankDeposits,
+      totalBankWithdrawals,
+      cashBalance,
+      totalCashCredits,
+      totalCashDebits
+    };
+  }, [transactions, bankTransactions]);
+
+  // ----------------------------------------------------
+  // 2. COMBINED NORMALIZED STREAM (Bank + Expenses)
+  // ----------------------------------------------------
   const allCombinedTransactions = useMemo(() => {
-    const ledgerItems = (transactions || []).map(t => ({
-      _id: t._id,
-      raw: t,
-      sourceModule: 'ledger',
-      sourceLabel: 'Cash / Expense',
-      date: t.date || t.createdAt || new Date().toISOString(),
-      timestamp: new Date(t.date || t.createdAt || Date.now()).getTime(),
-      description: t.description || 'Ledger Entry',
-      entityInfo: t.category || 'Expense',
-      subCategory: t.isHandCash ? 'In Hand Cash' : 'Cash Account',
-      flowType: t.type === 'Credit' ? 'Inflow' : 'Outflow',
-      originalType: t.type,
-      paymentMode: t.isHandCash ? 'In Hand Cash' : 'Cash Transfer',
-      amount: Number(t.amount || 0),
-      refNo: '',
-      status: 'Completed'
-    }));
+    const ledgerItems = (transactions || []).map(t => {
+      const rawDate = t.date || t.createdAt;
+      const dateStr = rawDate ? String(rawDate).split('T')[0] : new Date().toISOString().split('T')[0];
+      const createdTime = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+      const dayBase = new Date(dateStr + 'T00:00:00Z').getTime();
+      const timestamp = dayBase + (createdTime ? (createdTime % 86400000) : 43200000);
 
-    const bankItems = (bankTransactions || []).map(t => ({
-      _id: t._id,
-      raw: t,
-      sourceModule: 'bank',
-      sourceLabel: 'Bank Account',
-      date: t.date || t.createdAt || new Date().toISOString(),
-      timestamp: new Date(t.date || t.createdAt || Date.now()).getTime(),
-      description: t.description || t.notes || `${t.type} - ${t.bankName || 'Bank'}`,
-      entityInfo: `${t.bankName || 'Bank'}${t.accountNumber ? ` (A/C: ${t.accountNumber})` : ''}`,
-      subCategory: t.paymentMethod || 'Bank Transfer',
-      flowType: t.type === 'Deposit' ? 'Inflow' : 'Outflow',
-      originalType: t.type,
-      paymentMode: t.paymentMethod || 'Online / Cheque',
-      amount: Number(t.amount || 0),
-      refNo: t.referenceNumber || '',
-      status: t.status || 'Completed'
-    }));
+      return {
+        _id: t._id,
+        raw: t,
+        sourceModule: 'ledger',
+        sourceLabel: 'Expense / Cash',
+        date: rawDate || new Date().toISOString(),
+        timestamp,
+        description: t.description || 'Ledger Entry',
+        entityInfo: t.category || 'Expense',
+        subCategory: t.isHandCash ? 'In Hand Cash' : 'Cash Account',
+        flowType: t.type === 'Credit' ? 'Inflow' : 'Outflow',
+        originalType: t.type,
+        paymentMode: t.isHandCash ? 'In Hand Cash' : 'Cash Transfer',
+        amount: Number(t.amount || 0),
+        refNo: '',
+        status: 'Completed'
+      };
+    });
 
-    const partnerItems = (partnerTransactions || []).map(t => ({
-      _id: t._id,
-      raw: t,
-      sourceModule: 'partner',
-      sourceLabel: 'Partner Flow',
-      date: t.date || t.createdAt || new Date().toISOString(),
-      timestamp: new Date(t.date || t.createdAt || Date.now()).getTime(),
-      description: t.description || `${t.type} - ${t.partnerName || 'Partner'}`,
-      entityInfo: t.partnerName || 'Partner',
-      subCategory: t.type || 'Capital Movement',
-      flowType: t.type === 'Capital Contribution' ? 'Inflow' : 'Outflow',
-      originalType: t.type,
-      paymentMode: 'Partner Transfer',
-      amount: Number(t.amount || 0),
-      refNo: '',
-      status: 'Completed'
-    }));
+    const bankItems = (bankTransactions || []).map(t => {
+      const rawDate = t.date || t.createdAt;
+      const dateStr = rawDate ? String(rawDate).split('T')[0] : new Date().toISOString().split('T')[0];
+      const createdTime = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+      const dayBase = new Date(dateStr + 'T00:00:00Z').getTime();
+      const timestamp = dayBase + (createdTime ? (createdTime % 86400000) : 43200000);
 
-    return [...ledgerItems, ...bankItems, ...partnerItems];
-  }, [transactions, bankTransactions, partnerTransactions]);
+      return {
+        _id: t._id,
+        raw: t,
+        sourceModule: 'bank',
+        sourceLabel: 'Bank Account',
+        date: rawDate || new Date().toISOString(),
+        timestamp,
+        description: t.description || t.notes || `${t.type} - ${t.bankName || 'Bank'}`,
+        entityInfo: `${t.bankName || 'Bank'}${t.accountNumber ? ` (A/C: ${t.accountNumber})` : ''}`,
+        subCategory: t.paymentMethod || 'Bank Transfer',
+        flowType: (t.type === 'Deposit' || t.type === 'Credit') ? 'Inflow' : 'Outflow',
+        originalType: t.type,
+        paymentMode: t.paymentMethod || 'Online / Cheque',
+        amount: Number(t.amount || 0),
+        refNo: t.referenceNumber || '',
+        status: t.status || 'Completed'
+      };
+    });
 
-  // Date-filtered transactions
+    return [...ledgerItems, ...bankItems];
+  }, [transactions, bankTransactions]);
+
+  // Date-filtered transactions (normalized to UTC noon to prevent timezone shifting)
   const dateFilteredTransactions = useMemo(() => {
     const now = new Date();
+    const todayNoon = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0));
+
     return allCombinedTransactions.filter(t => {
-      const itemDate = new Date(t.date);
+      const rawDate = t.date || t.raw?.date || t.raw?.createdAt;
+      if (!rawDate) return true;
+
+      const dateStr = String(rawDate).split('T')[0];
+      const itemDate = new Date(dateStr + 'T12:00:00Z');
       if (isNaN(itemDate.getTime())) return true;
 
       if (dateRange === 'today') {
-        const today = new Date();
-        return (
-          itemDate.getDate() === today.getDate() &&
-          itemDate.getMonth() === today.getMonth() &&
-          itemDate.getFullYear() === today.getFullYear()
-        );
+        return itemDate.getUTCFullYear() === todayNoon.getUTCFullYear() &&
+          itemDate.getUTCMonth() === todayNoon.getUTCMonth() &&
+          itemDate.getUTCDate() === todayNoon.getUTCDate();
       } else if (dateRange === 'week') {
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(now.getDate() - 7);
+        const oneWeekAgo = new Date(todayNoon);
+        oneWeekAgo.setUTCDate(todayNoon.getUTCDate() - 7);
         return itemDate >= oneWeekAgo;
       } else if (dateRange === 'month') {
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfMonth = new Date(Date.UTC(todayNoon.getUTCFullYear(), todayNoon.getUTCMonth(), 1));
         return itemDate >= startOfMonth;
       } else if (dateRange === 'quarter') {
-        const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
-        const startOfQuarter = new Date(now.getFullYear(), quarterStartMonth, 1);
+        const quarterStartMonth = Math.floor(todayNoon.getUTCMonth() / 3) * 3;
+        const startOfQuarter = new Date(Date.UTC(todayNoon.getUTCFullYear(), quarterStartMonth, 1));
         return itemDate >= startOfQuarter;
       } else if (dateRange === 'year') {
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const startOfYear = new Date(Date.UTC(todayNoon.getUTCFullYear(), 0, 1));
         return itemDate >= startOfYear;
       } else if (dateRange === 'custom') {
         if (startDate) {
-          const s = new Date(startDate);
-          s.setHours(0, 0, 0, 0);
+          const s = new Date(startDate + 'T00:00:00Z');
           if (itemDate < s) return false;
         }
         if (endDate) {
-          const e = new Date(endDate);
-          e.setHours(23, 59, 59, 999);
+          const e = new Date(endDate + 'T23:59:59Z');
           if (itemDate > e) return false;
         }
         return true;
@@ -184,40 +221,39 @@ export default function CentralDashboard({
     });
   }, [allCombinedTransactions, dateRange, startDate, endDate]);
 
-  // Dynamic Inflow, Outflow & Net Balance metrics for selected date filter
-  const kpiData = useMemo(() => {
-    let totalInflow = 0;
-    let totalOutflow = 0;
+  // ----------------------------------------------------
+  // 3. PERIOD INFLOW & OUTFLOW FLOW METRICS (Date-Filtered)
+  // ----------------------------------------------------
+  const periodFlows = useMemo(() => {
+    let periodInflow = 0;
+    let periodOutflow = 0;
 
-    let ledgerIn = 0, ledgerOut = 0;
-    let bankIn = 0, bankOut = 0;
-    let partnerIn = 0, partnerOut = 0;
+    let bankIn = 0;
+    let bankOut = 0;
+    let expenseIn = 0;
+    let expenseOut = 0;
 
     dateFilteredTransactions.forEach(t => {
       if (t.status === 'Failed') return;
       if (t.flowType === 'Inflow') {
-        totalInflow += t.amount;
-        if (t.sourceModule === 'ledger') ledgerIn += t.amount;
+        periodInflow += t.amount;
         if (t.sourceModule === 'bank') bankIn += t.amount;
-        if (t.sourceModule === 'partner') partnerIn += t.amount;
+        if (t.sourceModule === 'ledger') expenseIn += t.amount;
       } else {
-        totalOutflow += t.amount;
-        if (t.sourceModule === 'ledger') ledgerOut += t.amount;
+        periodOutflow += t.amount;
         if (t.sourceModule === 'bank') bankOut += t.amount;
-        if (t.sourceModule === 'partner') partnerOut += t.amount;
+        if (t.sourceModule === 'ledger') expenseOut += t.amount;
       }
     });
 
     return {
-      totalInflow,
-      totalOutflow,
-      netBalance: totalInflow - totalOutflow,
-      ledgerIn,
-      ledgerOut,
+      periodInflow,
+      periodOutflow,
+      periodNet: periodInflow - periodOutflow,
       bankIn,
       bankOut,
-      partnerIn,
-      partnerOut,
+      expenseIn,
+      expenseOut,
       totalCount: dateFilteredTransactions.length
     };
   }, [dateFilteredTransactions]);
@@ -286,12 +322,12 @@ export default function CentralDashboard({
       const startOfYear = new Date(now.getFullYear(), 0, 1);
       toExport = allCombinedTransactions.filter(t => new Date(t.date) >= startOfYear);
     } else if (range === 'custom') {
-      const start = new Date(startDateParam);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(endDateParam);
-      end.setHours(23, 59, 59, 999);
+      const start = new Date(startDateParam + 'T00:00:00Z');
+      const end = new Date(endDateParam + 'T23:59:59Z');
       toExport = allCombinedTransactions.filter(t => {
-        const d = new Date(t.date);
+        const rawDate = t.date || t.raw?.date || t.raw?.createdAt;
+        const dateStr = rawDate ? String(rawDate).split('T')[0] : '';
+        const d = new Date(dateStr + 'T12:00:00Z');
         return d >= start && d <= end;
       });
     }
@@ -357,7 +393,7 @@ export default function CentralDashboard({
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20">
             <BookOpen size={11} />
-            Ledger
+            Expense
           </span>
         );
       case 'bank':
@@ -365,13 +401,6 @@ export default function CentralDashboard({
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20">
             <Building2 size={11} />
             Bank
-          </span>
-        );
-      case 'partner':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-            <Users2 size={11} />
-            Partner
           </span>
         );
       default:
@@ -393,7 +422,7 @@ export default function CentralDashboard({
               <h2 className="text-xl font-black text-slate-900 dark:text-slate-50 tracking-tight flex items-center gap-2">
                 Main Dashboard
                 <span className="px-2 py-0.5 text-[10px] font-bold bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 rounded-md">
-                  Cash & Bank
+                  Bank & Expenses
                 </span>
               </h2>
             </div>
@@ -415,71 +444,169 @@ export default function CentralDashboard({
         </div>
       </div>
 
-      {/* 2. Date-Wise Summary KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Total Money In (Inflow) */}
-        <div className="glass-panel glass-panel-hover rounded-xl p-4.5 glow-green relative overflow-hidden transition-all duration-300">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-6 -mt-6 blur-2xl"></div>
-          <div className="flex items-center justify-between mb-2.5">
-            <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-wider uppercase">Total Money In (Inflow)</span>
-            <div className="p-1.5 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400">
-              <TrendingUp size={16} />
-            </div>
-          </div>
-          <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
-            {formatCurrency(kpiData.totalInflow)}
-          </h3>
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 text-[9.5px] font-semibold text-slate-500 dark:text-slate-400">
-            <span>Ledger: {formatCurrency(kpiData.ledgerIn)}</span>
-            <span>Bank: {formatCurrency(kpiData.bankIn)}</span>
-            {kpiData.partnerIn > 0 && <span>Partner: {formatCurrency(kpiData.partnerIn)}</span>}
-          </div>
+      {/* 2. REAL-TIME AVAILABLE BALANCE CARDS (Total, Bank, and Expenses/Cash) */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+            <Wallet size={13} className="text-violet-500" />
+            Current Available Balances
+          </span>
+          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+            Real-Time Liquidity Position
+          </span>
         </div>
 
-        {/* Total Money Out (Outflow) */}
-        <div className="glass-panel glass-panel-hover rounded-xl p-4.5 glow-rose relative overflow-hidden transition-all duration-300">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full -mr-6 -mt-6 blur-2xl"></div>
-          <div className="flex items-center justify-between mb-2.5">
-            <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-wider uppercase">Total Money Out (Outflow)</span>
-            <div className="p-1.5 bg-rose-500/10 dark:bg-rose-500/20 rounded-lg text-rose-600 dark:text-rose-400">
-              <TrendingDown size={16} />
-            </div>
-          </div>
-          <h3 className="text-2xl font-black text-rose-600 dark:text-rose-400 tracking-tight">
-            {formatCurrency(kpiData.totalOutflow)}
-          </h3>
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 text-[9.5px] font-semibold text-slate-500 dark:text-slate-400">
-            <span>Ledger: {formatCurrency(kpiData.ledgerOut)}</span>
-            <span>Bank: {formatCurrency(kpiData.bankOut)}</span>
-            {kpiData.partnerOut > 0 && <span>Partner: {formatCurrency(kpiData.partnerOut)}</span>}
-          </div>
-        </div>
-
-        {/* Net Balance */}
-        <div className={`glass-panel glass-panel-hover rounded-xl p-4.5 relative overflow-hidden transition-all duration-300 ${
-          kpiData.netBalance >= 0 ? 'glow-indigo' : 'glow-rose'
-        }`}>
-          <div className={`absolute top-0 right-0 w-24 h-24 rounded-full -mr-6 -mt-6 blur-2xl ${
-            kpiData.netBalance >= 0 ? 'bg-indigo-500/5' : 'bg-rose-500/5'
-          }`}></div>
-          <div className="flex items-center justify-between mb-2.5">
-            <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-wider uppercase">Net Balance</span>
-            <div className={`p-1.5 rounded-lg ${
-              kpiData.netBalance >= 0 
-                ? 'bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' 
-                : 'bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400'
-            }`}>
-              <Layers size={16} />
-            </div>
-          </div>
-          <h3 className={`text-2xl font-black tracking-tight ${
-            kpiData.netBalance >= 0 ? 'text-indigo-650 dark:text-indigo-400' : 'text-rose-600 dark:text-rose-400'
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Total Available Balance */}
+          <div className={`glass-panel glass-panel-hover rounded-2xl p-5 relative overflow-hidden transition-all duration-300 border ${
+            availableBalances.totalAvailable >= 0 ? 'glow-indigo border-indigo-500/25' : 'glow-rose border-rose-500/25'
           }`}>
-            {formatCurrency(kpiData.netBalance)}
-          </h3>
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 text-[9.5px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-            <span>{kpiData.totalCount} Records in Selected Period</span>
-            <span>{filteredTransactions.length} Shown</span>
+            <div className={`absolute top-0 right-0 w-28 h-28 rounded-full -mr-8 -mt-8 blur-2xl ${
+              availableBalances.totalAvailable >= 0 ? 'bg-indigo-500/10' : 'bg-rose-500/10'
+            }`}></div>
+            <div className="flex items-center justify-between mb-3 relative z-10">
+              <span className="text-slate-500 dark:text-slate-400 font-extrabold text-[10px] tracking-wider uppercase flex items-center gap-1.5">
+                <Wallet size={14} className="text-violet-500" />
+                Total Available Balance
+              </span>
+              <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
+                Bank + Cash
+              </span>
+            </div>
+            <h3 className={`text-2xl sm:text-3xl font-black tracking-tight relative z-10 ${
+              availableBalances.totalAvailable >= 0 ? 'text-slate-900 dark:text-slate-50' : 'text-rose-600 dark:text-rose-400'
+            }`}>
+              {formatCurrency(availableBalances.totalAvailable)}
+            </h3>
+            <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] font-bold text-slate-500 dark:text-slate-400 relative z-10">
+              <span>Bank: <strong className="text-sky-600 dark:text-sky-400">{formatCurrency(availableBalances.bankBalance)}</strong></span>
+              <span>Cash: <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(availableBalances.cashBalance)}</strong></span>
+            </div>
+          </div>
+
+          {/* Bank Available Balance */}
+          <div className="glass-panel glass-panel-hover rounded-2xl p-5 glow-indigo relative overflow-hidden transition-all duration-300 border border-sky-500/25">
+            <div className="absolute top-0 right-0 w-28 h-28 bg-sky-500/10 rounded-full -mr-8 -mt-8 blur-2xl"></div>
+            <div className="flex items-center justify-between mb-3 relative z-10">
+              <span className="text-slate-500 dark:text-slate-400 font-extrabold text-[10px] tracking-wider uppercase flex items-center gap-1.5">
+                <Building2 size={14} className="text-sky-500" />
+                Bank Available Balance
+              </span>
+              <div className="p-1.5 bg-sky-500/10 dark:bg-sky-500/20 rounded-lg text-sky-600 dark:text-sky-400">
+                <Landmark size={15} />
+              </div>
+            </div>
+            <h3 className={`text-2xl sm:text-3xl font-black tracking-tight relative z-10 ${
+              availableBalances.bankBalance >= 0 ? 'text-sky-600 dark:text-sky-400' : 'text-rose-600 dark:text-rose-400'
+            }`}>
+              {formatCurrency(availableBalances.bankBalance)}
+            </h3>
+            <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] font-medium text-slate-500 dark:text-slate-400 relative z-10">
+              <span>In: {formatCurrency(availableBalances.totalBankDeposits)}</span>
+              <span>Out: {formatCurrency(availableBalances.totalBankWithdrawals)}</span>
+            </div>
+          </div>
+
+          {/* Expenses & Cash Available Balance */}
+          <div className="glass-panel glass-panel-hover rounded-2xl p-5 glow-green relative overflow-hidden transition-all duration-300 border border-emerald-500/25">
+            <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/10 rounded-full -mr-8 -mt-8 blur-2xl"></div>
+            <div className="flex items-center justify-between mb-3 relative z-10">
+              <span className="text-slate-500 dark:text-slate-400 font-extrabold text-[10px] tracking-wider uppercase flex items-center gap-1.5">
+                <BookOpen size={14} className="text-emerald-500" />
+                Expenses & Cash Balance
+              </span>
+              <div className="p-1.5 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400">
+                <IndianRupee size={15} />
+              </div>
+            </div>
+            <h3 className={`text-2xl sm:text-3xl font-black tracking-tight relative z-10 ${
+              availableBalances.cashBalance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+            }`}>
+              {formatCurrency(availableBalances.cashBalance)}
+            </h3>
+            <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] font-medium text-slate-500 dark:text-slate-400 relative z-10">
+              <span>Cash In: {formatCurrency(availableBalances.totalCashCredits)}</span>
+              <span>Expenses: {formatCurrency(availableBalances.totalCashDebits)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. PERIOD CASH FLOW IN & OUT FLOWS */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+            <Sparkles size={13} className="text-amber-500" />
+            Inflows & Outflows ({dateRange === 'all' ? 'All Time' : dateRange.toUpperCase()})
+          </span>
+          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+            {periodFlows.totalCount} Transactions in Period
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Period Total Inflows (Money In) */}
+          <div className="glass-panel glass-panel-hover rounded-xl p-4.5 glow-green relative overflow-hidden transition-all duration-300 border border-emerald-500/15">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-wider uppercase flex items-center gap-1.5">
+                <ArrowUpRight size={14} className="text-emerald-500" />
+                Total Inflows (Money In)
+              </span>
+              <div className="p-1.5 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400">
+                <TrendingUp size={15} />
+              </div>
+            </div>
+            <h4 className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+              +{formatCurrency(periodFlows.periodInflow)}
+            </h4>
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 text-[9.5px] font-semibold text-slate-500 dark:text-slate-400">
+              <span>Bank: {formatCurrency(periodFlows.bankIn)}</span>
+              <span>Expenses / Cash: {formatCurrency(periodFlows.expenseIn)}</span>
+            </div>
+          </div>
+
+          {/* Period Total Outflows (Money Out / Expenses) */}
+          <div className="glass-panel glass-panel-hover rounded-xl p-4.5 glow-rose relative overflow-hidden transition-all duration-300 border border-rose-500/15">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-wider uppercase flex items-center gap-1.5">
+                <ArrowDownRight size={14} className="text-rose-500" />
+                Total Outflows (Money Out)
+              </span>
+              <div className="p-1.5 bg-rose-500/10 dark:bg-rose-500/20 rounded-lg text-rose-600 dark:text-rose-400">
+                <TrendingDown size={15} />
+              </div>
+            </div>
+            <h4 className="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400 tracking-tight">
+              -{formatCurrency(periodFlows.periodOutflow)}
+            </h4>
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 text-[9.5px] font-semibold text-slate-500 dark:text-slate-400">
+              <span>Bank: {formatCurrency(periodFlows.bankOut)}</span>
+              <span>Expenses: {formatCurrency(periodFlows.expenseOut)}</span>
+            </div>
+          </div>
+
+          {/* Period Net Flow */}
+          <div className={`glass-panel glass-panel-hover rounded-xl p-4.5 relative overflow-hidden transition-all duration-300 border ${
+            periodFlows.periodNet >= 0 ? 'glow-indigo border-indigo-500/15' : 'glow-rose border-rose-500/15'
+          }`}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-wider uppercase flex items-center gap-1.5">
+                <Layers size={14} className="text-violet-500" />
+                Period Net Cash Flow
+              </span>
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase">
+                {dateRange}
+              </span>
+            </div>
+            <h4 className={`text-xl sm:text-2xl font-black tracking-tight ${
+              periodFlows.periodNet >= 0 ? 'text-indigo-650 dark:text-indigo-400' : 'text-rose-600 dark:text-rose-400'
+            }`}>
+              {periodFlows.periodNet >= 0 ? '+' : ''}{formatCurrency(periodFlows.periodNet)}
+            </h4>
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 text-[9.5px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              <span>{periodFlows.periodNet >= 0 ? 'Net Surplus' : 'Net Deficit'}</span>
+              <span>{filteredTransactions.length} Filtered Records</span>
+            </div>
           </div>
         </div>
       </div>
@@ -521,9 +648,8 @@ export default function CentralDashboard({
             <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 px-1.5 uppercase shrink-0">Source</span>
             {[
               { id: 'All', label: 'All' },
-              { id: 'ledger', label: 'Ledger' },
-              { id: 'bank', label: 'Bank' },
-              { id: 'partner', label: 'Partner' }
+              { id: 'ledger', label: 'Expenses' },
+              { id: 'bank', label: 'Bank' }
             ].map(opt => (
               <button
                 key={opt.id}
@@ -651,9 +777,8 @@ export default function CentralDashboard({
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => {
-                          if (t.sourceModule === 'ledger') onEditLedger(t.raw);
-                          else if (t.sourceModule === 'bank') onEditBank(t.raw);
-                          else if (t.sourceModule === 'partner') onEditPartner(t.raw);
+                          if (t.sourceModule === 'ledger') onEditLedger?.(t.raw);
+                          else if (t.sourceModule === 'bank') onEditBank?.(t.raw);
                         }}
                         className="p-1.5 text-slate-400 hover:text-indigo-600 bg-slate-100 dark:bg-slate-900 rounded-lg"
                       >
@@ -661,9 +786,8 @@ export default function CentralDashboard({
                       </button>
                       <button
                         onClick={() => {
-                          if (t.sourceModule === 'ledger') onDeleteLedger(t.raw);
-                          else if (t.sourceModule === 'bank') onDeleteBank(t.raw);
-                          else if (t.sourceModule === 'partner') onDeletePartner(t.raw);
+                          if (t.sourceModule === 'ledger') onDeleteLedger?.(t.raw);
+                          else if (t.sourceModule === 'bank') onDeleteBank?.(t.raw);
                         }}
                         className="p-1.5 text-slate-400 hover:text-rose-600 bg-slate-100 dark:bg-slate-900 rounded-lg"
                       >
@@ -782,9 +906,8 @@ export default function CentralDashboard({
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => {
-                              if (t.sourceModule === 'ledger') onEditLedger(t.raw);
-                              else if (t.sourceModule === 'bank') onEditBank(t.raw);
-                              else if (t.sourceModule === 'partner') onEditPartner(t.raw);
+                              if (t.sourceModule === 'ledger') onEditLedger?.(t.raw);
+                              else if (t.sourceModule === 'bank') onEditBank?.(t.raw);
                             }}
                             className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg cursor-pointer transition-colors"
                             title="Edit transaction"
@@ -793,9 +916,8 @@ export default function CentralDashboard({
                           </button>
                           <button
                             onClick={() => {
-                              if (t.sourceModule === 'ledger') onDeleteLedger(t.raw);
-                              else if (t.sourceModule === 'bank') onDeleteBank(t.raw);
-                              else if (t.sourceModule === 'partner') onDeletePartner(t.raw);
+                              if (t.sourceModule === 'ledger') onDeleteLedger?.(t.raw);
+                              else if (t.sourceModule === 'bank') onDeleteBank?.(t.raw);
                             }}
                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer transition-colors"
                             title="Delete transaction"
