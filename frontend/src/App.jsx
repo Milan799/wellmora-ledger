@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { flushSync } from 'react-dom';
-import { AlertCircle, RefreshCw, Menu, Sun, Moon, ShieldCheck, LogOut } from 'lucide-react';
+import { AlertCircle, RefreshCw, Sun, Moon, ShieldCheck, LogOut } from 'lucide-react';
 
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -1724,14 +1724,7 @@ export default function App() {
 
       {/* 1. Mobile Top Navigation Bar */}
       <div className="md:hidden flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 z-20 shrink-0">
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-2 -ml-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors"
-            title="Open Navigation Menu"
-          >
-            <Menu size={20} />
-          </button>
+        <div className="flex items-center gap-2">
           <Logo size={24} />
           <span className="font-black text-xs text-slate-900 dark:text-slate-100 uppercase tracking-wider">Wellmora</span>
           <span className="px-1.5 py-0.5 bg-violet-500/10 dark:bg-violet-950/45 text-[9px] font-bold text-violet-600 dark:text-violet-400 rounded tracking-wide uppercase">
@@ -1759,16 +1752,15 @@ export default function App() {
           {authUser ? (
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-xl cursor-pointer transition-colors active:scale-95"
+              className="p-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-600 dark:text-rose-400 rounded-xl cursor-pointer transition-colors active:scale-95 flex items-center justify-center"
               title="Sign Out"
             >
-              <LogOut size={14} />
-              <span>Logout</span>
+              <LogOut size={16} />
             </button>
           ) : (
             <button
               onClick={() => setIsAuthModalOpen(true)}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl cursor-pointer shadow-sm transition-all"
+              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl cursor-pointer shadow-sm transition-all"
             >
               Sign In
             </button>
