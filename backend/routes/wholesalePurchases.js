@@ -85,13 +85,14 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     // 1. Strict Server-Side Validations
-    if (!sellerName || !sellerName.trim()) {
-      return res.status(400).json({ message: 'Seller name is required (Dev or Sneh)' });
+    let effectiveSeller = (sellerName || '').trim();
+    if (!effectiveSeller) {
+      return res.status(400).json({ message: 'Seller name is required' });
     }
-
-    const effectiveSeller = sellerName.trim();
-    if (!['Dev', 'Sneh', 'dev', 'sneh', 'Other'].includes(effectiveSeller)) {
-      return res.status(400).json({ message: 'Seller name must be Dev or Sneh' });
+    if (effectiveSeller.toLowerCase() === 'dev') effectiveSeller = 'Dev';
+    else if (effectiveSeller.toLowerCase() === 'sneh') effectiveSeller = 'Sneh';
+    else if (effectiveSeller.toLowerCase() === 'other' && customSellerName && customSellerName.trim()) {
+      effectiveSeller = customSellerName.trim();
     }
 
     if (!description || !description.trim()) {
@@ -233,9 +234,12 @@ router.put('/:id', async (req, res) => {
 
     // Validation
     if (sellerName !== undefined) {
-      const s = sellerName.trim();
-      if (!['Dev', 'Sneh', 'dev', 'sneh', 'Other'].includes(s)) {
-        return res.status(400).json({ message: 'Seller name must be Dev or Sneh' });
+      let s = sellerName.trim();
+      if (!s) return res.status(400).json({ message: 'Seller name cannot be empty' });
+      if (s.toLowerCase() === 'dev') s = 'Dev';
+      else if (s.toLowerCase() === 'sneh') s = 'Sneh';
+      else if (s.toLowerCase() === 'other' && customSellerName && customSellerName.trim()) {
+        s = customSellerName.trim();
       }
       existing.sellerName = s;
     }

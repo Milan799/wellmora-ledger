@@ -39,7 +39,7 @@ function computeStatementMetrics(periodTrans, cumulativeTrans, cumulativeBank, c
 
   const isPurchase = (cat) => {
     const c = String(cat || '').toLowerCase().trim();
-    return c === 'purchase' || c === 'stock' || c === 'purchases' || c === 'raw materials';
+    return c === 'purchase' || c === 'stock' || c === 'purchases' || c === 'raw materials' || c === 'wholesale purchase' || c.includes('wholesale');
   };
 
   // 1. Profit & Loss Metrics (Calculated for the specified fiscal period)

@@ -5,10 +5,6 @@ const wholesalePurchaseSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Seller name is required'],
     trim: true,
-    enum: {
-      values: ['Dev', 'Sneh', 'dev', 'sneh', 'Other'],
-      message: '{VALUE} is not a valid seller. Choose Dev or Sneh.'
-    },
     default: 'Dev'
   },
   customSellerName: {

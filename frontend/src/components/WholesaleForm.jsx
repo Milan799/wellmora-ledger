@@ -14,6 +14,7 @@ import {
   Calculator,
   ChevronDown
 } from 'lucide-react';
+import { getTodayLocalDate, toLocalDateString, cleanWholesaleDescription } from '../utils/helpers';
 
 export default function WholesaleForm({ isOpen, onClose, onSubmit, purchase = null }) {
   const [formData, setFormData] = useState({
@@ -23,7 +24,7 @@ export default function WholesaleForm({ isOpen, onClose, onSubmit, purchase = nu
     quantity: '',
     unitPrice: '',
     totalAmount: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayLocalDate(),
     paymentStatus: 'Pending', // 'Done' | 'Pending' | 'Partial'
     paidAmount: '',
     paymentMode: 'Cash',
@@ -37,9 +38,7 @@ export default function WholesaleForm({ isOpen, onClose, onSubmit, purchase = nu
   // Initialize or reset form when modal opens or purchase prop changes
   useEffect(() => {
     if (purchase) {
-      const formattedDate = purchase.date 
-        ? new Date(purchase.date).toISOString().split('T')[0] 
-        : new Date().toISOString().split('T')[0];
+      const formattedDate = toLocalDateString(purchase.date);
 
       const isKnownSeller = ['Dev', 'Sneh'].includes(purchase.sellerName);
       const initialSeller = isKnownSeller ? purchase.sellerName : (purchase.sellerName ? 'Other' : 'Dev');
@@ -53,10 +52,13 @@ export default function WholesaleForm({ isOpen, onClose, onSubmit, purchase = nu
       let status = purchase.paymentStatus || 'Pending';
       if (status === 'Paid') status = 'Done';
 
+      // Always strip out formatting prefixes [Wholesale: ...] and suffixes (X pcs @ ₹Y)
+      const cleanDesc = cleanWholesaleDescription(purchase.description);
+
       setFormData({
         sellerName: initialSeller,
         customSellerName: customSeller,
-        description: purchase.description || '',
+        description: cleanDesc,
         quantity: qty.toString(),
         unitPrice: price.toString(),
         totalAmount: total,
@@ -76,7 +78,7 @@ export default function WholesaleForm({ isOpen, onClose, onSubmit, purchase = nu
         quantity: '',
         unitPrice: '',
         totalAmount: 0,
-        date: new Date().toISOString().split('T')[0],
+        date: getTodayLocalDate(),
         paymentStatus: 'Pending',
         paidAmount: '0',
         paymentMode: 'Cash',
@@ -225,7 +227,7 @@ export default function WholesaleForm({ isOpen, onClose, onSubmit, purchase = nu
       const payload = {
         sellerName: finalSeller,
         customSellerName: formData.customSellerName.trim(),
-        description: formData.description.trim(),
+        description: cleanWholesaleDescription(formData.description),
         quantity: qtyNum,
         unitPrice: priceNum,
         totalAmount: calculatedTotal,

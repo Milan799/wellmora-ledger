@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, IndianRupee, CreditCard, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { cleanWholesaleDescription } from '../utils/helpers';
 
 export default function WholesalePaymentModal({ isOpen, onClose, onRecordPayment, purchase }) {
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -92,7 +93,7 @@ export default function WholesalePaymentModal({ isOpen, onClose, onRecordPayment
           {/* Purchase Summary Pill */}
           <div className="p-3 rounded-2xl bg-slate-100/70 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
             <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
-              <span className="truncate max-w-[200px]">{purchase.description}</span>
+              <span className="truncate max-w-[200px]">{cleanWholesaleDescription(purchase.description) || 'Wholesale Goods'}</span>
               <span className="text-[10px] px-2 py-0.5 bg-violet-100 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 rounded-md">
                 {purchase.sellerName}
               </span>

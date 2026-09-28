@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, IndianRupee, Landmark, FileText, Activity, ArrowRightLeft, Sparkles } from 'lucide-react';
+import { getTodayLocalDate, toLocalDateString } from '../utils/helpers';
 
 export default function BankForm({ isOpen, onClose, onSubmit, transaction = null }) {
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayLocalDate(),
     bankName: '',
     accountNumber: '',
     type: 'Deposit',
@@ -17,9 +18,7 @@ export default function BankForm({ isOpen, onClose, onSubmit, transaction = null
 
   useEffect(() => {
     if (transaction) {
-      const formattedDate = transaction.date 
-        ? new Date(transaction.date).toISOString().split('T')[0] 
-        : new Date().toISOString().split('T')[0];
+      const formattedDate = toLocalDateString(transaction.date);
       setFormData({
         date: formattedDate,
         bankName: transaction.bankName || '',
@@ -33,7 +32,7 @@ export default function BankForm({ isOpen, onClose, onSubmit, transaction = null
       setErrors({});
     } else {
       setFormData({
-        date: new Date().toISOString().split('T')[0],
+        date: getTodayLocalDate(),
         bankName: '',
         accountNumber: '',
         type: 'Deposit',

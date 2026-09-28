@@ -21,9 +21,9 @@ import WholesaleForm from './components/WholesaleForm';
 import WholesalePaymentModal from './components/WholesalePaymentModal';
 
 import DeleteConfirmation from './components/DeleteConfirmation';
-import Notification from './components/Notification';
 import ExportDropdown from './components/ExportDropdown';
 import AuthModal from './components/AuthModal';
+import { getTodayLocalDate, toLocalDateString, cleanWholesaleDescription, formatWholesaleLedgerDescription } from './utils/helpers';
 
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL !== undefined 
@@ -1171,13 +1171,19 @@ export default function App() {
 
   const handleWholesaleSubmit = async (formData) => {
     try {
+      const cleanDesc = cleanWholesaleDescription(formData.description);
+      const formattedWholesaleData = {
+        ...formData,
+        description: cleanDesc
+      };
+
       if (editingWholesalePurchase) {
         try {
           let updated = null;
           const targetTxId = editingWholesalePurchase.linkedTransactionId || editingWholesalePurchase._id;
           const response = await fetchWithTimeout(`${API_BASE_URL}/wholesale-purchases/${editingWholesalePurchase._id}`, {
             method: 'PUT',
-            body: JSON.stringify(formData)
+            body: JSON.stringify(formattedWholesaleData)
           });
           if (response.status === 401) {
             handleLogout();
@@ -1187,22 +1193,22 @@ export default function App() {
           if (response.status === 404) {
             // Server hasn't updated its wholesale route yet; fallback to updating via /transactions
             const fallbackTxData = {
-              date: formData.date,
-              description: `[Wholesale: ${formData.sellerName}] ${formData.description} (${formData.quantity} pcs @ ₹${formData.unitPrice})`,
+              date: formattedWholesaleData.date,
+              description: formatWholesaleLedgerDescription(formattedWholesaleData.sellerName, cleanDesc, formattedWholesaleData.quantity, formattedWholesaleData.unitPrice),
               category: 'Purchase',
               type: 'Debit',
-              amount: Number(formData.totalAmount) || 0,
-              isHandCash: (formData.paymentMode || '').toLowerCase().includes('cash'),
+              amount: Number(formattedWholesaleData.totalAmount) || 0,
+              isHandCash: (formattedWholesaleData.paymentMode || '').toLowerCase().includes('cash'),
               isWholesalePurchase: true,
-              sellerName: formData.sellerName,
-              quantity: Number(formData.quantity) || 1,
-              unitPrice: Number(formData.unitPrice) || 0,
-              totalAmount: Number(formData.totalAmount) || 0,
-              paidAmount: Number(formData.paidAmount) || 0,
-              pendingAmount: Number(formData.pendingAmount) || 0,
-              paymentStatus: formData.paymentStatus,
-              billNumber: formData.billNumber || '',
-              notes: formData.notes || ''
+              sellerName: formattedWholesaleData.sellerName,
+              quantity: Number(formattedWholesaleData.quantity) || 1,
+              unitPrice: Number(formattedWholesaleData.unitPrice) || 0,
+              totalAmount: Number(formattedWholesaleData.totalAmount) || 0,
+              paidAmount: Number(formattedWholesaleData.paidAmount) || 0,
+              pendingAmount: Number(formattedWholesaleData.pendingAmount) || 0,
+              paymentStatus: formattedWholesaleData.paymentStatus,
+              billNumber: formattedWholesaleData.billNumber || '',
+              notes: formattedWholesaleData.notes || ''
             };
             const txRes = await fetchWithTimeout(`${API_BASE_URL}/transactions/${targetTxId}`, {
               method: 'PUT',
@@ -1217,7 +1223,7 @@ export default function App() {
               const txErr = await safeJsonFetch(txRes);
               throw new Error(txErr?.message || `Failed to update purchase (HTTP ${txRes.status})`);
             }
-            updated = { ...editingWholesalePurchase, ...formData, updatedAt: new Date().toISOString() };
+            updated = { ...editingWholesalePurchase, ...formattedWholesaleData, updatedAt: new Date().toISOString() };
           } else if (!response.ok) {
             const errData = await safeJsonFetch(response);
             throw new Error(errData?.message || `Failed to update wholesale purchase (HTTP ${response.status})`);
@@ -1234,7 +1240,7 @@ export default function App() {
 
           // Sync into transactions state for Expenses & Main Dashboard
           setTransactions(prev => {
-            const txDesc = `[Wholesale: ${updated.sellerName}] ${updated.description} (${updated.quantity} pcs @ ₹${updated.unitPrice})`;
+            const txDesc = formatWholesaleLedgerDescription(updated.sellerName, cleanWholesaleDescription(updated.description), updated.quantity, updated.unitPrice);
             const exists = prev.find(t => t.wholesalePurchaseId === updated._id || (updated.linkedTransactionId && t._id === updated.linkedTransactionId));
             if (exists) {
               const newT = prev.map(t => (t._id === exists._id) ? {
@@ -1260,7 +1266,7 @@ export default function App() {
           triggerNotification('Wholesale purchase updated successfully!', 'success');
         } catch (err) {
           if (!navigator.onLine || err.name === 'AbortError' || (err.message && err.message.includes('Failed to fetch'))) {
-            const updatedLocally = { ...editingWholesalePurchase, ...formData, updatedAt: new Date().toISOString() };
+            const updatedLocally = { ...editingWholesalePurchase, ...formattedWholesaleData, updatedAt: new Date().toISOString() };
             setWholesalePurchases(prev => {
               const newL = prev.map(p => p._id === editingWholesalePurchase._id ? updatedLocally : p);
               safeSetLocalStorage('cached_wholesalePurchases', newL);
@@ -1278,7 +1284,7 @@ export default function App() {
           let saved = null;
           const response = await fetchWithTimeout(`${API_BASE_URL}/wholesale-purchases`, {
             method: 'POST',
-            body: JSON.stringify(formData)
+            body: JSON.stringify(formattedWholesaleData)
           });
           if (response.status === 401) {
             handleLogout();
@@ -1288,22 +1294,22 @@ export default function App() {
           if (response.status === 404) {
             // Server hasn't updated its wholesale route yet; fallback to saving directly as a Transaction in MongoDB
             const fallbackTxData = {
-              date: formData.date,
-              description: `[Wholesale: ${formData.sellerName}] ${formData.description} (${formData.quantity} pcs @ ₹${formData.unitPrice})`,
+              date: formattedWholesaleData.date,
+              description: formatWholesaleLedgerDescription(formattedWholesaleData.sellerName, cleanDesc, formattedWholesaleData.quantity, formattedWholesaleData.unitPrice),
               category: 'Purchase',
               type: 'Debit',
-              amount: Number(formData.totalAmount) || 0,
-              isHandCash: (formData.paymentMode || '').toLowerCase().includes('cash'),
+              amount: Number(formattedWholesaleData.totalAmount) || 0,
+              isHandCash: (formattedWholesaleData.paymentMode || '').toLowerCase().includes('cash'),
               isWholesalePurchase: true,
-              sellerName: formData.sellerName,
-              quantity: Number(formData.quantity) || 1,
-              unitPrice: Number(formData.unitPrice) || 0,
-              totalAmount: Number(formData.totalAmount) || 0,
-              paidAmount: Number(formData.paidAmount) || 0,
-              pendingAmount: Number(formData.pendingAmount) || 0,
-              paymentStatus: formData.paymentStatus,
-              billNumber: formData.billNumber || '',
-              notes: formData.notes || ''
+              sellerName: formattedWholesaleData.sellerName,
+              quantity: Number(formattedWholesaleData.quantity) || 1,
+              unitPrice: Number(formattedWholesaleData.unitPrice) || 0,
+              totalAmount: Number(formattedWholesaleData.totalAmount) || 0,
+              paidAmount: Number(formattedWholesaleData.paidAmount) || 0,
+              pendingAmount: Number(formattedWholesaleData.pendingAmount) || 0,
+              paymentStatus: formattedWholesaleData.paymentStatus,
+              billNumber: formattedWholesaleData.billNumber || '',
+              notes: formattedWholesaleData.notes || ''
             };
             const txRes = await fetchWithTimeout(`${API_BASE_URL}/transactions`, {
               method: 'POST',
@@ -1324,10 +1330,10 @@ export default function App() {
             saved = {
               _id: savedTx._id,
               linkedTransactionId: savedTx._id,
-              ...formData,
-              totalAmount: Number(formData.totalAmount) || 0,
-              paidAmount: Number(formData.paidAmount) || 0,
-              pendingAmount: Number(formData.pendingAmount) || 0,
+              ...formattedWholesaleData,
+              totalAmount: Number(formattedWholesaleData.totalAmount) || 0,
+              paidAmount: Number(formattedWholesaleData.paidAmount) || 0,
+              pendingAmount: Number(formattedWholesaleData.pendingAmount) || 0,
               createdAt: savedTx.createdAt || new Date().toISOString(),
               updatedAt: savedTx.updatedAt || new Date().toISOString()
             };
@@ -1349,7 +1355,7 @@ export default function App() {
           const newTx = {
             _id: saved.linkedTransactionId || `local_tx_${Date.now()}`,
             date: saved.date,
-            description: `[Wholesale: ${saved.sellerName}] ${saved.description} (${saved.quantity} pcs @ ₹${saved.unitPrice})`,
+            description: formatWholesaleLedgerDescription(saved.sellerName, cleanWholesaleDescription(saved.description), saved.quantity, saved.unitPrice),
             category: 'Purchase',
             type: 'Debit',
             amount: Number(saved.totalAmount) || 0,
@@ -1577,25 +1583,28 @@ export default function App() {
     const existingTxIds = new Set(transactions.map(t => String(t.wholesalePurchaseId || t._id)));
     const unlinkedWholesale = (wholesalePurchases || [])
       .filter(p => !existingTxIds.has(String(p._id)) && !existingTxIds.has(String(p.linkedTransactionId)))
-      .map(p => ({
-        _id: p.linkedTransactionId || `wp_display_${p._id}`,
-        date: p.date,
-        description: `[Wholesale: ${p.sellerName}] ${p.description} (${p.quantity} pcs @ ₹${p.unitPrice})`,
-        category: 'Purchase',
-        type: 'Debit',
-        amount: Number(p.totalAmount || 0),
-        isHandCash: (p.paymentMode || '').toLowerCase().includes('cash'),
-        isWholesalePurchase: true,
-        sellerName: p.sellerName,
-        quantity: p.quantity,
-        unitPrice: p.unitPrice,
-        totalAmount: p.totalAmount,
-        paidAmount: p.paidAmount,
-        pendingAmount: p.pendingAmount,
-        paymentStatus: p.paymentStatus,
-        billNumber: p.billNumber || '',
-        wholesalePurchaseId: p._id
-      }));
+      .map(p => {
+        const cleanDesc = cleanWholesaleDescription(p.description);
+        return {
+          _id: p.linkedTransactionId || `wp_display_${p._id}`,
+          date: p.date,
+          description: formatWholesaleLedgerDescription(p.sellerName, cleanDesc, p.quantity, p.unitPrice),
+          category: 'Purchase',
+          type: 'Debit',
+          amount: Number(p.totalAmount || 0),
+          isHandCash: (p.paymentMode || '').toLowerCase().includes('cash'),
+          isWholesalePurchase: true,
+          sellerName: p.sellerName,
+          quantity: p.quantity,
+          unitPrice: p.unitPrice,
+          totalAmount: p.totalAmount,
+          paidAmount: p.paidAmount,
+          pendingAmount: p.pendingAmount,
+          paymentStatus: p.paymentStatus,
+          billNumber: p.billNumber || '',
+          wholesalePurchaseId: p._id
+        };
+      });
 
     return [...transactions, ...unlinkedWholesale];
   }, [transactions, wholesalePurchases]);
@@ -1606,25 +1615,42 @@ export default function App() {
     : combinedExpensesTransactions;
 
   const handleEditLedgerItem = (t) => {
-    if (t.isWholesalePurchase || t.wholesalePurchaseId) {
+    if (t.isWholesalePurchase || t.wholesalePurchaseId || (t.category === 'Purchase' && t.sellerName)) {
       const match = wholesalePurchases.find(p => p._id === t.wholesalePurchaseId || p._id === t._id || (t.wholesalePurchaseId && String(p._id) === String(t.wholesalePurchaseId)));
-      if (match) {
-        setEditingWholesalePurchase(match);
-        setIsWholesaleFormOpen(true);
-        return;
-      }
+      const cleanDesc = cleanWholesaleDescription(t.description);
+      const wholesaleObj = match || {
+        _id: t.wholesalePurchaseId || t._id,
+        linkedTransactionId: t._id,
+        sellerName: t.sellerName || 'Dev',
+        description: cleanDesc,
+        quantity: t.quantity || 1,
+        unitPrice: t.unitPrice || t.amount,
+        totalAmount: t.totalAmount || t.amount,
+        date: t.date,
+        paymentStatus: t.paymentStatus || (t.pendingAmount > 0 ? 'Pending' : 'Done'),
+        paidAmount: t.paidAmount !== undefined ? t.paidAmount : (t.pendingAmount > 0 ? 0 : t.amount),
+        pendingAmount: t.pendingAmount || 0,
+        paymentMode: t.isHandCash ? 'Cash' : 'Bank',
+        billNumber: t.billNumber || '',
+        notes: t.notes || ''
+      };
+      setEditingWholesalePurchase(wholesaleObj);
+      setIsWholesaleFormOpen(true);
+      return;
     }
     setEditingTransaction(t);
     setIsFormOpen(true);
   };
 
   const handleDeleteLedgerItem = (t) => {
-    if (t.isWholesalePurchase || t.wholesalePurchaseId) {
+    if (t.isWholesalePurchase || t.wholesalePurchaseId || (t.category === 'Purchase' && t.sellerName)) {
       const match = wholesalePurchases.find(p => p._id === t.wholesalePurchaseId || p._id === t._id || (t.wholesalePurchaseId && String(p._id) === String(t.wholesalePurchaseId)));
       if (match) {
         handleDeleteTrigger(match, 'wholesale');
         return;
       }
+      handleDeleteTrigger({ ...t, _id: t.wholesalePurchaseId || t._id, linkedTransactionId: t._id }, 'wholesale');
+      return;
     }
     handleDeleteTrigger(t, 'ledger');
   };
@@ -1792,8 +1818,8 @@ export default function App() {
                 transactions={transactions}
                 bankTransactions={bankTransactions}
                 wholesalePurchases={wholesalePurchases}
-                onEditLedger={(t) => { setEditingTransaction(t); setIsFormOpen(true); }}
-                onDeleteLedger={(t) => handleDeleteTrigger(t, 'ledger')}
+                onEditLedger={handleEditLedgerItem}
+                onDeleteLedger={handleDeleteLedgerItem}
                 onEditBank={(t) => { setEditingBankTransaction(t); setIsBankFormOpen(true); }}
                 onDeleteBank={(t) => handleDeleteTrigger(t, 'bank')}
                 onEditWholesale={(p) => { setEditingWholesalePurchase(p); setIsWholesaleFormOpen(true); }}

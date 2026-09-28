@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, IndianRupee, User, FileText, Layers } from 'lucide-react';
+import { getTodayLocalDate, toLocalDateString } from '../utils/helpers';
 
 export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = null, existingPartners = [] }) {
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayLocalDate(),
     partnerName: '',
     type: 'Capital Contribution',
     amount: '',
@@ -22,9 +23,7 @@ export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = n
 
   useEffect(() => {
     if (transaction) {
-      const formattedDate = transaction.date 
-        ? new Date(transaction.date).toISOString().split('T')[0] 
-        : new Date().toISOString().split('T')[0];
+      const formattedDate = toLocalDateString(transaction.date);
       const pName = transaction.partnerName || '';
       const isKnown = partnerOptions.includes(pName);
       
@@ -45,7 +44,7 @@ export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = n
       setErrors({});
     } else {
       setFormData({
-        date: new Date().toISOString().split('T')[0],
+        date: getTodayLocalDate(),
         partnerName: '',
         type: 'Capital Contribution',
         amount: '',

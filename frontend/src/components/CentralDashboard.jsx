@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import ExportDropdown from './ExportDropdown';
 import Pagination from './Pagination';
+import { cleanWholesaleDescription } from '../utils/helpers';
 
 export default function CentralDashboard({
   transactions = [],
@@ -85,9 +86,18 @@ export default function CentralDashboard({
   const allCombinedTransactions = useMemo(() => {
     // Deduplicate any transactions that represent wholesale purchases already present in wholesalePurchases
     const wholesaleIds = new Set((wholesalePurchases || []).map(w => String(w._id)));
+    const linkedTxIds = new Set((wholesalePurchases || []).map(w => String(w.linkedTransactionId)).filter(Boolean));
 
     const ledgerItems = (transactions || [])
-      .filter(t => !t.wholesalePurchaseId || !wholesaleIds.has(String(t.wholesalePurchaseId)))
+      .filter(t => {
+        const idStr = String(t._id || '');
+        const wpIdStr = String(t.wholesalePurchaseId || '');
+        if (wpIdStr && wholesaleIds.has(wpIdStr)) return false;
+        if (linkedTxIds.has(idStr)) return false;
+        if (wholesaleIds.has(idStr)) return false;
+        if (t.isWholesalePurchase && wholesalePurchases && wholesalePurchases.length > 0) return false;
+        return true;
+      })
       .map(t => {
       const rawDate = t.date || t.createdAt;
       const dateStr = rawDate ? String(rawDate).split('T')[0] : new Date().toISOString().split('T')[0];
@@ -154,6 +164,7 @@ export default function CentralDashboard({
       const timestamp = dayBase + (createdTime ? (createdTime % 86400000) : 43200000);
 
       const pend = p.pendingAmount !== undefined ? p.pendingAmount : Math.max(0, (p.totalAmount || 0) - (p.paidAmount || 0));
+      const cleanDesc = cleanWholesaleDescription(p.description);
 
       return {
         _id: p._id,
@@ -162,7 +173,7 @@ export default function CentralDashboard({
         sourceLabel: 'Wholesale Purchase',
         date: rawDate || new Date().toISOString(),
         timestamp,
-        description: `${p.description} (${p.quantity} pcs @ ₹${p.unitPrice})`,
+        description: `${cleanDesc || 'Wholesale Goods'} (${p.quantity} pcs @ ₹${p.unitPrice})`,
         entityInfo: `Wholesaler: ${p.sellerName || 'Wholesaler'}`,
         subCategory: pend > 0 ? `Pending: ₹${pend}` : 'Done / Paid',
         flowType: 'Outflow',
@@ -703,7 +714,7 @@ export default function CentralDashboard({
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => {
-                          if (t.sourceModule === 'wholesale') onEditWholesale?.(t.raw);
+                          if (t.sourceModule === 'wholesale' || t.raw?.isWholesalePurchase || t.raw?.wholesalePurchaseId) onEditWholesale?.(t.raw);
                           else if (t.sourceModule === 'ledger') onEditLedger?.(t.raw);
                           else if (t.sourceModule === 'bank') onEditBank?.(t.raw);
                         }}
@@ -713,7 +724,7 @@ export default function CentralDashboard({
                       </button>
                       <button
                         onClick={() => {
-                          if (t.sourceModule === 'wholesale') onDeleteWholesale?.(t.raw);
+                          if (t.sourceModule === 'wholesale' || t.raw?.isWholesalePurchase || t.raw?.wholesalePurchaseId) onDeleteWholesale?.(t.raw);
                           else if (t.sourceModule === 'ledger') onDeleteLedger?.(t.raw);
                           else if (t.sourceModule === 'bank') onDeleteBank?.(t.raw);
                         }}
@@ -834,7 +845,7 @@ export default function CentralDashboard({
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => {
-                              if (t.sourceModule === 'wholesale') onEditWholesale?.(t.raw);
+                              if (t.sourceModule === 'wholesale' || t.raw?.isWholesalePurchase || t.raw?.wholesalePurchaseId) onEditWholesale?.(t.raw);
                               else if (t.sourceModule === 'ledger') onEditLedger?.(t.raw);
                               else if (t.sourceModule === 'bank') onEditBank?.(t.raw);
                             }}
@@ -845,7 +856,7 @@ export default function CentralDashboard({
                           </button>
                           <button
                             onClick={() => {
-                              if (t.sourceModule === 'wholesale') onDeleteWholesale?.(t.raw);
+                              if (t.sourceModule === 'wholesale' || t.raw?.isWholesalePurchase || t.raw?.wholesalePurchaseId) onDeleteWholesale?.(t.raw);
                               else if (t.sourceModule === 'ledger') onDeleteLedger?.(t.raw);
                               else if (t.sourceModule === 'bank') onDeleteBank?.(t.raw);
                             }}

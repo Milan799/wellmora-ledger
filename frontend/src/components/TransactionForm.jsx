@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, IndianRupee, FileText, Layers } from 'lucide-react';
+import { getTodayLocalDate, toLocalDateString } from '../utils/helpers';
 
 export default function TransactionForm({ isOpen, onClose, onSubmit, transaction = null }) {
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayLocalDate(),
     description: '',
     category: 'Sales',
     type: 'Credit',
@@ -15,9 +16,7 @@ export default function TransactionForm({ isOpen, onClose, onSubmit, transaction
 
   useEffect(() => {
     if (transaction) {
-      const formattedDate = transaction.date 
-        ? new Date(transaction.date).toISOString().split('T')[0] 
-        : new Date().toISOString().split('T')[0];
+      const formattedDate = toLocalDateString(transaction.date);
       setFormData({
         date: formattedDate,
         description: transaction.description || '',
@@ -29,7 +28,7 @@ export default function TransactionForm({ isOpen, onClose, onSubmit, transaction
       setErrors({});
     } else {
       setFormData({
-        date: new Date().toISOString().split('T')[0],
+        date: getTodayLocalDate(),
         description: '',
         category: 'Sales',
         type: 'Credit',

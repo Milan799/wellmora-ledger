@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import ExportDropdown from './ExportDropdown';
 import Pagination from './Pagination';
+import { cleanWholesaleDescription } from '../utils/helpers';
 
 export default function WholesaleLedger({
   purchases = [],
@@ -699,7 +700,7 @@ export default function WholesaleLedger({
                     {/* Description & Qty / Unit Price */}
                     <div>
                       <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                        {p.description}
+                        {cleanWholesaleDescription(p.description) || 'Wholesale Goods'}
                       </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 flex items-center gap-2">
                         <span className="font-bold text-amber-600 dark:text-amber-400">
@@ -783,7 +784,7 @@ export default function WholesaleLedger({
                         </td>
 
                         <td className="px-4 py-3.5 max-w-xs truncate font-medium text-slate-900 dark:text-slate-100 text-xs" title={p.description}>
-                          <div className="font-bold truncate">{p.description}</div>
+                          <div className="font-bold truncate">{cleanWholesaleDescription(p.description) || 'Wholesale Goods'}</div>
                           {p.billNumber && (
                             <span className="text-[10px] text-slate-400 font-normal">
                               Bill: {p.billNumber}

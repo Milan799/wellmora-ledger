@@ -1,5 +1,6 @@
 import express from 'express';
 import Transaction from '../models/Transaction.js';
+import WholesalePurchase from '../models/WholesalePurchase.js';
 
 const router = express.Router();
 
@@ -58,7 +59,25 @@ router.get('/', async (req, res) => {
 // POST a new transaction
 router.post('/', async (req, res) => {
   try {
-    const { date, description, category, type, amount, isHandCash } = req.body;
+    const {
+      date,
+      description,
+      category,
+      type,
+      amount,
+      isHandCash,
+      isWholesalePurchase,
+      sellerName,
+      quantity,
+      unitPrice,
+      totalAmount,
+      paidAmount,
+      pendingAmount,
+      paymentStatus,
+      billNumber,
+      notes,
+      wholesalePurchaseId
+    } = req.body;
     
     // Server-side validation
     if (!description || description.trim() === '') {
@@ -68,16 +87,63 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: 'Amount must be greater than 0' });
     }
     
+    const isWholesale = !!isWholesalePurchase || category === 'Wholesale Purchase' || !!sellerName;
+    const finalTotal = totalAmount !== undefined ? Number(totalAmount) : Number(amount);
+    const finalPaid = paidAmount !== undefined ? Number(paidAmount) : (paymentStatus === 'Pending' ? 0 : Number(amount));
+    const finalPending = pendingAmount !== undefined ? Number(pendingAmount) : Math.max(0, finalTotal - finalPaid);
+
     const newTransaction = new Transaction({
       date: date ? new Date(date) : new Date(),
       description: description.trim(),
-      category: category || 'Others',
-      type,
+      category: category || (isWholesale ? 'Purchase' : 'Others'),
+      type: type || 'Debit',
       amount: Number(amount),
-      isHandCash: !!isHandCash
+      isHandCash: !!isHandCash,
+      isWholesalePurchase: isWholesale,
+      sellerName: sellerName ? sellerName.trim() : undefined,
+      quantity: quantity !== undefined ? Number(quantity) : undefined,
+      unitPrice: unitPrice !== undefined ? Number(unitPrice) : undefined,
+      totalAmount: isWholesale ? finalTotal : undefined,
+      paidAmount: isWholesale ? finalPaid : undefined,
+      pendingAmount: isWholesale ? finalPending : undefined,
+      paymentStatus: paymentStatus || (isWholesale ? (finalPending > 0 ? 'Pending' : 'Done') : 'Done'),
+      billNumber: billNumber ? billNumber.trim() : '',
+      wholesalePurchaseId: wholesalePurchaseId || undefined
     });
     
     const savedTransaction = await newTransaction.save();
+
+    // If this is a wholesale purchase submitted via transactions route and not yet linked to WholesalePurchase
+    if (isWholesale && !wholesalePurchaseId) {
+      try {
+        const cleanDesc = description
+          .replace(/^\[Wholesale:\s*[^\]]+\]\s*/gi, '')
+          .replace(/\s*\(\d+(?:\.\d+)?\s*pcs\s*@\s*₹?\d+(?:\.\d+)?\)$/gi, '')
+          .trim();
+
+        const wp = new WholesalePurchase({
+          sellerName: sellerName || 'Dev',
+          description: cleanDesc || description.trim(),
+          quantity: Number(quantity) || 1,
+          unitPrice: unitPrice !== undefined ? Number(unitPrice) : finalTotal,
+          totalAmount: finalTotal,
+          date: savedTransaction.date,
+          paymentStatus: savedTransaction.paymentStatus || 'Done',
+          paidAmount: finalPaid,
+          pendingAmount: finalPending,
+          paymentMode: isHandCash ? 'Cash' : 'Bank',
+          billNumber: billNumber ? billNumber.trim() : '',
+          notes: notes ? notes.trim() : '',
+          linkedTransactionId: savedTransaction._id
+        });
+        const savedWp = await wp.save();
+        savedTransaction.wholesalePurchaseId = savedWp._id;
+        await savedTransaction.save();
+      } catch (wpErr) {
+        console.warn('Could not auto-create WholesalePurchase in fallback route:', wpErr.message);
+      }
+    }
+
     res.status(201).json(savedTransaction);
   } catch (error) {
     res.status(400).json({ message: 'Error saving transaction', error: error.message });
@@ -88,7 +154,25 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { date, description, category, type, amount, isHandCash } = req.body;
+    const {
+      date,
+      description,
+      category,
+      type,
+      amount,
+      isHandCash,
+      isWholesalePurchase,
+      sellerName,
+      quantity,
+      unitPrice,
+      totalAmount,
+      paidAmount,
+      pendingAmount,
+      paymentStatus,
+      billNumber,
+      notes,
+      wholesalePurchaseId
+    } = req.body;
 
     // Server-side validation
     if (description !== undefined && description.trim() === '') {
@@ -105,6 +189,16 @@ router.put('/:id', async (req, res) => {
     if (type !== undefined) updatePayload.type = type;
     if (amount !== undefined) updatePayload.amount = Number(amount);
     if (isHandCash !== undefined) updatePayload.isHandCash = !!isHandCash;
+    if (isWholesalePurchase !== undefined) updatePayload.isWholesalePurchase = !!isWholesalePurchase;
+    if (sellerName !== undefined) updatePayload.sellerName = sellerName.trim();
+    if (quantity !== undefined) updatePayload.quantity = Number(quantity);
+    if (unitPrice !== undefined) updatePayload.unitPrice = Number(unitPrice);
+    if (totalAmount !== undefined) updatePayload.totalAmount = Number(totalAmount);
+    if (paidAmount !== undefined) updatePayload.paidAmount = Number(paidAmount);
+    if (pendingAmount !== undefined) updatePayload.pendingAmount = Number(pendingAmount);
+    if (paymentStatus !== undefined) updatePayload.paymentStatus = paymentStatus;
+    if (billNumber !== undefined) updatePayload.billNumber = billNumber.trim();
+    if (wholesalePurchaseId !== undefined) updatePayload.wholesalePurchaseId = wholesalePurchaseId;
 
     const updatedTransaction = await Transaction.findByIdAndUpdate(
       id,
@@ -114,6 +208,37 @@ router.put('/:id', async (req, res) => {
 
     if (!updatedTransaction) {
       return res.status(404).json({ message: 'Transaction not found' });
+    }
+
+    // Synchronize linked WholesalePurchase if present
+    const targetWpId = updatedTransaction.wholesalePurchaseId;
+    if (targetWpId) {
+      try {
+        const wpUpdate = {};
+        if (date !== undefined) wpUpdate.date = new Date(date);
+        if (description !== undefined) {
+          wpUpdate.description = description
+            .replace(/^\[Wholesale:\s*[^\]]+\]\s*/gi, '')
+            .replace(/\s*\(\d+(?:\.\d+)?\s*pcs\s*@\s*₹?\d+(?:\.\d+)?\)$/gi, '')
+            .trim();
+        }
+        if (sellerName !== undefined) wpUpdate.sellerName = sellerName.trim();
+        if (quantity !== undefined) wpUpdate.quantity = Number(quantity);
+        if (unitPrice !== undefined) wpUpdate.unitPrice = Number(unitPrice);
+        if (totalAmount !== undefined) wpUpdate.totalAmount = Number(totalAmount);
+        if (paidAmount !== undefined) wpUpdate.paidAmount = Number(paidAmount);
+        if (pendingAmount !== undefined) wpUpdate.pendingAmount = Number(pendingAmount);
+        if (paymentStatus !== undefined) wpUpdate.paymentStatus = paymentStatus;
+        if (billNumber !== undefined) wpUpdate.billNumber = billNumber.trim();
+        if (isHandCash !== undefined) wpUpdate.paymentMode = isHandCash ? 'Cash' : 'Bank';
+        if (notes !== undefined) wpUpdate.notes = notes.trim();
+
+        if (Object.keys(wpUpdate).length > 0) {
+          await WholesalePurchase.findByIdAndUpdate(targetWpId, { $set: wpUpdate });
+        }
+      } catch (syncErr) {
+        console.warn('Could not sync update to WholesalePurchase:', syncErr.message);
+      }
     }
 
     res.json(updatedTransaction);
@@ -130,6 +255,16 @@ router.delete('/:id', async (req, res) => {
 
     if (!deletedTransaction) {
       return res.status(404).json({ message: 'Transaction not found' });
+    }
+
+    // Synchronize: Delete linked WholesalePurchase if exists
+    try {
+      if (deletedTransaction.wholesalePurchaseId) {
+        await WholesalePurchase.findByIdAndDelete(deletedTransaction.wholesalePurchaseId);
+      }
+      await WholesalePurchase.deleteMany({ linkedTransactionId: id });
+    } catch (wpErr) {
+      console.warn('Could not delete linked WholesalePurchase on transaction delete:', wpErr.message);
     }
 
     res.json({ message: 'Transaction successfully deleted', id });
