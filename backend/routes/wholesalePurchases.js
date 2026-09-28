@@ -181,7 +181,7 @@ router.post('/', async (req, res) => {
         description: `[Wholesale: ${displaySeller}] ${description.trim()} (${parsedQty} pcs @ ₹${parsedPrice})`,
         category: 'Purchase',
         type: 'Debit',
-        amount: finalTotal,
+        amount: finalPaid,
         isHandCash: (paymentMode || '').toLowerCase().includes('cash'),
         isWholesalePurchase: true,
         sellerName: displaySeller,
@@ -309,7 +309,7 @@ router.put('/:id', async (req, res) => {
         description: `[Wholesale: ${displaySeller}] ${existing.description} (${existing.quantity} pcs @ ₹${existing.unitPrice})`,
         category: 'Purchase',
         type: 'Debit',
-        amount: existing.totalAmount,
+        amount: existing.paidAmount,
         isHandCash: (existing.paymentMode || '').toLowerCase().includes('cash'),
         isWholesalePurchase: true,
         sellerName: displaySeller,
@@ -380,6 +380,7 @@ router.patch('/:id/pay', async (req, res) => {
       if (purchase.linkedTransactionId) {
         await Transaction.findByIdAndUpdate(purchase.linkedTransactionId, {
           $set: {
+            amount: purchase.paidAmount,
             paidAmount: purchase.paidAmount,
             pendingAmount: purchase.pendingAmount,
             paymentStatus: purchase.paymentStatus

@@ -79,15 +79,17 @@ router.post('/', async (req, res) => {
       wholesalePurchaseId
     } = req.body;
     
+    const isWholesale = !!isWholesalePurchase || category === 'Wholesale Purchase' || !!sellerName;
+    
     // Server-side validation
     if (!description || description.trim() === '') {
       return res.status(400).json({ message: 'Description is required' });
     }
-    if (amount === undefined || amount === null || Number(amount) <= 0) {
-      return res.status(400).json({ message: 'Amount must be greater than 0' });
+    const numAmount = Number(amount);
+    if (amount === undefined || amount === null || (isWholesale ? numAmount < 0 : numAmount <= 0)) {
+      return res.status(400).json({ message: isWholesale ? 'Amount cannot be negative' : 'Amount must be greater than 0' });
     }
     
-    const isWholesale = !!isWholesalePurchase || category === 'Wholesale Purchase' || !!sellerName;
     const finalTotal = totalAmount !== undefined ? Number(totalAmount) : Number(amount);
     const finalPaid = paidAmount !== undefined ? Number(paidAmount) : (paymentStatus === 'Pending' ? 0 : Number(amount));
     const finalPending = pendingAmount !== undefined ? Number(pendingAmount) : Math.max(0, finalTotal - finalPaid);
@@ -97,7 +99,7 @@ router.post('/', async (req, res) => {
       description: description.trim(),
       category: category || (isWholesale ? 'Purchase' : 'Others'),
       type: type || 'Debit',
-      amount: Number(amount),
+      amount: isWholesale ? finalPaid : Number(amount),
       isHandCash: !!isHandCash,
       isWholesalePurchase: isWholesale,
       sellerName: sellerName ? sellerName.trim() : undefined,
@@ -178,8 +180,8 @@ router.put('/:id', async (req, res) => {
     if (description !== undefined && description.trim() === '') {
       return res.status(400).json({ message: 'Description cannot be empty' });
     }
-    if (amount !== undefined && (amount === null || Number(amount) <= 0)) {
-      return res.status(400).json({ message: 'Amount must be greater than 0' });
+    if (amount !== undefined && (amount === null || Number(amount) < 0)) {
+      return res.status(400).json({ message: 'Amount cannot be negative' });
     }
 
     const updatePayload = {};
@@ -188,6 +190,9 @@ router.put('/:id', async (req, res) => {
     if (category !== undefined) updatePayload.category = category;
     if (type !== undefined) updatePayload.type = type;
     if (amount !== undefined) updatePayload.amount = Number(amount);
+    if (paidAmount !== undefined && (isWholesalePurchase || category === 'Purchase')) {
+      updatePayload.amount = Number(paidAmount);
+    }
     if (isHandCash !== undefined) updatePayload.isHandCash = !!isHandCash;
     if (isWholesalePurchase !== undefined) updatePayload.isWholesalePurchase = !!isWholesalePurchase;
     if (sellerName !== undefined) updatePayload.sellerName = sellerName.trim();

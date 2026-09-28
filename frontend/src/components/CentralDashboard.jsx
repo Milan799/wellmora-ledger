@@ -16,7 +16,8 @@ import {
   Sparkles,
   ArrowUpDown,
   RefreshCw,
-  Package
+  Package,
+  Clock
 } from 'lucide-react';
 import ExportDropdown from './ExportDropdown';
 import Pagination from './Pagination';
@@ -106,6 +107,17 @@ export default function CentralDashboard({
       const timestamp = dayBase + (createdTime ? (createdTime % 86400000) : 43200000);
 
       const isWholesaleTx = t.isWholesalePurchase || (t.category === 'Purchase' && t.sellerName);
+      const isPendingWholesale = isWholesaleTx && (t.paymentStatus === 'Pending' || Number(t.paidAmount || 0) === 0);
+      const wholesalePaid = Number(t.paidAmount !== undefined ? t.paidAmount : (t.paymentStatus === 'Pending' ? 0 : t.amount));
+      const wholesalePending = Number(t.pendingAmount !== undefined ? t.pendingAmount : (isPendingWholesale ? Number(t.totalAmount || t.amount || 0) : 0));
+
+      const flowType = isWholesaleTx 
+        ? (isPendingWholesale ? 'Pending Payable' : 'Outflow')
+        : (t.type === 'Credit' ? 'Inflow' : 'Outflow');
+
+      const amountToUse = isWholesaleTx
+        ? (isPendingWholesale ? 0 : wholesalePaid)
+        : Number(t.amount || 0);
 
       return {
         _id: t._id,
@@ -117,12 +129,15 @@ export default function CentralDashboard({
         description: t.description || 'Ledger Entry',
         entityInfo: isWholesaleTx ? `Wholesaler: ${t.sellerName || 'Wholesaler'}` : (t.category || 'Expense'),
         subCategory: isWholesaleTx 
-          ? (t.pendingAmount > 0 ? `Pending: ₹${t.pendingAmount}` : 'Done / Paid')
+          ? (wholesalePending > 0 ? `Pending: ₹${wholesalePending}` : 'Done / Paid')
           : (t.isHandCash ? 'In Hand Cash' : 'Cash Account'),
-        flowType: t.type === 'Credit' ? 'Inflow' : 'Outflow',
-        originalType: isWholesaleTx ? 'Wholesale' : t.type,
+        flowType,
+        originalType: isWholesaleTx ? (isPendingWholesale ? 'Pending Payable' : 'Wholesale') : t.type,
         paymentMode: t.isHandCash ? 'In Hand Cash' : 'Cash Transfer',
-        amount: Number(t.amount || 0),
+        amount: amountToUse,
+        totalBillAmount: isWholesaleTx ? Number(t.totalAmount || t.amount || 0) : Number(t.amount || 0),
+        paidAmount: isWholesaleTx ? wholesalePaid : Number(t.amount || 0),
+        pendingAmount: wholesalePending,
         refNo: t.billNumber || '',
         status: isWholesaleTx 
           ? (t.paymentStatus === 'Done' || t.paymentStatus === 'Paid' ? 'Completed' : 'Pending')
@@ -163,7 +178,9 @@ export default function CentralDashboard({
       const dayBase = new Date(dateStr + 'T00:00:00Z').getTime();
       const timestamp = dayBase + (createdTime ? (createdTime % 86400000) : 43200000);
 
-      const pend = p.pendingAmount !== undefined ? p.pendingAmount : Math.max(0, (p.totalAmount || 0) - (p.paidAmount || 0));
+      const isPending = p.paymentStatus === 'Pending' || Number(p.paidAmount || 0) === 0;
+      const pend = p.pendingAmount !== undefined ? Number(p.pendingAmount) : Math.max(0, Number(p.totalAmount || 0) - Number(p.paidAmount || 0));
+      const paid = Number(p.paidAmount || 0);
       const cleanDesc = cleanWholesaleDescription(p.description);
 
       return {
@@ -176,10 +193,13 @@ export default function CentralDashboard({
         description: `${cleanDesc || 'Wholesale Goods'} (${p.quantity} pcs @ ₹${p.unitPrice})`,
         entityInfo: `Wholesaler: ${p.sellerName || 'Wholesaler'}`,
         subCategory: pend > 0 ? `Pending: ₹${pend}` : 'Done / Paid',
-        flowType: 'Outflow',
-        originalType: 'Wholesale',
+        flowType: isPending ? 'Pending Payable' : 'Outflow',
+        originalType: isPending ? 'Pending Payable' : 'Wholesale',
         paymentMode: p.paymentMode || 'Cash',
-        amount: Number(p.totalAmount || 0),
+        amount: isPending ? 0 : (p.paymentStatus === 'Partial' ? paid : Number(p.totalAmount || 0)),
+        totalBillAmount: Number(p.totalAmount || 0),
+        paidAmount: paid,
+        pendingAmount: pend,
         refNo: p.billNumber || '',
         status: p.paymentStatus === 'Done' || p.paymentStatus === 'Paid' ? 'Completed' : 'Pending'
       };
@@ -240,6 +260,7 @@ export default function CentralDashboard({
   const periodFlows = useMemo(() => {
     let periodInflow = 0;
     let periodOutflow = 0;
+    let periodPendingWholesale = 0;
 
     let bankIn = 0;
     let bankOut = 0;
@@ -253,17 +274,21 @@ export default function CentralDashboard({
         periodInflow += t.amount;
         if (t.sourceModule === 'bank') bankIn += t.amount;
         if (t.sourceModule === 'ledger') expenseIn += t.amount;
-      } else {
+      } else if (t.flowType === 'Outflow') {
         periodOutflow += t.amount;
         if (t.sourceModule === 'bank') bankOut += t.amount;
         if (t.sourceModule === 'ledger') expenseOut += t.amount;
         if (t.sourceModule === 'wholesale') wholesaleOut += t.amount;
+      } else if (t.flowType === 'Pending Payable') {
+        // Pending wholesale purchases do NOT deduct from cash outflow!
+        periodPendingWholesale += Number(t.pendingAmount || t.totalBillAmount || 0);
       }
     });
 
     return {
       periodInflow,
       periodOutflow,
+      periodPendingWholesale,
       periodNet: periodInflow - periodOutflow,
       bankIn,
       bankOut,
@@ -516,7 +541,10 @@ export default function CentralDashboard({
             </h4>
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 text-[9.5px] font-semibold text-slate-500 dark:text-slate-400 flex-wrap gap-1">
               <span>Expenses: {formatCurrency(periodFlows.expenseOut)}</span>
-              {periodFlows.wholesaleOut > 0 && <span>Wholesale: {formatCurrency(periodFlows.wholesaleOut)}</span>}
+              {periodFlows.wholesaleOut > 0 && <span>Wholesale Paid: {formatCurrency(periodFlows.wholesaleOut)}</span>}
+              {periodFlows.periodPendingWholesale > 0 && (
+                <span className="text-amber-500 font-bold">Pending Wholesale: {formatCurrency(periodFlows.periodPendingWholesale)} (₹0 Deducted)</span>
+              )}
               <span>Bank: {formatCurrency(periodFlows.bankOut)}</span>
             </div>
           </div>
@@ -608,14 +636,15 @@ export default function CentralDashboard({
             {[
               { id: 'All', label: 'All' },
               { id: 'Inflow', label: 'Money In (+)' },
-              { id: 'Outflow', label: 'Money Out (-)' }
+              { id: 'Outflow', label: 'Money Out (-)' },
+              { id: 'Pending Payable', label: 'Pending Payable' }
             ].map(opt => (
               <button
                 key={opt.id}
                 onClick={() => setTypeFilter(opt.id)}
                 className={`px-2.5 py-0.5 sm:py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
                   typeFilter === opt.id
-                    ? 'bg-emerald-600 text-white shadow-sm'
+                    ? (opt.id === 'Pending Payable' ? 'bg-amber-600 text-white shadow-sm' : 'bg-emerald-600 text-white shadow-sm')
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
                 }`}
               >
@@ -752,6 +781,11 @@ export default function CentralDashboard({
                           <ArrowUpRight size={11} />
                           {t.originalType}
                         </span>
+                      ) : t.flowType === 'Pending Payable' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          <Clock size={11} />
+                          Pending Payable
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
                           <ArrowDownRight size={11} />
@@ -760,10 +794,32 @@ export default function CentralDashboard({
                       )}
                     </div>
 
-                    <div className={`text-base font-black ${
-                      t.flowType === 'Inflow' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-                    }`}>
-                      {t.flowType === 'Inflow' ? '+' : '-'}{formatCurrency(t.amount)}
+                    <div className="text-right">
+                      {t.flowType === 'Inflow' ? (
+                        <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+                          +{formatCurrency(t.amount)}
+                        </span>
+                      ) : t.flowType === 'Pending Payable' ? (
+                        <div>
+                          <div className="text-sm font-black text-amber-600 dark:text-amber-400">
+                            ₹0.00 <span className="text-[10px] font-semibold">(Pending)</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-medium">
+                            Bill: {formatCurrency(t.totalBillAmount || t.amount)}
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="text-base font-black text-rose-600 dark:text-rose-400">
+                            -{formatCurrency(t.amount)}
+                          </div>
+                          {t.sourceModule === 'wholesale' && t.pendingAmount > 0 && (
+                            <div className="text-[10px] text-amber-500 font-medium">
+                              Pending: {formatCurrency(t.pendingAmount)}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -827,6 +883,11 @@ export default function CentralDashboard({
                             <ArrowUpRight size={11} />
                             {t.originalType}
                           </span>
+                        ) : t.flowType === 'Pending Payable' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            <Clock size={11} />
+                            Pending Payable
+                          </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
                             <ArrowDownRight size={11} />
@@ -835,10 +896,32 @@ export default function CentralDashboard({
                         )}
                       </td>
 
-                      <td className={`px-4 py-3.5 text-right whitespace-nowrap font-extrabold text-xs ${
-                        t.flowType === 'Inflow' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-                      }`}>
-                        {t.flowType === 'Inflow' ? '+' : '-'}{formatCurrency(t.amount)}
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                        {t.flowType === 'Inflow' ? (
+                          <span className="font-extrabold text-xs text-emerald-600 dark:text-emerald-400">
+                            +{formatCurrency(t.amount)}
+                          </span>
+                        ) : t.flowType === 'Pending Payable' ? (
+                          <div>
+                            <span className="font-extrabold text-xs text-amber-600 dark:text-amber-400">
+                              ₹0.00 <span className="text-[10px] font-semibold">(Pending)</span>
+                            </span>
+                            <div className="text-[10px] text-slate-400 font-medium">
+                              Bill: {formatCurrency(t.totalBillAmount || t.amount)}
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="font-extrabold text-xs text-rose-600 dark:text-rose-400">
+                              -{formatCurrency(t.amount)}
+                            </span>
+                            {t.sourceModule === 'wholesale' && t.pendingAmount > 0 && (
+                              <div className="text-[10px] text-amber-500 font-medium">
+                                Pending: {formatCurrency(t.pendingAmount)}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </td>
 
                       <td className="px-4 py-3.5 whitespace-nowrap text-center">

@@ -1,17 +1,28 @@
 import React from 'react';
-import { TrendingUp, TrendingDown, IndianRupee } from 'lucide-react';
+import { TrendingUp, TrendingDown, IndianRupee, Clock } from 'lucide-react';
 
 export default function Dashboard({ transactions }) {
   // Calculate totals
   const totalCredit = transactions
     .filter(t => t.type === 'Credit')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
+  // For wholesale purchases, only deduct actual money paid (paidAmount). Pending payments are NOT deducted!
   const totalDebit = transactions
     .filter(t => t.type === 'Debit')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => {
+      if (t.isWholesalePurchase || t.wholesalePurchaseId) {
+        return sum + Number(t.paidAmount || 0);
+      }
+      return sum + Number(t.amount || 0);
+    }, 0);
 
   const netBalance = totalCredit - totalDebit;
+
+  // Track pending wholesale payables (owed to wholesalers but not deducted until paid)
+  const pendingWholesalePayable = transactions
+    .filter(t => t.isWholesalePurchase || t.wholesalePurchaseId)
+    .reduce((sum, t) => sum + Number(t.pendingAmount || 0), 0);
 
   // Currency formatting helper (Rupees, Indian standard format)
   const formatCurrency = (val) => {
@@ -19,13 +30,13 @@ export default function Dashboard({ transactions }) {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 2
-    }).format(val);
+    }).format(val || 0);
   };
 
   const totalFlow = totalCredit + totalDebit;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 animate-fade-in">
+    <div className={`grid grid-cols-1 ${pendingWholesalePayable > 0 ? 'sm:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'} gap-4 mb-6 animate-fade-in`}>
       {/* Total Credit Card */}
       <div className="glass-panel glass-panel-hover rounded-xl p-4.5 glow-green relative overflow-hidden transition-all duration-300">
         <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-6 -mt-6 blur-2xl"></div>
@@ -56,7 +67,7 @@ export default function Dashboard({ transactions }) {
           {formatCurrency(totalDebit)}
         </h3>
         <p className="text-slate-400 dark:text-slate-500 text-[10px] mt-1.5">
-          Total business expenses & outflows
+          Total actual cash outflows
         </p>
       </div>
 
@@ -86,6 +97,25 @@ export default function Dashboard({ transactions }) {
           {netBalance >= 0 ? 'Operating in positive surplus' : 'Operating in net deficit'}
         </p>
       </div>
+
+      {/* Pending Wholesale Payables Card */}
+      {pendingWholesalePayable > 0 && (
+        <div className="glass-panel glass-panel-hover rounded-xl p-4.5 glow-amber relative overflow-hidden transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full -mr-6 -mt-6 blur-2xl"></div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-wider uppercase">Pending Wholesale</span>
+            <div className="p-2 bg-amber-500/10 dark:bg-amber-500/20 rounded-lg text-amber-600 dark:text-amber-400">
+              <Clock size={16} />
+            </div>
+          </div>
+          <h3 className="text-xl font-black text-amber-600 dark:text-amber-400 tracking-tight">
+            {formatCurrency(pendingWholesalePayable)}
+          </h3>
+          <p className="text-slate-400 dark:text-slate-500 text-[10px] mt-1.5">
+            Pending • Not deducted from cash
+          </p>
+        </div>
+      )}
 
       {/* Expense Turnover Ratio */}
       {totalFlow > 0 && (

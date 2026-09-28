@@ -445,7 +445,7 @@ export default function App() {
               description: `[Wholesale: ${cleanData.sellerName}] ${cleanData.description} (${cleanData.quantity} pcs @ ₹${cleanData.unitPrice})`,
               category: 'Purchase',
               type: 'Debit',
-              amount: Number(cleanData.totalAmount) || 0,
+              amount: Number(cleanData.paidAmount) || 0,
               isHandCash: (cleanData.paymentMode || '').toLowerCase().includes('cash'),
               isWholesalePurchase: true,
               sellerName: cleanData.sellerName,
@@ -1198,7 +1198,7 @@ export default function App() {
               description: formatWholesaleLedgerDescription(formattedWholesaleData.sellerName, cleanDesc, formattedWholesaleData.quantity, formattedWholesaleData.unitPrice),
               category: 'Purchase',
               type: 'Debit',
-              amount: Number(formattedWholesaleData.totalAmount) || 0,
+              amount: Number(formattedWholesaleData.paidAmount) || 0,
               isHandCash: (formattedWholesaleData.paymentMode || '').toLowerCase().includes('cash'),
               isWholesalePurchase: true,
               sellerName: formattedWholesaleData.sellerName,
@@ -1248,7 +1248,7 @@ export default function App() {
                 ...t,
                 date: updated.date,
                 description: txDesc,
-                amount: Number(updated.totalAmount) || 0,
+                amount: Number(updated.paidAmount) || 0,
                 totalAmount: Number(updated.totalAmount) || 0,
                 paidAmount: Number(updated.paidAmount) || 0,
                 pendingAmount: Number(updated.pendingAmount) || 0,
@@ -1299,7 +1299,7 @@ export default function App() {
               description: formatWholesaleLedgerDescription(formattedWholesaleData.sellerName, cleanDesc, formattedWholesaleData.quantity, formattedWholesaleData.unitPrice),
               category: 'Purchase',
               type: 'Debit',
-              amount: Number(formattedWholesaleData.totalAmount) || 0,
+              amount: Number(formattedWholesaleData.paidAmount) || 0,
               isHandCash: (formattedWholesaleData.paymentMode || '').toLowerCase().includes('cash'),
               isWholesalePurchase: true,
               sellerName: formattedWholesaleData.sellerName,
@@ -1359,7 +1359,7 @@ export default function App() {
             description: formatWholesaleLedgerDescription(saved.sellerName, cleanWholesaleDescription(saved.description), saved.quantity, saved.unitPrice),
             category: 'Purchase',
             type: 'Debit',
-            amount: Number(saved.totalAmount) || 0,
+            amount: Number(saved.paidAmount) || 0,
             isHandCash: (saved.paymentMode || '').toLowerCase().includes('cash'),
             isWholesalePurchase: true,
             sellerName: saved.sellerName,
@@ -1433,6 +1433,7 @@ export default function App() {
         const newStatus = newPending <= 0 ? 'Done' : 'Partial';
 
         const fallbackUpdate = {
+          amount: newPaid,
           paidAmount: newPaid,
           pendingAmount: newPending,
           paymentStatus: newStatus
@@ -1472,6 +1473,7 @@ export default function App() {
           if (t.wholesalePurchaseId === updated._id || (updated.linkedTransactionId && t._id === updated.linkedTransactionId)) {
             return {
               ...t,
+              amount: updated.paidAmount,
               paidAmount: updated.paidAmount,
               pendingAmount: updated.pendingAmount,
               paymentStatus: updated.paymentStatus
@@ -1592,7 +1594,7 @@ export default function App() {
           description: formatWholesaleLedgerDescription(p.sellerName, cleanDesc, p.quantity, p.unitPrice),
           category: 'Purchase',
           type: 'Debit',
-          amount: Number(p.totalAmount || 0),
+          amount: Number(p.paidAmount || 0),
           isHandCash: (p.paymentMode || '').toLowerCase().includes('cash'),
           isWholesalePurchase: true,
           sellerName: p.sellerName,

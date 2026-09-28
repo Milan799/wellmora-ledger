@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit2, Trash2, Calendar, FileText, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Edit2, Trash2, Calendar, FileText, ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
 import Pagination from './Pagination';
 
 export default function TransactionTable({ transactions, onEdit, onDelete }) {
@@ -149,6 +149,11 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
                     <ArrowUpRight size={10} />
                     Credit
                   </span>
+                ) : (t.isWholesalePurchase || t.sellerName) && (t.paymentStatus === 'Pending' || Number(t.paidAmount || 0) === 0) ? (
+                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                    <Clock size={10} />
+                    Pending Payable
+                  </span>
                 ) : (
                   <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
                     <ArrowDownRight size={10} />
@@ -157,10 +162,32 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
                 )}
               </div>
 
-              <div className={`text-base font-black ${
-                t.type === 'Credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-              }`}>
-                {t.type === 'Credit' ? '+' : '-'}{formatCurrency(t.amount)}
+              <div className="text-right">
+                {t.type === 'Credit' ? (
+                  <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+                    +{formatCurrency(t.amount)}
+                  </span>
+                ) : (t.isWholesalePurchase || t.sellerName) && (t.paymentStatus === 'Pending' || Number(t.paidAmount || 0) === 0) ? (
+                  <div>
+                    <div className="text-sm font-black text-amber-600 dark:text-amber-400">
+                      ₹0.00 <span className="text-[10px] font-semibold">(Pending)</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-medium">
+                      Bill: {formatCurrency(t.totalAmount || t.amount)}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="text-base font-black text-rose-600 dark:text-rose-400">
+                      -{formatCurrency(t.amount)}
+                    </div>
+                    {(t.isWholesalePurchase || t.sellerName) && t.pendingAmount > 0 && (
+                      <div className="text-[10px] text-amber-500 font-medium">
+                        Pending: {formatCurrency(t.pendingAmount)}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -236,6 +263,11 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
                       <ArrowUpRight size={10} />
                       Credit
                     </span>
+                  ) : (t.isWholesalePurchase || t.sellerName) && (t.paymentStatus === 'Pending' || Number(t.paidAmount || 0) === 0) ? (
+                    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                      <Clock size={10} />
+                      Pending Payable
+                    </span>
                   ) : (
                     <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
                       <ArrowDownRight size={10} />
@@ -245,10 +277,32 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
                 </td>
                 
                 {/* Amount */}
-                <td className={`px-4 py-3.5 text-right whitespace-nowrap font-bold text-xs ${
-                  t.type === 'Credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-                }`}>
-                  {t.type === 'Credit' ? '+' : '-'}{formatCurrency(t.amount)}
+                <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                  {t.type === 'Credit' ? (
+                    <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400">
+                      +{formatCurrency(t.amount)}
+                    </span>
+                  ) : (t.isWholesalePurchase || t.sellerName) && (t.paymentStatus === 'Pending' || Number(t.paidAmount || 0) === 0) ? (
+                    <div>
+                      <span className="font-bold text-xs text-amber-600 dark:text-amber-400">
+                        ₹0.00 <span className="text-[10px] font-semibold">(Pending)</span>
+                      </span>
+                      <div className="text-[10px] text-slate-400 font-medium">
+                        Bill: {formatCurrency(t.totalAmount || t.amount)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="font-bold text-xs text-rose-600 dark:text-rose-400">
+                        -{formatCurrency(t.amount)}
+                      </span>
+                      {(t.isWholesalePurchase || t.sellerName) && t.pendingAmount > 0 && (
+                        <div className="text-[10px] text-amber-500 font-medium">
+                          Pending: {formatCurrency(t.pendingAmount)}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </td>
                 
                 {/* Actions */}
