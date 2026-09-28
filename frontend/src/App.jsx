@@ -21,6 +21,7 @@ import WholesaleForm from './components/WholesaleForm';
 import WholesalePaymentModal from './components/WholesalePaymentModal';
 
 import DeleteConfirmation from './components/DeleteConfirmation';
+import Notification from './components/Notification';
 import ExportDropdown from './components/ExportDropdown';
 import AuthModal from './components/AuthModal';
 import { getTodayLocalDate, toLocalDateString, cleanWholesaleDescription, formatWholesaleLedgerDescription } from './utils/helpers';
