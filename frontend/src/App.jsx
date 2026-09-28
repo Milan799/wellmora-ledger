@@ -426,7 +426,7 @@ export default function App() {
           else if (op.type === 'partner') url = `${API_BASE_URL}/partner-flows`;
           else if (op.type === 'wholesale') url = `${API_BASE_URL}/wholesale-purchases`;
 
-          const response = await fetchWithTimeout(url, {
+          let response = await fetchWithTimeout(url, {
             method: 'POST',
             body: JSON.stringify(cleanData)
           });
@@ -436,6 +436,31 @@ export default function App() {
             handleLogout();
             triggerNotification('Session expired. Please log in again to sync changes.', 'error');
             return;
+          }
+
+          if (op.type === 'wholesale' && response.status === 404) {
+            const fallbackTxData = {
+              date: cleanData.date,
+              description: `[Wholesale: ${cleanData.sellerName}] ${cleanData.description} (${cleanData.quantity} pcs @ ₹${cleanData.unitPrice})`,
+              category: 'Purchase',
+              type: 'Debit',
+              amount: Number(cleanData.totalAmount) || 0,
+              isHandCash: (cleanData.paymentMode || '').toLowerCase().includes('cash'),
+              isWholesalePurchase: true,
+              sellerName: cleanData.sellerName,
+              quantity: Number(cleanData.quantity) || 1,
+              unitPrice: Number(cleanData.unitPrice) || 0,
+              totalAmount: Number(cleanData.totalAmount) || 0,
+              paidAmount: Number(cleanData.paidAmount) || 0,
+              pendingAmount: Number(cleanData.pendingAmount) || 0,
+              paymentStatus: cleanData.paymentStatus,
+              billNumber: cleanData.billNumber || '',
+              notes: cleanData.notes || ''
+            };
+            response = await fetchWithTimeout(`${API_BASE_URL}/transactions`, {
+              method: 'POST',
+              body: JSON.stringify(fallbackTxData)
+            });
           }
 
           if (!response.ok) {
@@ -1076,30 +1101,41 @@ export default function App() {
       }
       if (response.status === 404) {
         // Graceful extraction from transactions if route is not yet on server
+        let txList = [];
         const cachedTx = localStorage.getItem('cached_transactions');
         if (cachedTx) {
+          try { txList = JSON.parse(cachedTx); } catch (e) {}
+        }
+        if (!txList.length) {
           try {
-            const parsed = JSON.parse(cachedTx);
-            const derived = parsed
-              .filter(t => t.isWholesalePurchase || (t.category === 'Purchase' && t.sellerName))
-              .map(t => ({
-                _id: t.wholesalePurchaseId || t._id,
-                sellerName: t.sellerName || 'Dev',
-                description: t.description || '',
-                quantity: t.quantity || 1,
-                unitPrice: t.unitPrice || t.amount || 0,
-                totalAmount: t.totalAmount || t.amount || 0,
-                paidAmount: t.paidAmount !== undefined ? t.paidAmount : (t.paymentStatus === 'Done' ? t.amount : 0),
-                pendingAmount: t.pendingAmount || 0,
-                paymentStatus: t.paymentStatus || 'Done',
-                date: t.date,
-                paymentMode: t.isHandCash ? 'Cash' : 'Bank Transfer',
-                billNumber: t.billNumber || '',
-                notes: ''
-              }));
-            setWholesalePurchases(derived);
-            safeSetLocalStorage('cached_wholesalePurchases', derived);
+            const txRes = await fetchWithTimeout(`${API_BASE_URL}/transactions`);
+            if (txRes.ok) {
+              const fetched = await safeJsonFetch(txRes);
+              if (Array.isArray(fetched)) txList = fetched;
+            }
           } catch (e) {}
+        }
+        if (txList.length) {
+          const derived = txList
+            .filter(t => t.isWholesalePurchase || (t.category === 'Purchase' && t.sellerName))
+            .map(t => ({
+              _id: t.wholesalePurchaseId || t._id,
+              linkedTransactionId: t._id,
+              sellerName: t.sellerName || 'Dev',
+              description: (t.description || '').replace(/^\[Wholesale:\s*[^\]]+\]\s*/, ''),
+              quantity: t.quantity || 1,
+              unitPrice: t.unitPrice || t.amount || 0,
+              totalAmount: t.totalAmount || t.amount || 0,
+              paidAmount: t.paidAmount !== undefined ? t.paidAmount : (t.paymentStatus === 'Done' ? t.amount : 0),
+              pendingAmount: t.pendingAmount || 0,
+              paymentStatus: t.paymentStatus || 'Done',
+              date: t.date,
+              paymentMode: t.isHandCash ? 'Cash' : 'Bank Transfer',
+              billNumber: t.billNumber || '',
+              notes: t.notes || ''
+            }));
+          setWholesalePurchases(derived);
+          safeSetLocalStorage('cached_wholesalePurchases', derived);
         }
         return;
       }
@@ -1137,6 +1173,8 @@ export default function App() {
     try {
       if (editingWholesalePurchase) {
         try {
+          let updated = null;
+          const targetTxId = editingWholesalePurchase.linkedTransactionId || editingWholesalePurchase._id;
           const response = await fetchWithTimeout(`${API_BASE_URL}/wholesale-purchases/${editingWholesalePurchase._id}`, {
             method: 'PUT',
             body: JSON.stringify(formData)
@@ -1146,11 +1184,46 @@ export default function App() {
             triggerNotification('Session expired. Please log in again.', 'error');
             return;
           }
-          if (!response.ok) {
+          if (response.status === 404) {
+            // Server hasn't updated its wholesale route yet; fallback to updating via /transactions
+            const fallbackTxData = {
+              date: formData.date,
+              description: `[Wholesale: ${formData.sellerName}] ${formData.description} (${formData.quantity} pcs @ ₹${formData.unitPrice})`,
+              category: 'Purchase',
+              type: 'Debit',
+              amount: Number(formData.totalAmount) || 0,
+              isHandCash: (formData.paymentMode || '').toLowerCase().includes('cash'),
+              isWholesalePurchase: true,
+              sellerName: formData.sellerName,
+              quantity: Number(formData.quantity) || 1,
+              unitPrice: Number(formData.unitPrice) || 0,
+              totalAmount: Number(formData.totalAmount) || 0,
+              paidAmount: Number(formData.paidAmount) || 0,
+              pendingAmount: Number(formData.pendingAmount) || 0,
+              paymentStatus: formData.paymentStatus,
+              billNumber: formData.billNumber || '',
+              notes: formData.notes || ''
+            };
+            const txRes = await fetchWithTimeout(`${API_BASE_URL}/transactions/${targetTxId}`, {
+              method: 'PUT',
+              body: JSON.stringify(fallbackTxData)
+            });
+            if (txRes.status === 401) {
+              handleLogout();
+              triggerNotification('Session expired. Please log in again.', 'error');
+              return;
+            }
+            if (!txRes.ok) {
+              const txErr = await safeJsonFetch(txRes);
+              throw new Error(txErr?.message || `Failed to update purchase (HTTP ${txRes.status})`);
+            }
+            updated = { ...editingWholesalePurchase, ...formData, updatedAt: new Date().toISOString() };
+          } else if (!response.ok) {
             const errData = await safeJsonFetch(response);
             throw new Error(errData?.message || `Failed to update wholesale purchase (HTTP ${response.status})`);
+          } else {
+            updated = await safeJsonFetch(response);
           }
-          const updated = await safeJsonFetch(response);
           if (!updated) throw new Error('Invalid server response');
 
           setWholesalePurchases(prev => {
@@ -1168,15 +1241,15 @@ export default function App() {
                 ...t,
                 date: updated.date,
                 description: txDesc,
-                amount: updated.totalAmount,
-                totalAmount: updated.totalAmount,
-                paidAmount: updated.paidAmount,
-                pendingAmount: updated.pendingAmount,
+                amount: Number(updated.totalAmount) || 0,
+                totalAmount: Number(updated.totalAmount) || 0,
+                paidAmount: Number(updated.paidAmount) || 0,
+                pendingAmount: Number(updated.pendingAmount) || 0,
                 paymentStatus: updated.paymentStatus,
                 sellerName: updated.sellerName,
-                quantity: updated.quantity,
-                unitPrice: updated.unitPrice,
-                billNumber: updated.billNumber
+                quantity: Number(updated.quantity) || 1,
+                unitPrice: Number(updated.unitPrice) || 0,
+                billNumber: updated.billNumber || ''
               } : t);
               safeSetLocalStorage('cached_transactions', newT);
               return newT;
@@ -1202,6 +1275,7 @@ export default function App() {
       } else {
         // ADD
         try {
+          let saved = null;
           const response = await fetchWithTimeout(`${API_BASE_URL}/wholesale-purchases`, {
             method: 'POST',
             body: JSON.stringify(formData)
@@ -1211,11 +1285,58 @@ export default function App() {
             triggerNotification('Session expired. Please log in again.', 'error');
             return;
           }
-          if (!response.ok) {
+          if (response.status === 404) {
+            // Server hasn't updated its wholesale route yet; fallback to saving directly as a Transaction in MongoDB
+            const fallbackTxData = {
+              date: formData.date,
+              description: `[Wholesale: ${formData.sellerName}] ${formData.description} (${formData.quantity} pcs @ ₹${formData.unitPrice})`,
+              category: 'Purchase',
+              type: 'Debit',
+              amount: Number(formData.totalAmount) || 0,
+              isHandCash: (formData.paymentMode || '').toLowerCase().includes('cash'),
+              isWholesalePurchase: true,
+              sellerName: formData.sellerName,
+              quantity: Number(formData.quantity) || 1,
+              unitPrice: Number(formData.unitPrice) || 0,
+              totalAmount: Number(formData.totalAmount) || 0,
+              paidAmount: Number(formData.paidAmount) || 0,
+              pendingAmount: Number(formData.pendingAmount) || 0,
+              paymentStatus: formData.paymentStatus,
+              billNumber: formData.billNumber || '',
+              notes: formData.notes || ''
+            };
+            const txRes = await fetchWithTimeout(`${API_BASE_URL}/transactions`, {
+              method: 'POST',
+              body: JSON.stringify(fallbackTxData)
+            });
+            if (txRes.status === 401) {
+              handleLogout();
+              triggerNotification('Session expired. Please log in again.', 'error');
+              return;
+            }
+            if (!txRes.ok) {
+              const txErr = await safeJsonFetch(txRes);
+              throw new Error(txErr?.message || `Failed to save wholesale purchase (HTTP ${txRes.status})`);
+            }
+            const savedTx = await safeJsonFetch(txRes);
+            if (!savedTx) throw new Error('Invalid server response');
+
+            saved = {
+              _id: savedTx._id,
+              linkedTransactionId: savedTx._id,
+              ...formData,
+              totalAmount: Number(formData.totalAmount) || 0,
+              paidAmount: Number(formData.paidAmount) || 0,
+              pendingAmount: Number(formData.pendingAmount) || 0,
+              createdAt: savedTx.createdAt || new Date().toISOString(),
+              updatedAt: savedTx.updatedAt || new Date().toISOString()
+            };
+          } else if (!response.ok) {
             const errData = await safeJsonFetch(response);
             throw new Error(errData?.message || `Failed to save wholesale purchase (HTTP ${response.status})`);
+          } else {
+            saved = await safeJsonFetch(response);
           }
-          const saved = await safeJsonFetch(response);
           if (!saved) throw new Error('Invalid server response');
 
           setWholesalePurchases(prev => {
@@ -1231,15 +1352,15 @@ export default function App() {
             description: `[Wholesale: ${saved.sellerName}] ${saved.description} (${saved.quantity} pcs @ ₹${saved.unitPrice})`,
             category: 'Purchase',
             type: 'Debit',
-            amount: saved.totalAmount,
+            amount: Number(saved.totalAmount) || 0,
             isHandCash: (saved.paymentMode || '').toLowerCase().includes('cash'),
             isWholesalePurchase: true,
             sellerName: saved.sellerName,
-            quantity: saved.quantity,
-            unitPrice: saved.unitPrice,
-            totalAmount: saved.totalAmount,
-            paidAmount: saved.paidAmount,
-            pendingAmount: saved.pendingAmount,
+            quantity: Number(saved.quantity) || 1,
+            unitPrice: Number(saved.unitPrice) || 0,
+            totalAmount: Number(saved.totalAmount) || 0,
+            paidAmount: Number(saved.paidAmount) || 0,
+            pendingAmount: Number(saved.pendingAmount) || 0,
             paymentStatus: saved.paymentStatus,
             billNumber: saved.billNumber || '',
             wholesalePurchaseId: saved._id
@@ -1282,6 +1403,10 @@ export default function App() {
 
   const handleWholesalePay = async (purchaseId, payData) => {
     try {
+      let updated = null;
+      const purchase = wholesalePurchases.find(p => p._id === purchaseId);
+      const targetTxId = purchase?.linkedTransactionId || purchaseId;
+
       const response = await fetchWithTimeout(`${API_BASE_URL}/wholesale-purchases/${purchaseId}/pay`, {
         method: 'PATCH',
         body: JSON.stringify(payData)
@@ -1291,11 +1416,41 @@ export default function App() {
         triggerNotification('Session expired. Please log in again.', 'error');
         return;
       }
-      if (!response.ok) {
+      if (response.status === 404) {
+        // Fallback: update paid & pending amount on transaction directly
+        const prevPaid = Number(purchase?.paidAmount) || 0;
+        const addPay = Number(payData.paymentAmount) || 0;
+        const newPaid = prevPaid + addPay;
+        const total = Number(purchase?.totalAmount) || 0;
+        const newPending = Math.max(0, total - newPaid);
+        const newStatus = newPending <= 0 ? 'Done' : 'Partial';
+
+        const fallbackUpdate = {
+          paidAmount: newPaid,
+          pendingAmount: newPending,
+          paymentStatus: newStatus
+        };
+
+        const txRes = await fetchWithTimeout(`${API_BASE_URL}/transactions/${targetTxId}`, {
+          method: 'PUT',
+          body: JSON.stringify(fallbackUpdate)
+        });
+        if (txRes.status === 401) {
+          handleLogout();
+          triggerNotification('Session expired. Please log in again.', 'error');
+          return;
+        }
+        if (!txRes.ok) {
+          const txErr = await safeJsonFetch(txRes);
+          throw new Error(txErr?.message || `Failed to record payment (HTTP ${txRes.status})`);
+        }
+        updated = { ...(purchase || {}), ...fallbackUpdate, updatedAt: new Date().toISOString() };
+      } else if (!response.ok) {
         const errData = await safeJsonFetch(response);
         throw new Error(errData?.message || 'Failed to record payment');
+      } else {
+        updated = await safeJsonFetch(response);
       }
-      const updated = await safeJsonFetch(response);
       if (!updated) throw new Error('Invalid server response');
 
       setWholesalePurchases(prev => {
@@ -1349,7 +1504,7 @@ export default function App() {
 
     try {
       if (deletingTransaction._id && !deletingTransaction._id.startsWith('local_')) {
-        const response = await fetchWithTimeout(`${API_BASE_URL}/${urlSegment}/${deletingTransaction._id}`, {
+        let response = await fetchWithTimeout(`${API_BASE_URL}/${urlSegment}/${deletingTransaction._id}`, {
           method: 'DELETE'
         });
         if (response.status === 401) {
@@ -1357,7 +1512,14 @@ export default function App() {
           triggerNotification('Session expired. Please log in again.', 'error');
           return;
         }
-        if (!response.ok) {
+        if (response.status === 404 && deletingType === 'wholesale') {
+          // If wholesale-purchases endpoint is not yet on server, delete linked transaction directly
+          const targetTxId = deletingTransaction.linkedTransactionId || deletingTransaction._id;
+          response = await fetchWithTimeout(`${API_BASE_URL}/transactions/${targetTxId}`, {
+            method: 'DELETE'
+          });
+        }
+        if (!response.ok && response.status !== 404) {
           const errData = await safeJsonFetch(response);
           throw new Error(errData?.message || `Failed to remove entry (HTTP ${response.status})`);
         }
