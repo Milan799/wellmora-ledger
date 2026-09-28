@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, IndianRupee, User, FileText, Layers } from 'lucide-react';
 
-export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = null }) {
+export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = null, existingPartners = [] }) {
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     partnerName: '',
@@ -9,28 +9,39 @@ export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = n
     amount: '',
     description: ''
   });
+  const [isCustomPartner, setIsCustomPartner] = useState(false);
+  const [customPartnerName, setCustomPartnerName] = useState('');
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const partnerOptions = [
-    'Milan Javiya',
-    'Krushang Prajapati',
-    'Umang Prajapati',
-    'Moksh Shah'
-  ];
+  const defaultPartners = ['Milan Javiya', 'Krushang Prajapati', 'Umang Prajapati', 'Moksh Shah'];
+  const partnerOptions = Array.from(new Set([
+    ...defaultPartners,
+    ...(existingPartners || [])
+  ])).filter(Boolean);
 
   useEffect(() => {
     if (transaction) {
       const formattedDate = transaction.date 
         ? new Date(transaction.date).toISOString().split('T')[0] 
         : new Date().toISOString().split('T')[0];
+      const pName = transaction.partnerName || '';
+      const isKnown = partnerOptions.includes(pName);
+      
       setFormData({
         date: formattedDate,
-        partnerName: transaction.partnerName || '',
+        partnerName: pName,
         type: transaction.type || 'Capital Contribution',
         amount: transaction.amount || '',
         description: transaction.description || ''
       });
+      if (!isKnown && pName) {
+        setIsCustomPartner(true);
+        setCustomPartnerName(pName);
+      } else {
+        setIsCustomPartner(false);
+        setCustomPartnerName('');
+      }
       setErrors({});
     } else {
       setFormData({
@@ -40,6 +51,8 @@ export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = n
         amount: '',
         description: ''
       });
+      setIsCustomPartner(false);
+      setCustomPartnerName('');
       setErrors({});
     }
   }, [transaction, isOpen]);
@@ -54,9 +67,34 @@ export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = n
     }
   };
 
+  const handlePartnerSelect = (e) => {
+    const val = e.target.value;
+    if (val === '__CUSTOM__') {
+      setIsCustomPartner(true);
+      setFormData(prev => ({ ...prev, partnerName: customPartnerName }));
+    } else {
+      setIsCustomPartner(false);
+      setFormData(prev => ({ ...prev, partnerName: val }));
+    }
+    if (errors.partnerName) {
+      setErrors(prev => ({ ...prev, partnerName: '' }));
+    }
+  };
+
+  const handleCustomPartnerChange = (e) => {
+    const val = e.target.value;
+    setCustomPartnerName(val);
+    setFormData(prev => ({ ...prev, partnerName: val }));
+    if (errors.partnerName) {
+      setErrors(prev => ({ ...prev, partnerName: '' }));
+    }
+  };
+
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.partnerName.trim()) newErrors.partnerName = 'Partner name is required';
+    if (!formData.partnerName || !formData.partnerName.trim()) {
+      newErrors.partnerName = 'Partner name is required';
+    }
     if (!formData.description.trim()) newErrors.description = 'Description is required';
     if (!formData.amount || Number(formData.amount) <= 0) newErrors.amount = 'Amount must be greater than 0';
     setErrors(newErrors);
@@ -112,31 +150,69 @@ export default function PartnerForm({ isOpen, onClose, onSubmit, transaction = n
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-5">
           {/* Partner Name */}
           <div>
-            <label className={`block text-xs font-bold mb-1.5 uppercase tracking-wider ${styles.label}`}>Partner Name</label>
-            <div className="relative">
-              <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${styles.icon}`}>
-                <User size={14} />
-              </div>
-              <select
-                name="partnerName"
-                value={formData.partnerName}
-                onChange={handleChange}
-                className={`block w-full pl-9 pr-10 py-2.5 border rounded-xl text-sm focus:ring-2 appearance-none cursor-pointer ${styles.input} ${
-                  errors.partnerName ? 'border-red-500/40 focus:ring-red-500/10' : ''
-                }`}
+            <div className="flex items-center justify-between mb-1.5">
+              <label className={`block text-xs font-bold uppercase tracking-wider ${styles.label}`}>Partner Name</label>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCustomPartner(!isCustomPartner);
+                  if (!isCustomPartner) {
+                    setFormData(prev => ({ ...prev, partnerName: customPartnerName }));
+                  } else {
+                    setFormData(prev => ({ ...prev, partnerName: partnerOptions[0] || '' }));
+                  }
+                }}
+                className="text-xs text-violet-600 dark:text-violet-400 hover:underline font-semibold"
               >
-                <option value="" className="bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500">Select Partner Name</option>
-                {partnerOptions.map(partner => (
-                  <option key={partner} value={partner} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-                    {partner}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400 dark:text-slate-500">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-              </div>
+                {isCustomPartner ? 'Choose from list' : '+ Enter custom partner'}
+              </button>
             </div>
-            {errors.partnerName && <p className="text-red-500 dark:text-red-455 text-xs mt-1.5 font-medium">{errors.partnerName}</p>}
+
+            {!isCustomPartner ? (
+              <div className="relative">
+                <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${styles.icon}`}>
+                  <User size={14} />
+                </div>
+                <select
+                  name="partnerName"
+                  value={formData.partnerName}
+                  onChange={handlePartnerSelect}
+                  className={`block w-full pl-9 pr-10 py-2.5 border rounded-xl text-sm focus:ring-2 appearance-none cursor-pointer ${styles.input} ${
+                    errors.partnerName ? 'border-red-500/40 focus:ring-red-500/10' : ''
+                  }`}
+                >
+                  <option value="" className="bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500">Select Partner Name</option>
+                  {partnerOptions.map(partner => (
+                    <option key={partner} value={partner} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                      {partner}
+                    </option>
+                  ))}
+                  <option value="__CUSTOM__" className="bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 font-semibold">
+                    ➕ Add Custom / New Partner...
+                  </option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400 dark:text-slate-500">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                </div>
+              </div>
+            ) : (
+              <div className="relative">
+                <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${styles.icon}`}>
+                  <User size={14} />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Type Partner Name (e.g. Rahul Sharma)"
+                  value={customPartnerName}
+                  onChange={handleCustomPartnerChange}
+                  className={`block w-full pl-9 pr-4 py-2.5 border rounded-xl text-sm focus:ring-2 ${styles.input} ${
+                    errors.partnerName ? 'border-red-500/40 focus:ring-red-500/10' : ''
+                  }`}
+                  autoFocus
+                />
+              </div>
+            )}
+            {errors.partnerName && <p className="text-red-500 dark:text-red-400 text-xs mt-1.5 font-medium">{errors.partnerName}</p>}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

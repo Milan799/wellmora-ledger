@@ -6,13 +6,21 @@ const router = express.Router();
 // GET partner flows (with optional date filtering and pagination)
 router.get('/', async (req, res) => {
   try {
-    const { page, limit, startDate, endDate, partnerName, type } = req.query;
+    const { page, limit, startDate, endDate, partnerName, type, withMeta } = req.query;
     const filter = {};
 
     if (startDate || endDate) {
       filter.date = {};
-      if (startDate) filter.date.$gte = new Date(startDate);
-      if (endDate) filter.date.$lte = new Date(endDate);
+      if (startDate) {
+        const sDate = new Date(startDate);
+        sDate.setHours(0, 0, 0, 0);
+        filter.date.$gte = sDate;
+      }
+      if (endDate) {
+        const eDate = new Date(endDate);
+        eDate.setHours(23, 59, 59, 999);
+        filter.date.$lte = eDate;
+      }
     }
     if (partnerName) filter.partnerName = partnerName;
     if (type) filter.type = type;
@@ -23,6 +31,20 @@ router.get('/', async (req, res) => {
       const pageNum = Math.max(1, Number(page) || 1);
       const limitNum = Number(limit);
       const skip = (pageNum - 1) * limitNum;
+
+      if (withMeta === 'true') {
+        const [flows, totalCount] = await Promise.all([
+          query.skip(skip).limit(limitNum),
+          PartnerFlow.countDocuments(filter)
+        ]);
+        return res.json({
+          flows,
+          totalCount,
+          totalPages: Math.ceil(totalCount / limitNum),
+          currentPage: pageNum
+        });
+      }
+
       query = query.skip(skip).limit(limitNum);
     }
 
@@ -50,11 +72,11 @@ router.post('/', async (req, res) => {
     }
     
     const newFlow = new PartnerFlow({
-      date: date || new Date(),
-      partnerName,
+      date: date ? new Date(date) : new Date(),
+      partnerName: partnerName.trim(),
       type,
-      amount,
-      description
+      amount: Number(amount),
+      description: description.trim()
     });
     
     const saved = await newFlow.save();
@@ -81,9 +103,16 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ message: 'Amount must be greater than 0' });
     }
 
+    const updatePayload = {};
+    if (date !== undefined) updatePayload.date = new Date(date);
+    if (partnerName !== undefined) updatePayload.partnerName = partnerName.trim();
+    if (type !== undefined) updatePayload.type = type;
+    if (amount !== undefined) updatePayload.amount = Number(amount);
+    if (description !== undefined) updatePayload.description = description.trim();
+
     const updated = await PartnerFlow.findByIdAndUpdate(
       id,
-      { date, partnerName, type, amount, description },
+      { $set: updatePayload },
       { new: true, runValidators: true }
     );
 

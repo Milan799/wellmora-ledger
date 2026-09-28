@@ -41,6 +41,16 @@ export default function DeleteConfirmation({ isOpen, onClose, onConfirm, transac
           description: transaction.description || '—',
           status: null
         };
+      case 'wholesale':
+        return {
+          title: 'Wholesale Goods Purchase',
+          sourceLabel: 'Wholesaler',
+          sourceValue: `${transaction.sellerName || 'Wholesaler'} (Qty: ${transaction.quantity || 1} @ ₹${transaction.unitPrice || 0})`,
+          flowType: 'Purchase Outflow',
+          amount: transaction.totalAmount || transaction.amount,
+          description: transaction.description || '—',
+          status: transaction.paymentStatus || 'Pending'
+        };
       case 'ledger':
       default:
         return {

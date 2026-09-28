@@ -18,11 +18,39 @@
   <title>Wellmora Ledger - Business Expense & Ledger Tracking</title>
   <script>
     (function () {
-      const theme = localStorage.getItem('theme');
-      if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
+      try {
+        const theme = localStorage.getItem('theme');
+        if (theme === 'dark' || (!theme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } catch (e) {}
+    })();
+
+    // In native Android APK, unregister any service workers and clear caches
+    (function () {
+      var isNative = (
+        (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
+        window.location.hostname === 'localhost' ||
+        window.location.protocol === 'capacitor:' ||
+        window.location.protocol === 'file:'
+      );
+      if (isNative) {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (registrations) {
+            for (var i = 0; i < registrations.length; i++) {
+              registrations[i].unregister();
+            }
+          }).catch(function () {});
+        }
+        if ('caches' in window) {
+          caches.keys().then(function (names) {
+            for (var i = 0; i < names.length; i++) {
+              caches.delete(names[i]);
+            }
+          }).catch(function () {});
+        }
       }
     })();
   </script>
@@ -32,23 +60,21 @@
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
   <script>
-    if ('serviceWorker' in navigator) {
+    // Only register service worker for web browser / PWA (never inside native Android APK)
+    var isNative = (
+      (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
+      window.location.hostname === 'localhost' ||
+      window.location.protocol === 'capacitor:' ||
+      window.location.protocol === 'file:'
+    );
+
+    if (!isNative && 'serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        // Register SW with updateViaCache: 'none' to bypass browser HTTP cache for sw.js
         navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
           .then(reg => {
             console.log('PWA Service Worker registered successfully.');
-            
-            const checkForUpdates = () => {
-              reg.update().catch(() => {});
-            };
-
-            // Force waiting worker to skip waiting on mobile PWA launch
-            if (reg.waiting) {
-              reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-            }
-
-            // Handle newly installed service worker automatically
+            const checkForUpdates = () => { reg.update().catch(() => {}); };
+            if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
             reg.addEventListener('updatefound', () => {
               const installingWorker = reg.installing;
               if (installingWorker) {
@@ -59,22 +85,17 @@
                 });
               }
             });
-
-            // Check for updates on startup, tab resume, app focus, & online reconnection
             checkForUpdates();
             document.addEventListener('visibilitychange', () => {
               if (document.visibilityState === 'visible') checkForUpdates();
             });
             window.addEventListener('pageshow', checkForUpdates);
             window.addEventListener('online', checkForUpdates);
-
-            // Periodically check for updates every 10 minutes while app is open
             setInterval(checkForUpdates, 10 * 60 * 1000);
           })
           .catch(err => console.error('PWA Service Worker registration failed:', err));
       });
 
-      // Reload the mobile PWA view immediately when new service worker takes over
       let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!refreshing) {

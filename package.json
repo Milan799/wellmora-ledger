@@ -8,6 +8,7 @@
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js",
     "build": "npm install --prefix backend",
+    "build:apk": "npm --prefix frontend run build:apk",
     "postinstall": "npm install --prefix backend"
   },
   "dependencies": {

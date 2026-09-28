@@ -243,6 +243,7 @@ export default function PartnerLedger({
         isOpen={isDividendOpen}
         onClose={() => setIsDividendOpen(false)}
         transactions={operatingTransactions}
+        partnerTransactions={transactions}
         onPostShareDistribution={onAddPartnerFlow}
       />
 
@@ -319,6 +320,7 @@ export default function PartnerLedger({
         <DividendCalculatorModal
           isEmbedded={true}
           transactions={operatingTransactions}
+          partnerTransactions={transactions}
           onPostShareDistribution={onAddPartnerFlow}
         />
       ) : (

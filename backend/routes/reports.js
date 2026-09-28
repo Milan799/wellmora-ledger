@@ -5,7 +5,7 @@ import PartnerFlow from '../models/PartnerFlow.js';
 
 const router = express.Router();
 
-// Helper to filter items by date range
+// Helper to filter items by date range (strictly between start and end date)
 function filterByDate(items, startDate, endDate) {
   if (!startDate && !endDate) return items;
   const start = startDate ? new Date(startDate) : new Date(0);
@@ -19,9 +19,19 @@ function filterByDate(items, startDate, endDate) {
   });
 }
 
+// Helper to filter items cumulatively up to as-of end date (for Balance Sheet point-in-time snapshot)
+function filterCumulative(items, endDate) {
+  if (!endDate) return items;
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+  return items.filter(item => {
+    const d = new Date(item.date || item.createdAt);
+    return d <= end;
+  });
+}
+
 // Compute financial metric breakdown for a given list of data
-function computeStatementMetrics(transactions, bankTransactions, partnerFlows) {
-  // Operating Ledger (Exclude internal cash-in transfers from business revenue)
+function computeStatementMetrics(periodTrans, cumulativeTrans, cumulativeBank, cumulativePartner) {
   const isInternalTransfer = (cat) => {
     const c = String(cat || '').toLowerCase().trim();
     return c === 'atm cash withdrawal' || c === 'cash transfer' || c === 'internal transfer' || c === 'transfer';
@@ -32,15 +42,16 @@ function computeStatementMetrics(transactions, bankTransactions, partnerFlows) {
     return c === 'purchase' || c === 'stock' || c === 'purchases' || c === 'raw materials';
   };
 
-  const revenue = transactions
+  // 1. Profit & Loss Metrics (Calculated for the specified fiscal period)
+  const revenue = periodTrans
     .filter(t => t.type === 'Credit' && !isInternalTransfer(t.category))
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const purchases = transactions
+  const purchases = periodTrans
     .filter(t => t.type === 'Debit' && isPurchase(t.category))
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const operatingExpenses = transactions
+  const operatingExpenses = periodTrans
     .filter(t => t.type === 'Debit' && !isPurchase(t.category))
     .reduce((sum, t) => sum + t.amount, 0);
 
@@ -48,40 +59,52 @@ function computeStatementMetrics(transactions, bankTransactions, partnerFlows) {
   const grossProfit = revenue - purchases;
   const netIncome = revenue - totalExpenses;
 
-  // Cash In Hand
-  const inHandCashInflow = transactions
+  // 2. Balance Sheet Metrics (Cumulative snapshot as of statement end date)
+  const inHandCashInflow = cumulativeTrans
     .filter(t => t.isHandCash && t.type === 'Credit')
     .reduce((sum, t) => sum + t.amount, 0);
-  const inHandCashOutflow = transactions
+  const inHandCashOutflow = cumulativeTrans
     .filter(t => t.isHandCash && t.type === 'Debit')
     .reduce((sum, t) => sum + t.amount, 0);
   const inHandCashNet = inHandCashInflow - inHandCashOutflow;
 
   // Bank Balances (Includes both standard Withdrawal and ATM Withdrawal)
-  const bankDeposits = bankTransactions
+  const bankDeposits = cumulativeBank
     .filter(t => t.type === 'Deposit' && t.status === 'Completed')
     .reduce((sum, t) => sum + t.amount, 0);
-  const bankWithdrawals = bankTransactions
+  const bankWithdrawals = cumulativeBank
     .filter(t => (t.type === 'Withdrawal' || t.type === 'ATM Withdrawal') && t.status === 'Completed')
     .reduce((sum, t) => sum + t.amount, 0);
   const bankNet = bankDeposits - bankWithdrawals;
 
-  // Total Liquid Assets
+  // Total Liquid Assets as of date
   const totalAssets = inHandCashNet + bankNet;
 
-  // Partner Equity
-  const partnerContributions = partnerFlows
+  // Cumulative Partner Equity as of date
+  const partnerContributions = cumulativePartner
     .filter(t => t.type === 'Capital Contribution')
     .reduce((sum, t) => sum + t.amount, 0);
-  const partnerDrawings = partnerFlows
+  const partnerDrawings = cumulativePartner
     .filter(t => t.type === 'Profit Withdrawal' || t.type === 'Share Distribution')
     .reduce((sum, t) => sum + t.amount, 0);
   const netPartnerEquity = partnerContributions - partnerDrawings;
 
-  // Cash Flow Items (Operating Cash Flow + Financing Cash Flow)
+  // Cumulative retained earnings
+  const cumulativeRevenue = cumulativeTrans
+    .filter(t => t.type === 'Credit' && !isInternalTransfer(t.category))
+    .reduce((sum, t) => sum + t.amount, 0);
+  const cumulativeExpenses = cumulativeTrans
+    .filter(t => t.type === 'Debit')
+    .reduce((sum, t) => sum + t.amount, 0);
+  const cumulativeRetainedEarnings = cumulativeRevenue - cumulativeExpenses;
+
+  // Cash Flow for active period
   const operatingCashFlow = revenue - totalExpenses;
-  const financingCashFlow = partnerContributions - partnerDrawings;
-  const netCashFlow = operatingCashFlow + financingCashFlow;
+  const periodPartnerContrib = periodTrans
+    .filter(t => t.type === 'Credit' && t.category === 'Capital Contribution')
+    .reduce((sum, t) => sum + t.amount, 0);
+  const periodFinancingCashFlow = partnerContributions - partnerDrawings;
+  const netCashFlow = operatingCashFlow + periodFinancingCashFlow;
 
   return {
     pnl: {
@@ -105,13 +128,13 @@ function computeStatementMetrics(transactions, bankTransactions, partnerFlows) {
         partnerCapital: partnerContributions,
         partnerDrawings,
         netPartnerEquity,
-        retainedEarnings: netIncome,
-        totalEquity: netPartnerEquity + netIncome
+        retainedEarnings: cumulativeRetainedEarnings,
+        totalEquity: netPartnerEquity + cumulativeRetainedEarnings
       }
     },
     cashFlow: {
       operatingCashFlow,
-      financingCashFlow,
+      financingCashFlow: periodFinancingCashFlow,
       bankNet,
       netCashFlow
     }
@@ -124,26 +147,28 @@ router.get('/financial-statements', async (req, res, next) => {
     const { startDate, endDate, compareStartDate, compareEndDate } = req.query;
 
     const [allTransactions, allBankTransactions, allPartnerFlows] = await Promise.all([
-      Transaction.find({}),
-      BankTransaction.find({}),
-      PartnerFlow.find({})
+      Transaction.find({}).lean(),
+      BankTransaction.find({}).lean(),
+      PartnerFlow.find({}).lean()
     ]);
 
     const period1Trans = filterByDate(allTransactions, startDate, endDate);
-    const period1Bank = filterByDate(allBankTransactions, startDate, endDate);
-    const period1Partner = filterByDate(allPartnerFlows, startDate, endDate);
+    const cum1Trans = filterCumulative(allTransactions, endDate);
+    const cum1Bank = filterCumulative(allBankTransactions, endDate);
+    const cum1Partner = filterCumulative(allPartnerFlows, endDate);
 
-    const primaryMetrics = computeStatementMetrics(period1Trans, period1Bank, period1Partner);
+    const primaryMetrics = computeStatementMetrics(period1Trans, cum1Trans, cum1Bank, cum1Partner);
 
     let comparisonMetrics = null;
     let variance = null;
 
     if (compareStartDate || compareEndDate) {
       const period2Trans = filterByDate(allTransactions, compareStartDate, compareEndDate);
-      const period2Bank = filterByDate(allBankTransactions, compareStartDate, compareEndDate);
-      const period2Partner = filterByDate(allPartnerFlows, compareStartDate, compareEndDate);
+      const cum2Trans = filterCumulative(allTransactions, compareEndDate);
+      const cum2Bank = filterCumulative(allBankTransactions, compareEndDate);
+      const cum2Partner = filterCumulative(allPartnerFlows, compareEndDate);
 
-      comparisonMetrics = computeStatementMetrics(period2Trans, period2Bank, period2Partner);
+      comparisonMetrics = computeStatementMetrics(period2Trans, cum2Trans, cum2Bank, cum2Partner);
 
       const calcVar = (val1, val2) => {
         const diff = val1 - val2;

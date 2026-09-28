@@ -2,11 +2,12 @@ import express from 'express';
 import Transaction from '../models/Transaction.js';
 import BankTransaction from '../models/BankTransaction.js';
 import PartnerFlow from '../models/PartnerFlow.js';
+import Settings from '../models/Settings.js';
 import { isSafeWebhookUrl } from './backups.js';
 
 const router = express.Router();
 
-let digestConfig = {
+const DEFAULT_DIGEST_CONFIG = {
   enabled: false,
   channel: 'Email', // 'Email', 'WhatsApp', 'Telegram'
   webhookUrl: '',
@@ -15,45 +16,78 @@ let digestConfig = {
   frequency: 'daily'
 };
 
-// Helper to build financial digest payload
-async function generateDigestPayload() {
-  const [transactions, bankTransactions, partnerFlows] = await Promise.all([
-    Transaction.find({}),
-    BankTransaction.find({}),
-    PartnerFlow.find({})
-  ]);
+export const getPersistedDigestConfig = async () => {
+  try {
+    const doc = await Settings.findOne({ key: 'digestConfig' });
+    if (doc && doc.value) return { ...DEFAULT_DIGEST_CONFIG, ...doc.value };
+  } catch (e) {
+    console.error('Failed to load digest config from DB:', e.message);
+  }
+  return DEFAULT_DIGEST_CONFIG;
+};
 
+export const savePersistedDigestConfig = async (config) => {
+  const updated = await Settings.findOneAndUpdate(
+    { key: 'digestConfig' },
+    { key: 'digestConfig', value: config },
+    { upsert: true, new: true }
+  );
+  return updated.value;
+};
+
+// Helper to build financial digest payload
+export async function generateDigestPayload() {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
+  const [todayLedger, bankTransactions, partnerFlows, inHandTransactions] = await Promise.all([
+    Transaction.find({ date: { $gte: todayStart } }).lean(),
+    BankTransaction.find({ status: 'Completed' }).lean(),
+    PartnerFlow.find({}).lean(),
+    Transaction.find({ isHandCash: true }).lean()
+  ]);
+
   // Today's activities (Exclude internal transfer credits from operating inflow)
-  const todayLedger = transactions.filter(t => new Date(t.date || t.createdAt) >= todayStart);
+  const isInternalTransfer = (cat) => {
+    const c = String(cat || '').toLowerCase().trim();
+    return c === 'atm cash withdrawal' || c === 'cash transfer' || c === 'internal transfer' || c === 'transfer';
+  };
+
   const todayInflow = todayLedger
-    .filter(t => t.type === 'Credit' && t.category !== 'ATM Cash Withdrawal')
+    .filter(t => t.type === 'Credit' && !isInternalTransfer(t.category))
     .reduce((sum, t) => sum + t.amount, 0);
-  const todayOutflow = todayLedger.filter(t => t.type === 'Debit').reduce((sum, t) => sum + t.amount, 0);
+  const todayOutflow = todayLedger
+    .filter(t => t.type === 'Debit')
+    .reduce((sum, t) => sum + t.amount, 0);
 
   // Bank Position (Include both Withdrawal and ATM Withdrawal)
   const bankDeposits = bankTransactions
-    .filter(t => t.type === 'Deposit' && t.status === 'Completed')
+    .filter(t => t.type === 'Deposit')
     .reduce((s, t) => s + t.amount, 0);
   const bankWithdrawals = bankTransactions
-    .filter(t => (t.type === 'Withdrawal' || t.type === 'ATM Withdrawal') && t.status === 'Completed')
+    .filter(t => t.type === 'Withdrawal' || t.type === 'ATM Withdrawal')
     .reduce((s, t) => s + t.amount, 0);
   const totalBankBalance = bankDeposits - bankWithdrawals;
 
   // In-Hand Cash
-  const cashIn = transactions.filter(t => t.isHandCash && t.type === 'Credit').reduce((s, t) => s + t.amount, 0);
-  const cashOut = transactions.filter(t => t.isHandCash && t.type === 'Debit').reduce((s, t) => s + t.amount, 0);
+  const cashIn = inHandTransactions
+    .filter(t => t.type === 'Credit')
+    .reduce((s, t) => s + t.amount, 0);
+  const cashOut = inHandTransactions
+    .filter(t => t.type === 'Debit')
+    .reduce((s, t) => s + t.amount, 0);
   const totalCashBalance = cashIn - cashOut;
 
   // Partner Capital
-  const partnerContrib = partnerFlows.filter(t => t.type === 'Capital Contribution').reduce((s, t) => s + t.amount, 0);
-  const partnerDraw = partnerFlows.filter(t => t.type === 'Profit Withdrawal' || t.type === 'Share Distribution').reduce((s, t) => s + t.amount, 0);
+  const partnerContrib = partnerFlows
+    .filter(t => t.type === 'Capital Contribution')
+    .reduce((s, t) => s + t.amount, 0);
+  const partnerDraw = partnerFlows
+    .filter(t => t.type === 'Profit Withdrawal' || t.type === 'Share Distribution')
+    .reduce((s, t) => s + t.amount, 0);
   const netPartnerEquity = partnerContrib - partnerDraw;
 
   const totalLiquidity = totalBankBalance + totalCashBalance;
-
   const formattedDate = now.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
 
   const textDigest = `
@@ -75,11 +109,11 @@ System Status: ✅ All ledgers balanced and audit verified.
 `.trim();
 
   const htmlDigest = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px; border: 1px solid #e2e8f0; borderRadius: 12px;">
+    <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
       <h2 style="color: #4f46e5; margin-top: 0;">📊 Wellmora Ledger - Financial Digest</h2>
       <p style="color: #64748b; font-size: 13px;">Date: <strong>${formattedDate}</strong></p>
       <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 15px 0;">
-        <h3 style="margin-0; color: #1e293b; font-size: 18px;">Total Liquidity: ₹${totalLiquidity.toLocaleString('en-IN')}</h3>
+        <h3 style="margin: 0; color: #1e293b; font-size: 18px;">Total Liquidity: ₹${totalLiquidity.toLocaleString('en-IN')}</h3>
         <p style="margin: 5px 0 0 0; color: #64748b; font-size: 12px;">Bank: ₹${totalBankBalance.toLocaleString('en-IN')} | Cash: ₹${totalCashBalance.toLocaleString('en-IN')}</p>
       </div>
       <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px;">
@@ -112,61 +146,86 @@ System Status: ✅ All ledgers balanced and audit verified.
   };
 }
 
+// Internal helper to dispatch digest to configured channel
+export async function dispatchDigest(overrideTarget = {}) {
+  const digestConfig = await getPersistedDigestConfig();
+  const targetWebhook = overrideTarget.webhookUrl || digestConfig.webhookUrl;
+  const channel = overrideTarget.channel || digestConfig.channel;
+  const emailRecipient = overrideTarget.emailRecipient || digestConfig.emailRecipient;
+
+  const digestData = await generateDigestPayload();
+  let dispatchStatus = 'Preview Generated';
+
+  if (channel === 'Email') {
+    dispatchStatus = `Email Digest prepared for ${emailRecipient} (Configure SMTP for automated inbox delivery)`;
+  } else if (targetWebhook) {
+    if (!isSafeWebhookUrl(targetWebhook)) {
+      dispatchStatus = `Webhook blocked: Target URL is invalid or forbidden (SSRF protection).`;
+    } else {
+      try {
+        const resp = await fetch(targetWebhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: digestData.textDigest,
+            html: digestData.htmlDigest,
+            data: digestData
+          })
+        });
+
+        if (resp.ok) {
+          dispatchStatus = `Successfully sent digest to ${channel} Webhook!`;
+        } else {
+          dispatchStatus = `Webhook returned HTTP ${resp.status}`;
+        }
+      } catch (webhookErr) {
+        dispatchStatus = `Webhook dispatch error: ${webhookErr.message}`;
+      }
+    }
+  }
+
+  return { dispatchStatus, digestData };
+}
+
 // GET /api/digest/config
-router.get('/config', (req, res) => {
-  res.json(digestConfig);
+router.get('/config', async (req, res, next) => {
+  try {
+    const config = await getPersistedDigestConfig();
+    res.json(config);
+  } catch (error) {
+    next(error);
+  }
 });
 
 // POST /api/digest/config
-router.post('/config', (req, res) => {
-  const { enabled, channel, webhookUrl, emailRecipient, scheduleTime, frequency } = req.body;
-  if (enabled !== undefined) digestConfig.enabled = enabled;
-  if (channel !== undefined) digestConfig.channel = channel;
-  if (webhookUrl !== undefined) digestConfig.webhookUrl = webhookUrl;
-  if (emailRecipient !== undefined) digestConfig.emailRecipient = emailRecipient;
-  if (scheduleTime !== undefined) digestConfig.scheduleTime = scheduleTime;
-  if (frequency !== undefined) digestConfig.frequency = frequency;
+router.post('/config', async (req, res, next) => {
+  try {
+    const { enabled, channel, webhookUrl, emailRecipient, scheduleTime, frequency } = req.body;
+    const current = await getPersistedDigestConfig();
 
-  res.json({ message: 'Digest settings updated successfully', config: digestConfig });
+    if (enabled !== undefined) current.enabled = enabled;
+    if (channel !== undefined) current.channel = channel;
+    if (webhookUrl !== undefined) {
+      if (webhookUrl && !isSafeWebhookUrl(webhookUrl)) {
+        return res.status(400).json({ message: 'Invalid or forbidden webhook URL' });
+      }
+      current.webhookUrl = webhookUrl;
+    }
+    if (emailRecipient !== undefined) current.emailRecipient = emailRecipient;
+    if (scheduleTime !== undefined) current.scheduleTime = scheduleTime;
+    if (frequency !== undefined) current.frequency = frequency;
+
+    const saved = await savePersistedDigestConfig(current);
+    res.json({ message: 'Digest settings updated successfully', config: saved });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // POST /api/digest/send - Send instant digest or preview
 router.post('/send', async (req, res, next) => {
   try {
-    const digestData = await generateDigestPayload();
-    const targetWebhook = req.body.webhookUrl || digestConfig.webhookUrl;
-    const channel = req.body.channel || digestConfig.channel;
-
-    let dispatchStatus = 'Preview Generated';
-
-    if (channel === 'Email') {
-      dispatchStatus = `Email Digest preview prepared for ${req.body.emailRecipient || digestConfig.emailRecipient} (Configure SMTP for direct email delivery)`;
-    } else if (targetWebhook) {
-      if (!isSafeWebhookUrl(targetWebhook)) {
-        dispatchStatus = `Webhook blocked: Target URL is invalid or forbidden (SSRF protection).`;
-      } else {
-        try {
-          const resp = await fetch(targetWebhook, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              text: digestData.textDigest,
-              html: digestData.htmlDigest,
-              data: digestData
-            })
-          });
-
-          if (resp.ok) {
-            dispatchStatus = `Successfully sent digest to ${channel} Webhook!`;
-          } else {
-            dispatchStatus = `Webhook returned HTTP ${resp.status}`;
-          }
-        } catch (webhookErr) {
-          dispatchStatus = `Webhook dispatch error: ${webhookErr.message}`;
-        }
-      }
-    }
-
+    const { dispatchStatus, digestData } = await dispatchDigest(req.body);
     res.json({
       message: dispatchStatus,
       digest: digestData
@@ -177,3 +236,4 @@ router.post('/send', async (req, res, next) => {
 });
 
 export default router;
+

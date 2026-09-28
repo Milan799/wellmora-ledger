@@ -15,7 +15,8 @@ import {
   Layers,
   Sparkles,
   ArrowUpDown,
-  RefreshCw
+  RefreshCw,
+  Package
 } from 'lucide-react';
 import ExportDropdown from './ExportDropdown';
 import Pagination from './Pagination';
@@ -23,15 +24,18 @@ import Pagination from './Pagination';
 export default function CentralDashboard({
   transactions = [],
   bankTransactions = [],
+  wholesalePurchases = [],
   onEditLedger,
   onDeleteLedger,
   onEditBank,
   onDeleteBank,
+  onEditWholesale,
+  onDeleteWholesale,
   onRefresh,
   loading = false
 }) {
   const [search, setSearch] = useState('');
-  const [sourceFilter, setSourceFilter] = useState('All'); // 'All' | 'ledger' | 'bank'
+  const [sourceFilter, setSourceFilter] = useState('All'); // 'All' | 'ledger' | 'bank' | 'wholesale'
   const [typeFilter, setTypeFilter] = useState('All'); // 'All' | 'Inflow' | 'Outflow'
   const [dateRange, setDateRange] = useState('all'); // 'all' | 'today' | 'week' | 'month' | 'quarter' | 'year' | 'custom'
   const [startDate, setStartDate] = useState('');
@@ -79,29 +83,40 @@ export default function CentralDashboard({
   // COMBINED NORMALIZED STREAM (Bank + Expenses)
   // ----------------------------------------------------
   const allCombinedTransactions = useMemo(() => {
-    const ledgerItems = (transactions || []).map(t => {
+    // Deduplicate any transactions that represent wholesale purchases already present in wholesalePurchases
+    const wholesaleIds = new Set((wholesalePurchases || []).map(w => String(w._id)));
+
+    const ledgerItems = (transactions || [])
+      .filter(t => !t.wholesalePurchaseId || !wholesaleIds.has(String(t.wholesalePurchaseId)))
+      .map(t => {
       const rawDate = t.date || t.createdAt;
       const dateStr = rawDate ? String(rawDate).split('T')[0] : new Date().toISOString().split('T')[0];
       const createdTime = t.createdAt ? new Date(t.createdAt).getTime() : 0;
       const dayBase = new Date(dateStr + 'T00:00:00Z').getTime();
       const timestamp = dayBase + (createdTime ? (createdTime % 86400000) : 43200000);
 
+      const isWholesaleTx = t.isWholesalePurchase || (t.category === 'Purchase' && t.sellerName);
+
       return {
         _id: t._id,
         raw: t,
-        sourceModule: 'ledger',
-        sourceLabel: 'Expense / Cash',
+        sourceModule: isWholesaleTx ? 'wholesale' : 'ledger',
+        sourceLabel: isWholesaleTx ? 'Wholesale Purchase' : 'Expense / Cash',
         date: rawDate || new Date().toISOString(),
         timestamp,
         description: t.description || 'Ledger Entry',
-        entityInfo: t.category || 'Expense',
-        subCategory: t.isHandCash ? 'In Hand Cash' : 'Cash Account',
+        entityInfo: isWholesaleTx ? `Wholesaler: ${t.sellerName || 'Wholesaler'}` : (t.category || 'Expense'),
+        subCategory: isWholesaleTx 
+          ? (t.pendingAmount > 0 ? `Pending: ₹${t.pendingAmount}` : 'Done / Paid')
+          : (t.isHandCash ? 'In Hand Cash' : 'Cash Account'),
         flowType: t.type === 'Credit' ? 'Inflow' : 'Outflow',
-        originalType: t.type,
+        originalType: isWholesaleTx ? 'Wholesale' : t.type,
         paymentMode: t.isHandCash ? 'In Hand Cash' : 'Cash Transfer',
         amount: Number(t.amount || 0),
-        refNo: '',
-        status: 'Completed'
+        refNo: t.billNumber || '',
+        status: isWholesaleTx 
+          ? (t.paymentStatus === 'Done' || t.paymentStatus === 'Paid' ? 'Completed' : 'Pending')
+          : 'Completed'
       };
     });
 
@@ -131,8 +146,36 @@ export default function CentralDashboard({
       };
     });
 
-    return [...ledgerItems, ...bankItems];
-  }, [transactions, bankTransactions]);
+    const wholesaleItems = (wholesalePurchases || []).map(p => {
+      const rawDate = p.date || p.createdAt;
+      const dateStr = rawDate ? String(rawDate).split('T')[0] : new Date().toISOString().split('T')[0];
+      const createdTime = p.createdAt ? new Date(p.createdAt).getTime() : 0;
+      const dayBase = new Date(dateStr + 'T00:00:00Z').getTime();
+      const timestamp = dayBase + (createdTime ? (createdTime % 86400000) : 43200000);
+
+      const pend = p.pendingAmount !== undefined ? p.pendingAmount : Math.max(0, (p.totalAmount || 0) - (p.paidAmount || 0));
+
+      return {
+        _id: p._id,
+        raw: p,
+        sourceModule: 'wholesale',
+        sourceLabel: 'Wholesale Purchase',
+        date: rawDate || new Date().toISOString(),
+        timestamp,
+        description: `${p.description} (${p.quantity} pcs @ ₹${p.unitPrice})`,
+        entityInfo: `Wholesaler: ${p.sellerName || 'Wholesaler'}`,
+        subCategory: pend > 0 ? `Pending: ₹${pend}` : 'Done / Paid',
+        flowType: 'Outflow',
+        originalType: 'Wholesale',
+        paymentMode: p.paymentMode || 'Cash',
+        amount: Number(p.totalAmount || 0),
+        refNo: p.billNumber || '',
+        status: p.paymentStatus === 'Done' || p.paymentStatus === 'Paid' ? 'Completed' : 'Pending'
+      };
+    });
+
+    return [...ledgerItems, ...bankItems, ...wholesaleItems];
+  }, [transactions, bankTransactions, wholesalePurchases]);
 
   // Date-filtered transactions (normalized to UTC noon to prevent timezone shifting)
   const dateFilteredTransactions = useMemo(() => {
@@ -191,6 +234,7 @@ export default function CentralDashboard({
     let bankOut = 0;
     let expenseIn = 0;
     let expenseOut = 0;
+    let wholesaleOut = 0;
 
     dateFilteredTransactions.forEach(t => {
       if (t.status === 'Failed') return;
@@ -202,6 +246,7 @@ export default function CentralDashboard({
         periodOutflow += t.amount;
         if (t.sourceModule === 'bank') bankOut += t.amount;
         if (t.sourceModule === 'ledger') expenseOut += t.amount;
+        if (t.sourceModule === 'wholesale') wholesaleOut += t.amount;
       }
     });
 
@@ -213,6 +258,7 @@ export default function CentralDashboard({
       bankOut,
       expenseIn,
       expenseOut,
+      wholesaleOut,
       totalCount: dateFilteredTransactions.length
     };
   }, [dateFilteredTransactions]);
@@ -355,6 +401,13 @@ export default function CentralDashboard({
             Expense
           </span>
         );
+      case 'wholesale':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+            <Package size={11} />
+            Wholesale
+          </span>
+        );
       case 'bank':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20">
@@ -450,9 +503,10 @@ export default function CentralDashboard({
             <h4 className="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400 tracking-tight">
               -{formatCurrency(periodFlows.periodOutflow)}
             </h4>
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 text-[9.5px] font-semibold text-slate-500 dark:text-slate-400">
-              <span>Bank: {formatCurrency(periodFlows.bankOut)}</span>
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/40 text-[9.5px] font-semibold text-slate-500 dark:text-slate-400 flex-wrap gap-1">
               <span>Expenses: {formatCurrency(periodFlows.expenseOut)}</span>
+              {periodFlows.wholesaleOut > 0 && <span>Wholesale: {formatCurrency(periodFlows.wholesaleOut)}</span>}
+              <span>Bank: {formatCurrency(periodFlows.bankOut)}</span>
             </div>
           </div>
 
@@ -519,6 +573,7 @@ export default function CentralDashboard({
             <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 px-1.5 uppercase shrink-0">Source</span>
             {[
               { id: 'All', label: 'All' },
+              { id: 'wholesale', label: 'Wholesale' },
               { id: 'ledger', label: 'Expenses' },
               { id: 'bank', label: 'Bank' }
             ].map(opt => (
@@ -648,19 +703,21 @@ export default function CentralDashboard({
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => {
-                          if (t.sourceModule === 'ledger') onEditLedger?.(t.raw);
+                          if (t.sourceModule === 'wholesale') onEditWholesale?.(t.raw);
+                          else if (t.sourceModule === 'ledger') onEditLedger?.(t.raw);
                           else if (t.sourceModule === 'bank') onEditBank?.(t.raw);
                         }}
-                        className="p-1.5 text-slate-400 hover:text-indigo-600 bg-slate-100 dark:bg-slate-900 rounded-lg"
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 bg-slate-100 dark:bg-slate-900 rounded-lg cursor-pointer"
                       >
                         <Edit2 size={13} />
                       </button>
                       <button
                         onClick={() => {
-                          if (t.sourceModule === 'ledger') onDeleteLedger?.(t.raw);
+                          if (t.sourceModule === 'wholesale') onDeleteWholesale?.(t.raw);
+                          else if (t.sourceModule === 'ledger') onDeleteLedger?.(t.raw);
                           else if (t.sourceModule === 'bank') onDeleteBank?.(t.raw);
                         }}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 bg-slate-100 dark:bg-slate-900 rounded-lg"
+                        className="p-1.5 text-slate-400 hover:text-rose-600 bg-slate-100 dark:bg-slate-900 rounded-lg cursor-pointer"
                       >
                         <Trash2 size={13} />
                       </button>
@@ -777,7 +834,8 @@ export default function CentralDashboard({
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => {
-                              if (t.sourceModule === 'ledger') onEditLedger?.(t.raw);
+                              if (t.sourceModule === 'wholesale') onEditWholesale?.(t.raw);
+                              else if (t.sourceModule === 'ledger') onEditLedger?.(t.raw);
                               else if (t.sourceModule === 'bank') onEditBank?.(t.raw);
                             }}
                             className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg cursor-pointer transition-colors"
@@ -787,7 +845,8 @@ export default function CentralDashboard({
                           </button>
                           <button
                             onClick={() => {
-                              if (t.sourceModule === 'ledger') onDeleteLedger?.(t.raw);
+                              if (t.sourceModule === 'wholesale') onDeleteWholesale?.(t.raw);
+                              else if (t.sourceModule === 'ledger') onDeleteLedger?.(t.raw);
                               else if (t.sourceModule === 'bank') onDeleteBank?.(t.raw);
                             }}
                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer transition-colors"

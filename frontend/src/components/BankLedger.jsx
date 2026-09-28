@@ -126,7 +126,7 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
     .reduce((sum, t) => sum + t.amount, 0);
 
   const totalWithdrawal = filtered
-    .filter(t => t.type === 'Withdrawal' && t.status !== 'Failed')
+    .filter(t => (t.type === 'Withdrawal' || t.type === 'ATM Withdrawal') && t.status !== 'Failed')
     .reduce((sum, t) => sum + t.amount, 0);
 
   const netBalance = totalDeposit - totalWithdrawal;
@@ -357,6 +357,7 @@ export default function BankLedger({ transactions, onEdit, onDelete, loading, on
                 <option value="All" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">All Types</option>
                 <option value="Deposit" className="bg-white dark:bg-slate-900 text-emerald-600 font-semibold">Deposit</option>
                 <option value="Withdrawal" className="bg-white dark:bg-slate-900 text-rose-600 font-semibold">Withdrawal</option>
+                <option value="ATM Withdrawal" className="bg-white dark:bg-slate-900 text-amber-600 font-semibold">ATM Withdrawal</option>
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-450 dark:text-slate-500">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>

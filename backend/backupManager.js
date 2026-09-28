@@ -9,6 +9,7 @@ import Transaction from './models/Transaction.js';
 import BankTransaction from './models/BankTransaction.js';
 import PartnerFlow from './models/PartnerFlow.js';
 import Order from './models/Order.js';
+import WholesalePurchase from './models/WholesalePurchase.js';
 import User from './models/User.js';
 
 dotenv.config();
@@ -38,12 +39,13 @@ export async function createBackup() {
 
     console.log('📦 Starting database backup operation...');
     
-    const [transactions, bankTransactions, partnerFlows, rawOrders, users] = await Promise.all([
+    const [transactions, bankTransactions, partnerFlows, rawOrders, users, wholesalePurchases] = await Promise.all([
       Transaction.find({}).lean(),
       BankTransaction.find({}).lean(),
       PartnerFlow.find({}).lean(),
       Order.find({}).lean(),
-      User.find({}).select('-password').lean()
+      User.find({}).select('-password').lean(),
+      WholesalePurchase.find({}).lean()
     ]);
 
     // Strip heavy base64 label images from backup to keep file size compact and manageable
@@ -64,14 +66,16 @@ export async function createBackup() {
         bankTransactions: bankTransactions.length,
         partnerFlows: partnerFlows.length,
         orders: cleanOrders.length,
-        users: users.length
+        users: users.length,
+        wholesalePurchases: (wholesalePurchases || []).length
       },
       data: {
         transactions,
         bankTransactions,
         partnerFlows,
         orders: cleanOrders,
-        users
+        users,
+        wholesalePurchases: wholesalePurchases || []
       }
     };
 
@@ -147,7 +151,7 @@ export async function restoreFromData(backupPayload) {
       throw new Error('Invalid backup data structure. Must be a valid Wellmora Ledger Backup.');
     }
 
-    const { transactions, bankTransactions, partnerFlows, orders } = backupPayload.data || {};
+    const { transactions, bankTransactions, partnerFlows, orders, wholesalePurchases } = backupPayload.data || {};
     
     console.log('⚠️ Capturing safety snapshot before restore...');
     // Capture safety snapshot before clearing
@@ -163,6 +167,7 @@ export async function restoreFromData(backupPayload) {
       Transaction.deleteMany({}),
       BankTransaction.deleteMany({}),
       PartnerFlow.deleteMany({}),
+      WholesalePurchase.deleteMany({}),
       ...(orders && Array.isArray(orders) ? [Order.deleteMany({})] : [])
     ]);
 
@@ -170,6 +175,7 @@ export async function restoreFromData(backupPayload) {
       transactions && transactions.length ? Transaction.insertMany(transactions) : Promise.resolve(),
       bankTransactions && bankTransactions.length ? BankTransaction.insertMany(bankTransactions) : Promise.resolve(),
       partnerFlows && partnerFlows.length ? PartnerFlow.insertMany(partnerFlows) : Promise.resolve(),
+      wholesalePurchases && wholesalePurchases.length ? WholesalePurchase.insertMany(wholesalePurchases) : Promise.resolve(),
       orders && orders.length ? Order.insertMany(orders) : Promise.resolve()
     ]);
 

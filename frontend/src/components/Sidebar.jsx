@@ -12,7 +12,8 @@ import {
   LayoutDashboard, 
   Menu,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Package
 } from 'lucide-react';
 import Logo from './Logo';
 
@@ -29,6 +30,7 @@ export default function Sidebar({
 }) {
   const menuItems = [
     { id: 'central', label: 'Main Dashboard', shortLabel: 'Dashboard', icon: LayoutDashboard, color: 'text-violet-500 bg-violet-500/10' },
+    { id: 'wholesale', label: 'Wholesale Purchases', shortLabel: 'Wholesale', icon: Package, color: 'text-amber-500 bg-amber-500/10' },
     { id: 'ledger', label: 'Expenses & Cash', shortLabel: 'Expenses', icon: BookOpen, color: 'text-emerald-500 bg-emerald-500/10' },
     { id: 'bank', label: 'Bank Accounts', shortLabel: 'Banks', icon: Building2, color: 'text-sky-500 bg-sky-500/10' },
     { id: 'partner', label: 'Partner Investments', shortLabel: 'Partners', icon: Users2, color: 'text-indigo-500 bg-indigo-500/10' },
@@ -284,6 +286,7 @@ export default function Sidebar({
       <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200/90 dark:border-slate-800/90 flex items-center justify-around py-2 px-1 md:hidden shadow-2xl">
         {[
           { id: 'central', label: 'Home', icon: LayoutDashboard },
+          { id: 'wholesale', label: 'Wholesale', icon: Package },
           { id: 'ledger', label: 'Expenses', icon: BookOpen },
           { id: 'bank', label: 'Banks', icon: Building2 },
           { id: 'partner', label: 'Partners', icon: Users2 },

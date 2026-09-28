@@ -150,13 +150,8 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
     };
   });
 
-  // Internal cash transfer detection to avoid double counting
-  const internalCashInflow = activeLedger
-    .filter(t => t.type === 'Credit' && (t.category === 'ATM Cash Withdrawal' || t.category === 'Internal Transfer'))
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  // 4. Combined calculations (excluding internal transfers from top-line inflows)
-  const totalCombinedInflows = (ledgerInflow - internalCashInflow) + bankDeposits + partnerContribution;
+  // 4. Combined calculations
+  const totalCombinedInflows = ledgerInflow + bankDeposits + partnerContribution;
   const totalCombinedOutflows = ledgerOutflow + bankWithdrawals + partnerWithdrawal;
   const totalNetLiquidAssets = inHandCashNet + bankNet;
 
@@ -306,10 +301,9 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
     const lIn = activeL.filter(t => t.type === 'Credit').reduce((sum, t) => sum + t.amount, 0);
     const lOut = activeL.filter(t => t.type === 'Debit').reduce((sum, t) => sum + t.amount, 0);
     const bIn = activeB.filter(t => t.type === 'Deposit' && t.status === 'Completed').reduce((sum, t) => sum + t.amount, 0);
-    const bOut = activeB.filter(t => t.type === 'Withdrawal' && t.status === 'Completed').reduce((sum, t) => sum + t.amount, 0);
+    const bOut = activeB.filter(t => (t.type === 'Withdrawal' || t.type === 'ATM Withdrawal') && t.status === 'Completed').reduce((sum, t) => sum + t.amount, 0);
     const pIn = activeP.filter(t => t.type === 'Capital Contribution').reduce((sum, t) => sum + t.amount, 0);
     const pOut = activeP.filter(t => t.type === 'Profit Withdrawal' || t.type === 'Share Distribution').reduce((sum, t) => sum + t.amount, 0);
-
     const rows = [
       ['Total Combined Inflows', lIn + bIn + pIn],
       ['Total Combined Outflows', lOut + bOut + pOut],
@@ -317,7 +311,7 @@ export default function FinancialSummary({ transactions = [], bankTransactions =
       ['Operating Ledger Outflows', lOut],
       ['Operating Ledger Net Balance', lIn - lOut],
       ['Bank Accounts Deposits', bIn],
-      ['Bank Accounts Withdrawals', bOut],
+      ['Bank Accounts Withdrawals & ATM', bOut],
       ['Bank Accounts Net Balance', bIn - bOut],
       ['Partner Capital Contributions', pIn],
       ['Partner Profit Withdrawals', pOut],

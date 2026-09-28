@@ -5,19 +5,45 @@ export default function DividendCalculatorModal({
   isOpen = true, 
   onClose, 
   transactions = [], 
+  partnerTransactions = [],
   onPostShareDistribution,
   isEmbedded = false 
 }) {
-  const partnersList = ['Milan Javiya', 'Krushang Prajapati', 'Umang Prajapati', 'Moksh Shah'];
+  const defaultPartners = ['Milan Javiya', 'Krushang Prajapati', 'Umang Prajapati', 'Moksh Shah'];
 
-  const partnerColors = {
+  const [partnersList, setPartnersList] = useState(() => {
+    const list = Array.from(new Set([
+      ...defaultPartners,
+      ...partnerTransactions.map(t => t.partnerName).filter(Boolean)
+    ]));
+    return list.length > 0 ? list : defaultPartners;
+  });
+
+  const [newPartnerName, setNewPartnerName] = useState('');
+  const [showAddPartner, setShowAddPartner] = useState(false);
+
+  const partnerColorsMap = {
     'Milan Javiya': { bg: 'bg-indigo-500', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-500/20', lightBg: 'bg-indigo-50 dark:bg-indigo-950/40' },
     'Krushang Prajapati': { bg: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/20', lightBg: 'bg-emerald-50 dark:bg-emerald-950/40' },
     'Umang Prajapati': { bg: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', lightBg: 'bg-amber-50 dark:bg-amber-950/40' },
     'Moksh Shah': { bg: 'bg-purple-500', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-500/20', lightBg: 'bg-purple-50 dark:bg-purple-950/40' }
   };
 
-  // Default equity split
+  const dynamicPalette = [
+    { bg: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-500/20', lightBg: 'bg-rose-50 dark:bg-rose-950/40' },
+    { bg: 'bg-cyan-500', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-500/20', lightBg: 'bg-cyan-50 dark:bg-cyan-950/40' },
+    { bg: 'bg-lime-500', text: 'text-lime-600 dark:text-lime-400', border: 'border-lime-500/20', lightBg: 'bg-lime-50 dark:bg-lime-950/40' },
+    { bg: 'bg-fuchsia-500', text: 'text-fuchsia-600 dark:text-fuchsia-400', border: 'border-fuchsia-500/20', lightBg: 'bg-fuchsia-50 dark:bg-fuchsia-950/40' },
+    { bg: 'bg-teal-500', text: 'text-teal-600 dark:text-teal-400', border: 'border-teal-500/20', lightBg: 'bg-teal-50 dark:bg-teal-950/40' }
+  ];
+
+  const getPartnerColor = (name) => {
+    if (partnerColorsMap[name]) return partnerColorsMap[name];
+    const hash = Math.abs(String(name).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0));
+    return dynamicPalette[hash % dynamicPalette.length];
+  };
+
+  // Equity split state
   const [equityPcts, setEquityPcts] = useState({
     'Milan Javiya': 35,
     'Krushang Prajapati': 25,
@@ -29,6 +55,20 @@ export default function DividendCalculatorModal({
   const [periodName, setPeriodName] = useState('FY 2025-26 Q1');
   const [isPosting, setIsPosting] = useState(false);
   const [postedSuccess, setPostedSuccess] = useState(false);
+
+  // Sync partners if partnerTransactions change
+  useEffect(() => {
+    if (partnerTransactions.length > 0) {
+      const distinct = Array.from(new Set([
+        ...defaultPartners,
+        ...partnerTransactions.map(t => t.partnerName).filter(Boolean)
+      ]));
+      setPartnersList(prev => {
+        const combined = Array.from(new Set([...prev, ...distinct]));
+        return combined;
+      });
+    }
+  }, [partnerTransactions]);
 
   // Calculate default net profit from operating ledger if available
   useEffect(() => {
@@ -44,7 +84,7 @@ export default function DividendCalculatorModal({
 
   if (!isEmbedded && !isOpen) return null;
 
-  const totalPct = Object.values(equityPcts).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+  const totalPct = partnersList.reduce((sum, p) => sum + (parseFloat(equityPcts[p]) || 0), 0);
   const isValidPct = Math.abs(totalPct - 100) < 0.1;
 
   const profitVal = parseFloat(netProfitInput) || 0;
@@ -54,6 +94,40 @@ export default function DividendCalculatorModal({
       ...prev,
       [partner]: val
     }));
+  };
+
+  const handleAddPartner = (e) => {
+    e.preventDefault();
+    const trimmed = newPartnerName.trim();
+    if (!trimmed) return;
+    if (!partnersList.includes(trimmed)) {
+      setPartnersList(prev => [...prev, trimmed]);
+      setEquityPcts(prev => ({ ...prev, [trimmed]: 0 }));
+    }
+    setNewPartnerName('');
+    setShowAddPartner(false);
+  };
+
+  const handleRemovePartner = (partnerToRemove) => {
+    if (partnersList.length <= 1) return;
+    setPartnersList(prev => prev.filter(p => p !== partnerToRemove));
+    setEquityPcts(prev => {
+      const copy = { ...prev };
+      delete copy[partnerToRemove];
+      return copy;
+    });
+  };
+
+  const handleSplitEqually = () => {
+    if (partnersList.length === 0) return;
+    const count = partnersList.length;
+    const basePct = Math.floor((100 / count) * 10) / 10;
+    const remainder = Math.round((100 - (basePct * count)) * 10) / 10;
+    const updated = {};
+    partnersList.forEach((p, idx) => {
+      updated[p] = idx === 0 ? Number((basePct + remainder).toFixed(1)) : basePct;
+    });
+    setEquityPcts(updated);
   };
 
   const formatCurrency = (val) => {
@@ -174,21 +248,64 @@ export default function DividendCalculatorModal({
                   <Users size={16} className="text-indigo-600 dark:text-indigo-400" />
                   2. Partner Equity Ownership (%)
                 </h4>
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                  Must sum to 100%
-                </span>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={handleSplitEqually}
+                    className="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline cursor-pointer"
+                  >
+                    Split Equally
+                  </button>
+                  <span className="text-slate-300 dark:text-slate-700">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddPartner(!showAddPartner)}
+                    className="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline cursor-pointer"
+                  >
+                    {showAddPartner ? 'Cancel' : '+ Add Partner'}
+                  </button>
+                </div>
               </div>
+
+              {showAddPartner && (
+                <form onSubmit={handleAddPartner} className="flex gap-2 p-3 bg-violet-50/50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-900/40 rounded-2xl">
+                  <input
+                    type="text"
+                    placeholder="Enter Partner Name..."
+                    value={newPartnerName}
+                    onChange={(e) => setNewPartnerName(e.target.value)}
+                    className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </form>
+              )}
 
               <div className="space-y-3">
                 {partnersList.map(partner => {
                   const pct = parseFloat(equityPcts[partner]) || 0;
-                  const colorConfig = partnerColors[partner] || partnerColors['Milan Javiya'];
+                  const colorConfig = getPartnerColor(partner);
                   return (
                     <div key={partner} className="p-4 bg-slate-50 dark:bg-slate-950/60 border border-slate-200/90 dark:border-slate-800/80 rounded-2xl space-y-2">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2.5">
                           <span className={`w-3 h-3 rounded-full ${colorConfig.bg}`} />
                           <span className="text-xs font-black text-slate-900 dark:text-slate-100">{partner}</span>
+                          {partnersList.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePartner(partner)}
+                              className="text-slate-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400 transition-colors p-0.5 cursor-pointer"
+                              title="Remove from split"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0 w-28">
@@ -233,7 +350,7 @@ export default function DividendCalculatorModal({
               <div className="h-3 w-full rounded-full overflow-hidden flex bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
                 {partnersList.map(partner => {
                   const pct = parseFloat(equityPcts[partner]) || 0;
-                  const colorConfig = partnerColors[partner];
+                  const colorConfig = getPartnerColor(partner);
                   if (pct <= 0) return null;
                   return (
                     <div 
@@ -257,7 +374,7 @@ export default function DividendCalculatorModal({
               {partnersList.map(partner => {
                 const pct = parseFloat(equityPcts[partner]) || 0;
                 const payout = (profitVal * pct) / 100;
-                const colorConfig = partnerColors[partner];
+                const colorConfig = getPartnerColor(partner);
 
                 return (
                   <div key={`payout_card_${partner}`} className="py-3 flex items-center justify-between gap-3">

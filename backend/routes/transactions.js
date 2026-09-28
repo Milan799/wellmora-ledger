@@ -6,13 +6,21 @@ const router = express.Router();
 // GET transactions (with optional date filtering and pagination)
 router.get('/', async (req, res) => {
   try {
-    const { page, limit, startDate, endDate, category, type } = req.query;
+    const { page, limit, startDate, endDate, category, type, withMeta } = req.query;
     const filter = {};
 
     if (startDate || endDate) {
       filter.date = {};
-      if (startDate) filter.date.$gte = new Date(startDate);
-      if (endDate) filter.date.$lte = new Date(endDate);
+      if (startDate) {
+        const sDate = new Date(startDate);
+        sDate.setHours(0, 0, 0, 0);
+        filter.date.$gte = sDate;
+      }
+      if (endDate) {
+        const eDate = new Date(endDate);
+        eDate.setHours(23, 59, 59, 999);
+        filter.date.$lte = eDate;
+      }
     }
     if (category) filter.category = category;
     if (type) filter.type = type;
@@ -23,6 +31,20 @@ router.get('/', async (req, res) => {
       const pageNum = Math.max(1, Number(page) || 1);
       const limitNum = Number(limit);
       const skip = (pageNum - 1) * limitNum;
+      
+      if (withMeta === 'true') {
+        const [transactions, totalCount] = await Promise.all([
+          query.skip(skip).limit(limitNum),
+          Transaction.countDocuments(filter)
+        ]);
+        return res.json({
+          transactions,
+          totalCount,
+          totalPages: Math.ceil(totalCount / limitNum),
+          currentPage: pageNum
+        });
+      }
+
       query = query.skip(skip).limit(limitNum);
     }
 
@@ -47,11 +69,11 @@ router.post('/', async (req, res) => {
     }
     
     const newTransaction = new Transaction({
-      date: date || new Date(),
-      description,
-      category,
+      date: date ? new Date(date) : new Date(),
+      description: description.trim(),
+      category: category || 'Others',
       type,
-      amount,
+      amount: Number(amount),
       isHandCash: !!isHandCash
     });
     
@@ -76,9 +98,17 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ message: 'Amount must be greater than 0' });
     }
 
+    const updatePayload = {};
+    if (date !== undefined) updatePayload.date = new Date(date);
+    if (description !== undefined) updatePayload.description = description.trim();
+    if (category !== undefined) updatePayload.category = category;
+    if (type !== undefined) updatePayload.type = type;
+    if (amount !== undefined) updatePayload.amount = Number(amount);
+    if (isHandCash !== undefined) updatePayload.isHandCash = !!isHandCash;
+
     const updatedTransaction = await Transaction.findByIdAndUpdate(
       id,
-      { date, description, category, type, amount, isHandCash },
+      { $set: updatePayload },
       { new: true, runValidators: true }
     );
 

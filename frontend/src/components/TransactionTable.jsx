@@ -57,6 +57,7 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
       case 'Sales':
         return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
       case 'Purchase':
+      case 'Wholesale Purchase':
         return 'bg-amber-500/10 text-amber-600 dark:text-amber-450 border-amber-500/20';
       case 'Logistics':
         return 'bg-indigo-500/10 text-indigo-650 dark:text-indigo-400 border-indigo-500/20';
@@ -98,6 +99,20 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${getCategoryBadgeClass(t.category)}`}>
                   {t.category}
                 </span>
+                {t.sellerName && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-extrabold bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/20">
+                    {t.sellerName}
+                  </span>
+                )}
+                {t.pendingAmount > 0 ? (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-extrabold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                    Pending: {formatCurrency(t.pendingAmount)}
+                  </span>
+                ) : (t.isWholesalePurchase || t.sellerName) ? (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    Paid
+                  </span>
+                ) : null}
                 {t.isHandCash && (
                   <span className="inline-flex items-center px-1.5 py-0.2 rounded-md text-[8px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-450 border border-amber-500/20">
                     In Hand Cash
@@ -191,9 +206,21 @@ export default function TransactionTable({ transactions, onEdit, onDelete }) {
                 {/* Category */}
                 <td className="px-4 py-3.5 whitespace-nowrap">
                   <div className="flex flex-col gap-1 items-start">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${getCategoryBadgeClass(t.category)}`}>
-                      {t.category}
-                    </span>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${getCategoryBadgeClass(t.category)}`}>
+                        {t.category}
+                      </span>
+                      {t.sellerName && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-extrabold bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/20">
+                          {t.sellerName}
+                        </span>
+                      )}
+                    </div>
+                    {t.pendingAmount > 0 && (
+                      <span className="text-[9px] font-extrabold text-rose-600 dark:text-rose-400">
+                        Pending: {formatCurrency(t.pendingAmount)}
+                      </span>
+                    )}
                     {t.isHandCash && (
                       <span className="inline-flex items-center px-1.5 py-0.2 rounded-md text-[8px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-450 border border-amber-500/20">
                         In Hand Cash

@@ -16,6 +16,9 @@ import PartnerLedger from './components/PartnerLedger';
 import PartnerForm from './components/PartnerForm';
 import FinancialSummary from './components/FinancialSummary';
 import CentralDashboard from './components/CentralDashboard';
+import WholesaleLedger from './components/WholesaleLedger';
+import WholesaleForm from './components/WholesaleForm';
+import WholesalePaymentModal from './components/WholesalePaymentModal';
 
 import DeleteConfirmation from './components/DeleteConfirmation';
 import Notification from './components/Notification';
@@ -61,7 +64,7 @@ const safeSetLocalStorage = (key, data) => {
   }
 };
 
-const fetchWithTimeout = async (url, options = {}, timeout = 25000) => {
+const fetchWithTimeout = async (url, options = {}, timeout = 60000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   try {
@@ -133,13 +136,13 @@ export default function App() {
     localStorage.removeItem('cached_transactions');
     localStorage.removeItem('cached_bankTransactions');
     localStorage.removeItem('cached_partnerTransactions');
-    setBiometricLockState(false);
-    setIsBiometricLocked(false);
+    localStorage.removeItem('cached_wholesalePurchases');
     setAuthUser(null);
     setAuthToken('');
     setTransactions([]);
     setBankTransactions([]);
     setPartnerTransactions([]);
+    setWholesalePurchases([]);
     setIsAuthModalOpen(true);
     triggerNotification('You have been signed out.', 'info');
   };
@@ -249,6 +252,19 @@ export default function App() {
   const [loadingPartner, setLoadingPartner] = useState(false);
   const [errorPartner, setErrorPartner] = useState(null);
 
+  // 4. Wholesale Purchases State
+  const [wholesalePurchases, setWholesalePurchases] = useState(() => {
+    if (!localStorage.getItem('authUser')) return [];
+    try {
+      const cached = localStorage.getItem('cached_wholesalePurchases');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [loadingWholesale, setLoadingWholesale] = useState(false);
+  const [errorWholesale, setErrorWholesale] = useState(null);
+
   // General Search / Filter for main ledger
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
@@ -267,11 +283,13 @@ export default function App() {
   const [isPartnerFormOpen, setIsPartnerFormOpen] = useState(false);
   const [editingPartnerTransaction, setEditingPartnerTransaction] = useState(null);
 
-
+  const [isWholesaleFormOpen, setIsWholesaleFormOpen] = useState(false);
+  const [editingWholesalePurchase, setEditingWholesalePurchase] = useState(null);
+  const [payingWholesalePurchase, setPayingWholesalePurchase] = useState(null);
 
   // Delete modal state
   const [deletingTransaction, setDeletingTransaction] = useState(null);
-  const [deletingType, setDeletingType] = useState('ledger'); // 'ledger' | 'bank' | 'partner'
+  const [deletingType, setDeletingType] = useState('ledger'); // 'ledger' | 'bank' | 'partner' | 'wholesale'
 
   // Notifications
   const [notification, setNotification] = useState(null);
@@ -282,7 +300,8 @@ export default function App() {
       await Promise.allSettled([
         fetchTransactions(),
         fetchBankTransactions(),
-        fetchPartnerTransactions()
+        fetchPartnerTransactions(),
+        fetchWholesalePurchases()
       ]);
     } catch (err) {
       console.error("Auto-sync refresh error:", err);
@@ -293,6 +312,7 @@ export default function App() {
     localStorage.removeItem('cached_transactions');
     localStorage.removeItem('cached_bankTransactions');
     localStorage.removeItem('cached_partnerTransactions');
+    localStorage.removeItem('cached_wholesalePurchases');
     localStorage.removeItem('cached_orders');
 
     if ('caches' in window) {
@@ -323,7 +343,13 @@ export default function App() {
       const handleFocusOrVisible = () => {
         if (document.visibilityState === 'visible') {
           refreshAllData(true);
+          syncOfflineOperations();
         }
+      };
+
+      const handleOnline = () => {
+        refreshAllData(true);
+        syncOfflineOperations();
       };
 
       // Multi-tab storage sync listener across all data modules
@@ -334,6 +360,8 @@ export default function App() {
           try { setBankTransactions(JSON.parse(e.newValue)); } catch (err) {}
         } else if (e.key === 'cached_partnerTransactions' && e.newValue) {
           try { setPartnerTransactions(JSON.parse(e.newValue)); } catch (err) {}
+        } else if (e.key === 'cached_wholesalePurchases' && e.newValue) {
+          try { setWholesalePurchases(JSON.parse(e.newValue)); } catch (err) {}
         }
       };
 
@@ -341,7 +369,7 @@ export default function App() {
       window.addEventListener('visibilitychange', handleFocusOrVisible);
       window.addEventListener('focus', handleFocusOrVisible);
       window.addEventListener('pageshow', handleFocusOrVisible);
-      window.addEventListener('online', handleFocusOrVisible);
+      window.addEventListener('online', handleOnline);
 
       return () => {
         clearInterval(syncInterval);
@@ -349,7 +377,7 @@ export default function App() {
         window.removeEventListener('visibilitychange', handleFocusOrVisible);
         window.removeEventListener('focus', handleFocusOrVisible);
         window.removeEventListener('pageshow', handleFocusOrVisible);
-        window.removeEventListener('online', handleFocusOrVisible);
+        window.removeEventListener('online', handleOnline);
       };
     } else {
       setTransactions([]);
@@ -377,7 +405,7 @@ export default function App() {
     const queue = JSON.parse(localStorage.getItem('unsynced_ops') || '[]');
     if (queue.length === 0) return;
 
-    console.log(`🔄 Syncing ${queue.length} offline operations to server...`);
+    console.log(`🔄 Syncing ${queue.length} offline operations to MongoDB server...`);
     let failedOps = [];
     const workingQueue = [...queue];
 
@@ -396,6 +424,7 @@ export default function App() {
           }
           else if (op.type === 'bank') url = `${API_BASE_URL}/bank-transactions`;
           else if (op.type === 'partner') url = `${API_BASE_URL}/partner-flows`;
+          else if (op.type === 'wholesale') url = `${API_BASE_URL}/wholesale-purchases`;
 
           const response = await fetchWithTimeout(url, {
             method: 'POST',
@@ -409,7 +438,10 @@ export default function App() {
             return;
           }
 
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          if (!response.ok) {
+            const errData = await safeJsonFetch(response);
+            throw new Error(errData?.message || `HTTP ${response.status}`);
+          }
 
           const savedItem = await safeJsonFetch(response);
           if (savedItem && savedItem._id) {
@@ -418,20 +450,38 @@ export default function App() {
 
             if (op.type === 'ledger') {
               setTransactions(prev => {
-                const newL = prev.map(t => t._id === oldLocalId ? savedItem : t);
+                const exists = prev.some(t => t._id === oldLocalId || t._id === newServerId);
+                const newL = exists 
+                  ? prev.map(t => (t._id === oldLocalId || t._id === newServerId) ? savedItem : t)
+                  : [savedItem, ...prev];
                 safeSetLocalStorage('cached_transactions', newL);
                 return newL;
               });
             } else if (op.type === 'bank') {
               setBankTransactions(prev => {
-                const newL = prev.map(t => t._id === oldLocalId ? savedItem : t);
+                const exists = prev.some(t => t._id === oldLocalId || t._id === newServerId);
+                const newL = exists
+                  ? prev.map(t => (t._id === oldLocalId || t._id === newServerId) ? savedItem : t)
+                  : [savedItem, ...prev];
                 safeSetLocalStorage('cached_bankTransactions', newL);
                 return newL;
               });
             } else if (op.type === 'partner') {
               setPartnerTransactions(prev => {
-                const newL = prev.map(t => t._id === oldLocalId ? savedItem : t);
+                const exists = prev.some(t => t._id === oldLocalId || t._id === newServerId);
+                const newL = exists
+                  ? prev.map(t => (t._id === oldLocalId || t._id === newServerId) ? savedItem : t)
+                  : [savedItem, ...prev];
                 safeSetLocalStorage('cached_partnerTransactions', newL);
+                return newL;
+              });
+            } else if (op.type === 'wholesale') {
+              setWholesalePurchases(prev => {
+                const exists = prev.some(t => t._id === oldLocalId || t._id === newServerId);
+                const newL = exists
+                  ? prev.map(t => (t._id === oldLocalId || t._id === newServerId) ? savedItem : t)
+                  : [savedItem, ...prev];
+                safeSetLocalStorage('cached_wholesalePurchases', newL);
                 return newL;
               });
             }
@@ -444,12 +494,17 @@ export default function App() {
             }
           }
         } else if (op.action === 'EDIT') {
+          if (op.data && op.data._id && op.data._id.startsWith('local_')) {
+            // Associated local ADD hasn't completed yet; keep EDIT queued for next retry
+            failedOps.push(op);
+            continue;
+          }
+
           let url = '';
           if (op.type === 'ledger') url = `${API_BASE_URL}/transactions/${op.data._id}`;
           else if (op.type === 'bank') url = `${API_BASE_URL}/bank-transactions/${op.data._id}`;
           else if (op.type === 'partner') url = `${API_BASE_URL}/partner-flows/${op.data._id}`;
-
-          if (op.data._id.startsWith('local_')) continue;
+          else if (op.type === 'wholesale') url = `${API_BASE_URL}/wholesale-purchases/${op.data._id}`;
 
           const response = await fetchWithTimeout(url, {
             method: 'PUT',
@@ -462,14 +517,22 @@ export default function App() {
             return;
           }
 
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          if (!response.ok) {
+            const errData = await safeJsonFetch(response);
+            throw new Error(errData?.message || `HTTP ${response.status}`);
+          }
         } else if (op.action === 'DELETE') {
+          if (op.data && op.data._id && op.data._id.startsWith('local_')) {
+            // Local item was added and deleted entirely offline; prune any queued ADD for this local item
+            failedOps = failedOps.filter(f => !(f.action === 'ADD' && f.data && f.data._id === op.data._id));
+            continue;
+          }
+
           let url = '';
           if (op.type === 'ledger') url = `${API_BASE_URL}/transactions/${op.data._id}`;
           else if (op.type === 'bank') url = `${API_BASE_URL}/bank-transactions/${op.data._id}`;
           else if (op.type === 'partner') url = `${API_BASE_URL}/partner-flows/${op.data._id}`;
-
-          if (op.data._id.startsWith('local_')) continue;
+          else if (op.type === 'wholesale') url = `${API_BASE_URL}/wholesale-purchases/${op.data._id}`;
 
           const response = await fetchWithTimeout(url, { method: 'DELETE' });
 
@@ -479,7 +542,10 @@ export default function App() {
             return;
           }
 
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          if (!response.ok) {
+            const errData = await safeJsonFetch(response);
+            throw new Error(errData?.message || `HTTP ${response.status}`);
+          }
         }
       } catch (err) {
         console.error('Failed to sync operation:', op, err);
@@ -508,8 +574,18 @@ export default function App() {
       if (!response.ok) throw new Error('Failed to fetch transactions');
       const data = await safeJsonFetch(response);
       if (!data) throw new Error('Invalid server response');
-      setTransactions(data);
-      safeSetLocalStorage('cached_transactions', data);
+
+      // Preserve any pending local unsynced additions in state
+      const unsyncedOps = JSON.parse(localStorage.getItem('unsynced_ops') || '[]');
+      const localAddOps = unsyncedOps.filter(o => o.action === 'ADD' && o.type === 'ledger' && o.data && o.data._id);
+      const localIds = new Set(localAddOps.map(o => o.data._id));
+
+      setTransactions(prev => {
+        const remainingLocal = prev.filter(t => localIds.has(t._id));
+        const merged = [...remainingLocal, ...data.filter(d => !remainingLocal.some(l => l._id === d._id))];
+        safeSetLocalStorage('cached_transactions', merged);
+        return merged;
+      });
       syncOfflineOperations();
     } catch (err) {
       console.warn("fetchTransactions error:", err.message);
@@ -533,7 +609,15 @@ export default function App() {
             method: 'PUT',
             body: JSON.stringify(formData)
           });
-          if (!response.ok) throw new Error('Failed to update ledger');
+          if (response.status === 401) {
+            handleLogout();
+            triggerNotification('Session expired. Please log in again.', 'error');
+            return;
+          }
+          if (!response.ok) {
+            const errData = await safeJsonFetch(response);
+            throw new Error(errData?.message || `Failed to update ledger (HTTP ${response.status})`);
+          }
           const updated = await safeJsonFetch(response);
           if (!updated) throw new Error('Invalid server response');
           setTransactions(prev => {
@@ -541,16 +625,21 @@ export default function App() {
             safeSetLocalStorage('cached_transactions', newL);
             return newL;
           });
-          triggerNotification('Ledger entry updated successfully!', 'success');
+          triggerNotification('Ledger entry updated successfully in MongoDB!', 'success');
         } catch (err) {
-          console.warn('Network submit failed, queuing offline:', err);
-          const updatedLocally = { ...editingTransaction, ...formData, updatedAt: new Date().toISOString() };
-          setTransactions(prev => {
-            const newL = prev.map(t => t._id === editingTransaction._id ? updatedLocally : t);
-            safeSetLocalStorage('cached_transactions', newL);
-            return newL;
-          });
-          queueSyncOperation('EDIT', 'ledger', updatedLocally);
+          if (!navigator.onLine || err.name === 'AbortError' || (err.message && err.message.includes('Failed to fetch'))) {
+            console.warn('Network submit failed, queuing offline:', err);
+            const updatedLocally = { ...editingTransaction, ...formData, updatedAt: new Date().toISOString() };
+            setTransactions(prev => {
+              const newL = prev.map(t => t._id === editingTransaction._id ? updatedLocally : t);
+              safeSetLocalStorage('cached_transactions', newL);
+              return newL;
+            });
+            queueSyncOperation('EDIT', 'ledger', updatedLocally);
+            triggerNotification('Saved locally offline. Will sync to MongoDB when connected.', 'info');
+          } else {
+            throw err;
+          }
         }
       } else {
         try {
@@ -558,31 +647,44 @@ export default function App() {
             method: 'POST',
             body: JSON.stringify(formData)
           });
-          if (!response.ok) throw new Error('Failed to save ledger');
+          if (response.status === 401) {
+            handleLogout();
+            triggerNotification('Session expired. Please log in again.', 'error');
+            return;
+          }
+          if (!response.ok) {
+            const errData = await safeJsonFetch(response);
+            throw new Error(errData?.message || `Failed to save ledger (HTTP ${response.status})`);
+          }
           const saved = await safeJsonFetch(response);
-          if (!saved) throw new Error('Invalid server response');
+          if (!saved || !saved._id) throw new Error('Invalid server response');
           setTransactions(prev => {
             const newL = [saved, ...prev];
             safeSetLocalStorage('cached_transactions', newL);
             return newL;
           });
-          triggerNotification('Ledger entry added successfully!', 'success');
+          triggerNotification('Ledger entry saved directly to MongoDB!', 'success');
         } catch (err) {
-          console.warn('Network submit failed, queuing offline:', err);
-          const localNew = { ...formData, _id: `local_${Date.now()}`, date: formData.date || new Date().toISOString(), createdAt: new Date().toISOString() };
-          setTransactions(prev => {
-            const newL = [localNew, ...prev];
-            safeSetLocalStorage('cached_transactions', newL);
-            return newL;
-          });
-          queueSyncOperation('ADD', 'ledger', localNew);
+          if (!navigator.onLine || err.name === 'AbortError' || (err.message && err.message.includes('Failed to fetch'))) {
+            console.warn('Network submit failed, queuing offline:', err);
+            const localNew = { ...formData, _id: `local_${Date.now()}`, date: formData.date || new Date().toISOString(), createdAt: new Date().toISOString() };
+            setTransactions(prev => {
+              const newL = [localNew, ...prev];
+              safeSetLocalStorage('cached_transactions', newL);
+              return newL;
+            });
+            queueSyncOperation('ADD', 'ledger', localNew);
+            triggerNotification('Saved locally offline. Will sync to MongoDB when connected.', 'info');
+          } else {
+            throw err;
+          }
         }
       }
       setIsFormOpen(false);
       setEditingTransaction(null);
     } catch (err) {
-      console.error(err);
-      triggerNotification(err.message, 'error');
+      console.error('Ledger error:', err);
+      triggerNotification(err.message || 'Error saving ledger record', 'error');
     }
   };
 
@@ -694,8 +796,18 @@ export default function App() {
       if (!response.ok) throw new Error('Failed to fetch bank transactions');
       const data = await safeJsonFetch(response);
       if (!data) throw new Error('Invalid server response');
-      setBankTransactions(data);
-      safeSetLocalStorage('cached_bankTransactions', data);
+
+      // Preserve any pending local unsynced additions in state
+      const unsyncedOps = JSON.parse(localStorage.getItem('unsynced_ops') || '[]');
+      const localAddOps = unsyncedOps.filter(o => o.action === 'ADD' && o.type === 'bank' && o.data && o.data._id);
+      const localIds = new Set(localAddOps.map(o => o.data._id));
+
+      setBankTransactions(prev => {
+        const remainingLocal = prev.filter(t => localIds.has(t._id));
+        const merged = [...remainingLocal, ...data.filter(d => !remainingLocal.some(l => l._id === d._id))];
+        safeSetLocalStorage('cached_bankTransactions', merged);
+        return merged;
+      });
     } catch (err) {
       console.warn("fetchBankTransactions error:", err.message);
       const cached = localStorage.getItem('cached_bankTransactions');
@@ -718,7 +830,15 @@ export default function App() {
             method: 'PUT',
             body: JSON.stringify(formData)
           });
-          if (!response.ok) throw new Error('Failed to update bank entry');
+          if (response.status === 401) {
+            handleLogout();
+            triggerNotification('Session expired. Please log in again.', 'error');
+            return;
+          }
+          if (!response.ok) {
+            const errData = await safeJsonFetch(response);
+            throw new Error(errData?.message || `Failed to update bank entry (HTTP ${response.status})`);
+          }
           const updated = await safeJsonFetch(response);
           if (!updated) throw new Error('Invalid server response');
           setBankTransactions(prev => {
@@ -726,16 +846,21 @@ export default function App() {
             safeSetLocalStorage('cached_bankTransactions', newL);
             return newL;
           });
-          triggerNotification('Bank record updated successfully!', 'success');
+          triggerNotification('Bank record updated successfully in MongoDB!', 'success');
         } catch (err) {
-          console.warn('Network bank submit failed, queuing offline:', err);
-          const updatedLocally = { ...editingBankTransaction, ...formData, updatedAt: new Date().toISOString() };
-          setBankTransactions(prev => {
-            const newL = prev.map(t => t._id === editingBankTransaction._id ? updatedLocally : t);
-            safeSetLocalStorage('cached_bankTransactions', newL);
-            return newL;
-          });
-          queueSyncOperation('EDIT', 'bank', updatedLocally);
+          if (!navigator.onLine || err.name === 'AbortError' || (err.message && err.message.includes('Failed to fetch'))) {
+            console.warn('Network bank submit failed, queuing offline:', err);
+            const updatedLocally = { ...editingBankTransaction, ...formData, updatedAt: new Date().toISOString() };
+            setBankTransactions(prev => {
+              const newL = prev.map(t => t._id === editingBankTransaction._id ? updatedLocally : t);
+              safeSetLocalStorage('cached_bankTransactions', newL);
+              return newL;
+            });
+            queueSyncOperation('EDIT', 'bank', updatedLocally);
+            triggerNotification('Saved locally offline. Will sync to MongoDB when connected.', 'info');
+          } else {
+            throw err;
+          }
         }
       } else {
         try {
@@ -743,24 +868,37 @@ export default function App() {
             method: 'POST',
             body: JSON.stringify(formData)
           });
-          if (!response.ok) throw new Error('Failed to save bank entry');
+          if (response.status === 401) {
+            handleLogout();
+            triggerNotification('Session expired. Please log in again.', 'error');
+            return;
+          }
+          if (!response.ok) {
+            const errData = await safeJsonFetch(response);
+            throw new Error(errData?.message || `Failed to save bank entry (HTTP ${response.status})`);
+          }
           const saved = await safeJsonFetch(response);
-          if (!saved) throw new Error('Invalid server response');
+          if (!saved || !saved._id) throw new Error('Invalid server response');
           setBankTransactions(prev => {
             const newL = [saved, ...prev];
             safeSetLocalStorage('cached_bankTransactions', newL);
             return newL;
           });
-          triggerNotification('Bank record added successfully!', 'success');
+          triggerNotification('Bank record saved directly to MongoDB!', 'success');
         } catch (err) {
-          console.warn('Network bank submit failed, queuing offline:', err);
-          const localNew = { ...formData, _id: `local_${Date.now()}`, date: formData.date || new Date().toISOString(), createdAt: new Date().toISOString() };
-          setBankTransactions(prev => {
-            const newL = [localNew, ...prev];
-            safeSetLocalStorage('cached_bankTransactions', newL);
-            return newL;
-          });
-          queueSyncOperation('ADD', 'bank', localNew);
+          if (!navigator.onLine || err.name === 'AbortError' || (err.message && err.message.includes('Failed to fetch'))) {
+            console.warn('Network bank submit failed, queuing offline:', err);
+            const localNew = { ...formData, _id: `local_${Date.now()}`, date: formData.date || new Date().toISOString(), createdAt: new Date().toISOString() };
+            setBankTransactions(prev => {
+              const newL = [localNew, ...prev];
+              safeSetLocalStorage('cached_bankTransactions', newL);
+              return newL;
+            });
+            queueSyncOperation('ADD', 'bank', localNew);
+            triggerNotification('Saved locally offline. Will sync to MongoDB when connected.', 'info');
+          } else {
+            throw err;
+          }
         }
       }
 
@@ -785,8 +923,8 @@ export default function App() {
       setIsBankFormOpen(false);
       setEditingBankTransaction(null);
     } catch (err) {
-      console.error(err);
-      triggerNotification(err.message, 'error');
+      console.error('Bank error:', err);
+      triggerNotification(err.message || 'Error saving bank record', 'error');
     }
   };
 
@@ -808,8 +946,18 @@ export default function App() {
       if (!response.ok) throw new Error('Failed to fetch partner transactions');
       const data = await safeJsonFetch(response);
       if (!data) throw new Error('Invalid server response');
-      setPartnerTransactions(data);
-      safeSetLocalStorage('cached_partnerTransactions', data);
+
+      // Preserve any pending local unsynced additions in state
+      const unsyncedOps = JSON.parse(localStorage.getItem('unsynced_ops') || '[]');
+      const localAddOps = unsyncedOps.filter(o => o.action === 'ADD' && o.type === 'partner' && o.data && o.data._id);
+      const localIds = new Set(localAddOps.map(o => o.data._id));
+
+      setPartnerTransactions(prev => {
+        const remainingLocal = prev.filter(t => localIds.has(t._id));
+        const merged = [...remainingLocal, ...data.filter(d => !remainingLocal.some(l => l._id === d._id))];
+        safeSetLocalStorage('cached_partnerTransactions', merged);
+        return merged;
+      });
     } catch (err) {
       console.warn("fetchPartnerTransactions error:", err.message);
       const cached = localStorage.getItem('cached_partnerTransactions');
@@ -832,7 +980,15 @@ export default function App() {
             method: 'PUT',
             body: JSON.stringify(formData)
           });
-          if (!response.ok) throw new Error('Failed to update partner entry');
+          if (response.status === 401) {
+            handleLogout();
+            triggerNotification('Session expired. Please log in again.', 'error');
+            return;
+          }
+          if (!response.ok) {
+            const errData = await safeJsonFetch(response);
+            throw new Error(errData?.message || `Failed to update partner entry (HTTP ${response.status})`);
+          }
           const updated = await safeJsonFetch(response);
           if (!updated) throw new Error('Invalid server response');
           setPartnerTransactions(prev => {
@@ -840,16 +996,21 @@ export default function App() {
             safeSetLocalStorage('cached_partnerTransactions', newL);
             return newL;
           });
-          triggerNotification('Partner flow updated successfully!', 'success');
+          triggerNotification('Partner flow updated successfully in MongoDB!', 'success');
         } catch (err) {
-          console.warn('Network partner submit failed, queuing offline:', err);
-          const updatedLocally = { ...editingPartnerTransaction, ...formData, updatedAt: new Date().toISOString() };
-          setPartnerTransactions(prev => {
-            const newL = prev.map(t => t._id === editingPartnerTransaction._id ? updatedLocally : t);
-            safeSetLocalStorage('cached_partnerTransactions', newL);
-            return newL;
-          });
-          queueSyncOperation('EDIT', 'partner', updatedLocally);
+          if (!navigator.onLine || err.name === 'AbortError' || (err.message && err.message.includes('Failed to fetch'))) {
+            console.warn('Network partner submit failed, queuing offline:', err);
+            const updatedLocally = { ...editingPartnerTransaction, ...formData, updatedAt: new Date().toISOString() };
+            setPartnerTransactions(prev => {
+              const newL = prev.map(t => t._id === editingPartnerTransaction._id ? updatedLocally : t);
+              safeSetLocalStorage('cached_partnerTransactions', newL);
+              return newL;
+            });
+            queueSyncOperation('EDIT', 'partner', updatedLocally);
+            triggerNotification('Saved locally offline. Will sync to MongoDB when connected.', 'info');
+          } else {
+            throw err;
+          }
         }
       } else {
         try {
@@ -857,32 +1018,314 @@ export default function App() {
             method: 'POST',
             body: JSON.stringify(formData)
           });
-          if (!response.ok) throw new Error('Failed to save partner entry');
+          if (response.status === 401) {
+            handleLogout();
+            triggerNotification('Session expired. Please log in again.', 'error');
+            return;
+          }
+          if (!response.ok) {
+            const errData = await safeJsonFetch(response);
+            throw new Error(errData?.message || `Failed to save partner entry (HTTP ${response.status})`);
+          }
           const saved = await safeJsonFetch(response);
-          if (!saved) throw new Error('Invalid server response');
+          if (!saved || !saved._id) throw new Error('Invalid server response');
           setPartnerTransactions(prev => {
             const newL = [saved, ...prev];
             safeSetLocalStorage('cached_partnerTransactions', newL);
             return newL;
           });
-          triggerNotification('Partner flow added successfully!', 'success');
+          triggerNotification('Partner flow saved directly to MongoDB!', 'success');
         } catch (err) {
-          console.warn('Network partner submit failed, queuing offline:', err);
-          const localNew = { ...formData, _id: `local_${Date.now()}`, date: formData.date || new Date().toISOString(), createdAt: new Date().toISOString() };
-          setPartnerTransactions(prev => {
-            const newL = [localNew, ...prev];
-            safeSetLocalStorage('cached_partnerTransactions', newL);
-            return newL;
-          });
-          queueSyncOperation('ADD', 'partner', localNew);
+          if (!navigator.onLine || err.name === 'AbortError' || (err.message && err.message.includes('Failed to fetch'))) {
+            console.warn('Network partner submit failed, queuing offline:', err);
+            const localNew = { ...formData, _id: `local_${Date.now()}`, date: formData.date || new Date().toISOString(), createdAt: new Date().toISOString() };
+            setPartnerTransactions(prev => {
+              const newL = [localNew, ...prev];
+              safeSetLocalStorage('cached_partnerTransactions', newL);
+              return newL;
+            });
+            queueSyncOperation('ADD', 'partner', localNew);
+            triggerNotification('Saved locally offline. Will sync to MongoDB when connected.', 'info');
+          } else {
+            throw err;
+          }
         }
       }
       setIsPartnerFormOpen(false);
       setEditingPartnerTransaction(null);
     } catch (err) {
-      console.error(err);
-      triggerNotification(err.message, 'error');
-  
+      console.error('Partner error:', err);
+      triggerNotification(err.message || 'Error saving partner record', 'error');
+    }
+  };
+
+  // ==========================================
+  // API Operations: Wholesale Purchases
+  // ==========================================
+  const fetchWholesalePurchases = async () => {
+    if (!localStorage.getItem('cached_wholesalePurchases')) {
+      setLoadingWholesale(true);
+    }
+    setErrorWholesale(null);
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/wholesale-purchases`);
+      if (response.status === 401) {
+        handleLogout();
+        triggerNotification('Session expired. Please log in again.', 'error');
+        return;
+      }
+      if (response.status === 404) {
+        // Graceful extraction from transactions if route is not yet on server
+        const cachedTx = localStorage.getItem('cached_transactions');
+        if (cachedTx) {
+          try {
+            const parsed = JSON.parse(cachedTx);
+            const derived = parsed
+              .filter(t => t.isWholesalePurchase || (t.category === 'Purchase' && t.sellerName))
+              .map(t => ({
+                _id: t.wholesalePurchaseId || t._id,
+                sellerName: t.sellerName || 'Dev',
+                description: t.description || '',
+                quantity: t.quantity || 1,
+                unitPrice: t.unitPrice || t.amount || 0,
+                totalAmount: t.totalAmount || t.amount || 0,
+                paidAmount: t.paidAmount !== undefined ? t.paidAmount : (t.paymentStatus === 'Done' ? t.amount : 0),
+                pendingAmount: t.pendingAmount || 0,
+                paymentStatus: t.paymentStatus || 'Done',
+                date: t.date,
+                paymentMode: t.isHandCash ? 'Cash' : 'Bank Transfer',
+                billNumber: t.billNumber || '',
+                notes: ''
+              }));
+            setWholesalePurchases(derived);
+            safeSetLocalStorage('cached_wholesalePurchases', derived);
+          } catch (e) {}
+        }
+        return;
+      }
+
+      if (!response.ok) throw new Error('Failed to fetch wholesale purchases');
+      const data = await safeJsonFetch(response);
+      if (!data) throw new Error('Invalid server response');
+
+      const unsyncedOps = JSON.parse(localStorage.getItem('unsynced_ops') || '[]');
+      const localAddOps = unsyncedOps.filter(o => o.action === 'ADD' && o.type === 'wholesale' && o.data && o.data._id);
+      const localIds = new Set(localAddOps.map(o => o.data._id));
+
+      setWholesalePurchases(prev => {
+        const remainingLocal = prev.filter(p => localIds.has(p._id));
+        const merged = [...remainingLocal, ...data.filter(d => !remainingLocal.some(l => l._id === d._id))];
+        safeSetLocalStorage('cached_wholesalePurchases', merged);
+        return merged;
+      });
+      syncOfflineOperations();
+    } catch (err) {
+      console.warn('fetchWholesalePurchases error:', err.message);
+      const cached = localStorage.getItem('cached_wholesalePurchases');
+      if (cached) {
+        try { setWholesalePurchases(JSON.parse(cached)); } catch (e) {}
+      }
+      if (!navigator.onLine || err.name === 'AbortError' || (err.message && err.message.includes('Failed to fetch'))) {
+        setErrorWholesale('Backend connection offline.');
+      }
+    } finally {
+      setLoadingWholesale(false);
+    }
+  };
+
+  const handleWholesaleSubmit = async (formData) => {
+    try {
+      if (editingWholesalePurchase) {
+        try {
+          const response = await fetchWithTimeout(`${API_BASE_URL}/wholesale-purchases/${editingWholesalePurchase._id}`, {
+            method: 'PUT',
+            body: JSON.stringify(formData)
+          });
+          if (response.status === 401) {
+            handleLogout();
+            triggerNotification('Session expired. Please log in again.', 'error');
+            return;
+          }
+          if (!response.ok) {
+            const errData = await safeJsonFetch(response);
+            throw new Error(errData?.message || `Failed to update wholesale purchase (HTTP ${response.status})`);
+          }
+          const updated = await safeJsonFetch(response);
+          if (!updated) throw new Error('Invalid server response');
+
+          setWholesalePurchases(prev => {
+            const newL = prev.map(p => p._id === updated._id ? updated : p);
+            safeSetLocalStorage('cached_wholesalePurchases', newL);
+            return newL;
+          });
+
+          // Sync into transactions state for Expenses & Main Dashboard
+          setTransactions(prev => {
+            const txDesc = `[Wholesale: ${updated.sellerName}] ${updated.description} (${updated.quantity} pcs @ ₹${updated.unitPrice})`;
+            const exists = prev.find(t => t.wholesalePurchaseId === updated._id || (updated.linkedTransactionId && t._id === updated.linkedTransactionId));
+            if (exists) {
+              const newT = prev.map(t => (t._id === exists._id) ? {
+                ...t,
+                date: updated.date,
+                description: txDesc,
+                amount: updated.totalAmount,
+                totalAmount: updated.totalAmount,
+                paidAmount: updated.paidAmount,
+                pendingAmount: updated.pendingAmount,
+                paymentStatus: updated.paymentStatus,
+                sellerName: updated.sellerName,
+                quantity: updated.quantity,
+                unitPrice: updated.unitPrice,
+                billNumber: updated.billNumber
+              } : t);
+              safeSetLocalStorage('cached_transactions', newT);
+              return newT;
+            }
+            return prev;
+          });
+
+          triggerNotification('Wholesale purchase updated successfully!', 'success');
+        } catch (err) {
+          if (!navigator.onLine || err.name === 'AbortError' || (err.message && err.message.includes('Failed to fetch'))) {
+            const updatedLocally = { ...editingWholesalePurchase, ...formData, updatedAt: new Date().toISOString() };
+            setWholesalePurchases(prev => {
+              const newL = prev.map(p => p._id === editingWholesalePurchase._id ? updatedLocally : p);
+              safeSetLocalStorage('cached_wholesalePurchases', newL);
+              return newL;
+            });
+            queueSyncOperation('EDIT', 'wholesale', updatedLocally);
+            triggerNotification('Saved locally offline. Will auto-sync when online.', 'info');
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        // ADD
+        try {
+          const response = await fetchWithTimeout(`${API_BASE_URL}/wholesale-purchases`, {
+            method: 'POST',
+            body: JSON.stringify(formData)
+          });
+          if (response.status === 401) {
+            handleLogout();
+            triggerNotification('Session expired. Please log in again.', 'error');
+            return;
+          }
+          if (!response.ok) {
+            const errData = await safeJsonFetch(response);
+            throw new Error(errData?.message || `Failed to save wholesale purchase (HTTP ${response.status})`);
+          }
+          const saved = await safeJsonFetch(response);
+          if (!saved) throw new Error('Invalid server response');
+
+          setWholesalePurchases(prev => {
+            const newL = [saved, ...prev];
+            safeSetLocalStorage('cached_wholesalePurchases', newL);
+            return newL;
+          });
+
+          // Insert into transactions state for Expenses & Main Dashboard
+          const newTx = {
+            _id: saved.linkedTransactionId || `local_tx_${Date.now()}`,
+            date: saved.date,
+            description: `[Wholesale: ${saved.sellerName}] ${saved.description} (${saved.quantity} pcs @ ₹${saved.unitPrice})`,
+            category: 'Purchase',
+            type: 'Debit',
+            amount: saved.totalAmount,
+            isHandCash: (saved.paymentMode || '').toLowerCase().includes('cash'),
+            isWholesalePurchase: true,
+            sellerName: saved.sellerName,
+            quantity: saved.quantity,
+            unitPrice: saved.unitPrice,
+            totalAmount: saved.totalAmount,
+            paidAmount: saved.paidAmount,
+            pendingAmount: saved.pendingAmount,
+            paymentStatus: saved.paymentStatus,
+            billNumber: saved.billNumber || '',
+            wholesalePurchaseId: saved._id
+          };
+          setTransactions(prev => {
+            const newT = [newTx, ...prev];
+            safeSetLocalStorage('cached_transactions', newT);
+            return newT;
+          });
+
+          triggerNotification('Wholesale purchase entry saved successfully!', 'success');
+        } catch (err) {
+          if (!navigator.onLine || err.name === 'AbortError' || (err.message && err.message.includes('Failed to fetch'))) {
+            const tempId = `local_wp_${Date.now()}`;
+            const localItem = {
+              ...formData,
+              _id: tempId,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            setWholesalePurchases(prev => {
+              const newL = [localItem, ...prev];
+              safeSetLocalStorage('cached_wholesalePurchases', newL);
+              return newL;
+            });
+            queueSyncOperation('ADD', 'wholesale', localItem);
+            triggerNotification('Saved locally offline. Will auto-sync when online.', 'info');
+          } else {
+            throw err;
+          }
+        }
+      }
+      setIsWholesaleFormOpen(false);
+      setEditingWholesalePurchase(null);
+    } catch (err) {
+      console.error('Wholesale submit error:', err);
+      triggerNotification(err.message || 'Error saving wholesale entry', 'error');
+    }
+  };
+
+  const handleWholesalePay = async (purchaseId, payData) => {
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/wholesale-purchases/${purchaseId}/pay`, {
+        method: 'PATCH',
+        body: JSON.stringify(payData)
+      });
+      if (response.status === 401) {
+        handleLogout();
+        triggerNotification('Session expired. Please log in again.', 'error');
+        return;
+      }
+      if (!response.ok) {
+        const errData = await safeJsonFetch(response);
+        throw new Error(errData?.message || 'Failed to record payment');
+      }
+      const updated = await safeJsonFetch(response);
+      if (!updated) throw new Error('Invalid server response');
+
+      setWholesalePurchases(prev => {
+        const newL = prev.map(p => p._id === updated._id ? updated : p);
+        safeSetLocalStorage('cached_wholesalePurchases', newL);
+        return newL;
+      });
+
+      // Update in transactions state
+      setTransactions(prev => {
+        const newT = prev.map(t => {
+          if (t.wholesalePurchaseId === updated._id || (updated.linkedTransactionId && t._id === updated.linkedTransactionId)) {
+            return {
+              ...t,
+              paidAmount: updated.paidAmount,
+              pendingAmount: updated.pendingAmount,
+              paymentStatus: updated.paymentStatus
+            };
+          }
+          return t;
+        });
+        safeSetLocalStorage('cached_transactions', newT);
+        return newT;
+      });
+
+      triggerNotification(`Payment of ₹${payData.paymentAmount} recorded successfully!`, 'success');
+      setPayingWholesalePurchase(null);
+    } catch (err) {
+      console.error('Record payment error:', err);
+      triggerNotification(err.message || 'Error recording payment', 'error');
     }
   };
 
@@ -900,70 +1343,129 @@ export default function App() {
       ? 'transactions'
       : deletingType === 'bank'
         ? 'bank-transactions'
-        : 'partner-flows';
+        : deletingType === 'wholesale'
+          ? 'wholesale-purchases'
+          : 'partner-flows';
 
     try {
-      try {
+      if (deletingTransaction._id && !deletingTransaction._id.startsWith('local_')) {
         const response = await fetchWithTimeout(`${API_BASE_URL}/${urlSegment}/${deletingTransaction._id}`, {
           method: 'DELETE'
         });
-        if (!response.ok) throw new Error('Failed to remove entry');
-
-        if (deletingType === 'ledger') {
-          setTransactions(prev => {
-            const newL = prev.filter(t => t._id !== deletingTransaction._id);
-            safeSetLocalStorage('cached_transactions', newL);
-            return newL;
-          });
-        } else if (deletingType === 'bank') {
-          setBankTransactions(prev => {
-            const newL = prev.filter(t => t._id !== deletingTransaction._id);
-            safeSetLocalStorage('cached_bankTransactions', newL);
-            return newL;
-          });
-        } else {
-          setPartnerTransactions(prev => {
-            const newL = prev.filter(t => t._id !== deletingTransaction._id);
-            safeSetLocalStorage('cached_partnerTransactions', newL);
-            return newL;
-          });
+        if (response.status === 401) {
+          handleLogout();
+          triggerNotification('Session expired. Please log in again.', 'error');
+          return;
         }
-        triggerNotification('Record deleted successfully!', 'success');
-      } catch (err) {
-        console.warn('Network delete failed, deleting locally:', err);
-        // Delete locally
-        if (deletingType === 'ledger') {
-          setTransactions(prev => {
-            const newL = prev.filter(t => t._id !== deletingTransaction._id);
-            safeSetLocalStorage('cached_transactions', newL);
-            return newL;
-          });
-        } else if (deletingType === 'bank') {
-          setBankTransactions(prev => {
-            const newL = prev.filter(t => t._id !== deletingTransaction._id);
-            safeSetLocalStorage('cached_bankTransactions', newL);
-            return newL;
-          });
-        } else {
-          setPartnerTransactions(prev => {
-            const newL = prev.filter(t => t._id !== deletingTransaction._id);
-            safeSetLocalStorage('cached_partnerTransactions', newL);
-            return newL;
-          });
+        if (!response.ok) {
+          const errData = await safeJsonFetch(response);
+          throw new Error(errData?.message || `Failed to remove entry (HTTP ${response.status})`);
         }
-        queueSyncOperation('DELETE', deletingType, deletingTransaction);
+      } else {
+        // Local temporary item: remove from offline queue if queued
+        try {
+          const queue = JSON.parse(localStorage.getItem('unsynced_ops') || '[]');
+          const filtered = queue.filter(op => !(op.data && op.data._id === deletingTransaction._id));
+          safeSetLocalStorage('unsynced_ops', filtered);
+        } catch (e) {}
       }
+
+      if (deletingType === 'ledger') {
+        setTransactions(prev => {
+          const newL = prev.filter(t => t._id !== deletingTransaction._id);
+          safeSetLocalStorage('cached_transactions', newL);
+          return newL;
+        });
+      } else if (deletingType === 'bank') {
+        setBankTransactions(prev => {
+          const newL = prev.filter(t => t._id !== deletingTransaction._id);
+          safeSetLocalStorage('cached_bankTransactions', newL);
+          return newL;
+        });
+      } else if (deletingType === 'wholesale') {
+        setWholesalePurchases(prev => {
+          const newL = prev.filter(p => p._id !== deletingTransaction._id);
+          safeSetLocalStorage('cached_wholesalePurchases', newL);
+          return newL;
+        });
+        // Also remove linked transaction in ledger
+        setTransactions(prev => {
+          const newL = prev.filter(t => t.wholesalePurchaseId !== deletingTransaction._id && t._id !== deletingTransaction.linkedTransactionId);
+          safeSetLocalStorage('cached_transactions', newL);
+          return newL;
+        });
+      } else {
+        setPartnerTransactions(prev => {
+          const newL = prev.filter(t => t._id !== deletingTransaction._id);
+          safeSetLocalStorage('cached_partnerTransactions', newL);
+          return newL;
+        });
+      }
+      triggerNotification('Record deleted successfully from MongoDB!', 'success');
       setDeletingTransaction(null);
     } catch (err) {
-      console.error(err);
-      triggerNotification(err.message, 'error');
+      console.error('Delete error:', err);
+      triggerNotification(err.message || 'Error deleting record', 'error');
+      setDeletingTransaction(null);
     }
   };
 
+  // Merge wholesale purchases into transactions for display in Expenses page if not already linked
+  const combinedExpensesTransactions = React.useMemo(() => {
+    const existingTxIds = new Set(transactions.map(t => String(t.wholesalePurchaseId || t._id)));
+    const unlinkedWholesale = (wholesalePurchases || [])
+      .filter(p => !existingTxIds.has(String(p._id)) && !existingTxIds.has(String(p.linkedTransactionId)))
+      .map(p => ({
+        _id: p.linkedTransactionId || `wp_display_${p._id}`,
+        date: p.date,
+        description: `[Wholesale: ${p.sellerName}] ${p.description} (${p.quantity} pcs @ ₹${p.unitPrice})`,
+        category: 'Purchase',
+        type: 'Debit',
+        amount: Number(p.totalAmount || 0),
+        isHandCash: (p.paymentMode || '').toLowerCase().includes('cash'),
+        isWholesalePurchase: true,
+        sellerName: p.sellerName,
+        quantity: p.quantity,
+        unitPrice: p.unitPrice,
+        totalAmount: p.totalAmount,
+        paidAmount: p.paidAmount,
+        pendingAmount: p.pendingAmount,
+        paymentStatus: p.paymentStatus,
+        billNumber: p.billNumber || '',
+        wholesalePurchaseId: p._id
+      }));
+
+    return [...transactions, ...unlinkedWholesale];
+  }, [transactions, wholesalePurchases]);
+
   // Filter main ledger locally by sub-tab (all vs hand cash)
   const ledgerTransactionsToDisplay = ledgerSubTab === 'cash'
-    ? transactions.filter(t => t.isHandCash)
-    : transactions;
+    ? combinedExpensesTransactions.filter(t => t.isHandCash)
+    : combinedExpensesTransactions;
+
+  const handleEditLedgerItem = (t) => {
+    if (t.isWholesalePurchase || t.wholesalePurchaseId) {
+      const match = wholesalePurchases.find(p => p._id === t.wholesalePurchaseId || p._id === t._id || (t.wholesalePurchaseId && String(p._id) === String(t.wholesalePurchaseId)));
+      if (match) {
+        setEditingWholesalePurchase(match);
+        setIsWholesaleFormOpen(true);
+        return;
+      }
+    }
+    setEditingTransaction(t);
+    setIsFormOpen(true);
+  };
+
+  const handleDeleteLedgerItem = (t) => {
+    if (t.isWholesalePurchase || t.wholesalePurchaseId) {
+      const match = wholesalePurchases.find(p => p._id === t.wholesalePurchaseId || p._id === t._id || (t.wholesalePurchaseId && String(p._id) === String(t.wholesalePurchaseId)));
+      if (match) {
+        handleDeleteTrigger(match, 'wholesale');
+        return;
+      }
+    }
+    handleDeleteTrigger(t, 'ledger');
+  };
 
   const filteredLedger = React.useMemo(() => {
     const sorted = [...ledgerTransactionsToDisplay].sort((a, b) => {
@@ -1127,13 +1629,32 @@ export default function App() {
               <CentralDashboard
                 transactions={transactions}
                 bankTransactions={bankTransactions}
+                wholesalePurchases={wholesalePurchases}
                 onEditLedger={(t) => { setEditingTransaction(t); setIsFormOpen(true); }}
                 onDeleteLedger={(t) => handleDeleteTrigger(t, 'ledger')}
                 onEditBank={(t) => { setEditingBankTransaction(t); setIsBankFormOpen(true); }}
                 onDeleteBank={(t) => handleDeleteTrigger(t, 'bank')}
+                onEditWholesale={(p) => { setEditingWholesalePurchase(p); setIsWholesaleFormOpen(true); }}
+                onDeleteWholesale={(p) => handleDeleteTrigger(p, 'wholesale')}
                 onRefresh={() => refreshAllData(false)}
-                loading={loadingLedger || loadingBank}
+                loading={loadingLedger || loadingBank || loadingWholesale}
               />
+            )}
+
+            {/* Render PAGE: WHOLESALE PURCHASES (Dev & Sneh) */}
+            {activePage === 'wholesale' && (
+              <div className="animate-slide-up">
+                <WholesaleLedger
+                  purchases={wholesalePurchases}
+                  loading={loadingWholesale}
+                  error={errorWholesale}
+                  onRefresh={fetchWholesalePurchases}
+                  onAddClick={() => { setEditingWholesalePurchase(null); setIsWholesaleFormOpen(true); }}
+                  onEditClick={(p) => { setEditingWholesalePurchase(p); setIsWholesaleFormOpen(true); }}
+                  onDeleteClick={(p) => handleDeleteTrigger(p, 'wholesale')}
+                  onQuickPayClick={(p) => setPayingWholesalePurchase(p)}
+                />
+              </div>
             )}
 
             {/* Render PAGE 1: LEDGER */}
@@ -1234,8 +1755,8 @@ export default function App() {
                 ) : (
                   <TransactionTable
                     transactions={filteredLedger}
-                    onEdit={(t) => { setEditingTransaction(t); setIsFormOpen(true); }}
-                    onDelete={(t) => handleDeleteTrigger(t, 'ledger')}
+                    onEdit={handleEditLedgerItem}
+                    onDelete={handleDeleteLedgerItem}
                   />
                 )}
               </div>
@@ -1313,6 +1834,7 @@ export default function App() {
         onClose={() => { setIsPartnerFormOpen(false); setEditingPartnerTransaction(null); }}
         onSubmit={handlePartnerSubmit}
         transaction={editingPartnerTransaction}
+        existingPartners={partnerTransactions.map(p => p.partnerName)}
       />
 
       {/* 4. Global Delete Confirmation Dialog */}
@@ -1322,6 +1844,22 @@ export default function App() {
         onConfirm={handleDeleteConfirm}
         transaction={deletingTransaction}
         type={deletingType}
+      />
+
+      {/* 5. Wholesale Purchase Form Modal */}
+      <WholesaleForm
+        isOpen={isWholesaleFormOpen}
+        onClose={() => { setIsWholesaleFormOpen(false); setEditingWholesalePurchase(null); }}
+        onSubmit={handleWholesaleSubmit}
+        purchase={editingWholesalePurchase}
+      />
+
+      {/* 6. Wholesale Quick Payment Modal */}
+      <WholesalePaymentModal
+        isOpen={!!payingWholesalePurchase}
+        onClose={() => setPayingWholesalePurchase(null)}
+        onRecordPayment={handleWholesalePay}
+        purchase={payingWholesalePurchase}
       />
 
 

@@ -17,7 +17,8 @@ export default function PartnerCapitalStatement({ isOpen, onClose, partnerTransa
 
   if (!isOpen) return null;
 
-  const partnerFlows = partnerTransactions.filter(t => t.partnerName === selectedPartner);
+  const currentPartner = partners.includes(selectedPartner) ? selectedPartner : (partners[0] || 'Milan Javiya');
+  const partnerFlows = partnerTransactions.filter(t => t.partnerName === currentPartner);
 
   const totalContributions = partnerFlows
     .filter(t => t.type === 'Capital Contribution')
@@ -67,7 +68,7 @@ export default function PartnerCapitalStatement({ isOpen, onClose, partnerTransa
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, Math.min(pdfHeight, pdf.internal.pageSize.getHeight()));
-      pdf.save(`Capital_Statement_${selectedPartner.replace(/\s+/g, '_')}.pdf`);
+      pdf.save(`Capital_Statement_${currentPartner.replace(/\s+/g, '_')}.pdf`);
     } catch (err) {
       console.error('Canvas PDF Export Failed, triggering direct jsPDF fallback:', err);
       try {
@@ -85,7 +86,7 @@ export default function PartnerCapitalStatement({ isOpen, onClose, partnerTransa
 
         doc.setFontSize(10);
         doc.setTextColor(15, 23, 42);
-        doc.text(`Partner Name: ${selectedPartner}`, 15, 45);
+        doc.text(`Partner Name: ${currentPartner}`, 15, 45);
         doc.text(`Date Generated: ${new Date().toLocaleDateString('en-IN')}`, 15, 51);
 
         doc.setFillColor(241, 245, 249);
@@ -112,7 +113,7 @@ export default function PartnerCapitalStatement({ isOpen, onClose, partnerTransa
           y += 6;
         });
 
-        doc.save(`Capital_Statement_${selectedPartner.replace(/\s+/g, '_')}.pdf`);
+        doc.save(`Capital_Statement_${currentPartner.replace(/\s+/g, '_')}.pdf`);
       } catch (fallbackErr) {
         alert('Could not download PDF automatically. Please click Print and choose "Save as PDF".');
       }
@@ -134,7 +135,7 @@ export default function PartnerCapitalStatement({ isOpen, onClose, partnerTransa
           <div className="flex items-center gap-3">
             <label className="text-xs font-bold uppercase text-slate-500">Partner:</label>
             <select
-              value={selectedPartner}
+              value={currentPartner}
               onChange={(e) => setSelectedPartner(e.target.value)}
               className="px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-extrabold focus:ring-2 focus:ring-violet-500"
             >
@@ -197,7 +198,7 @@ export default function PartnerCapitalStatement({ isOpen, onClose, partnerTransa
             <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Partner Full Name</span>
-                <span className="text-base font-black text-slate-900">{selectedPartner}</span>
+                <span className="text-base font-black text-slate-900">{currentPartner}</span>
               </div>
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Statement Period</span>

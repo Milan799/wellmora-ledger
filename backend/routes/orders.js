@@ -191,8 +191,8 @@ router.post('/', async (req, res) => {
     
     const savedOrder = await Order.findOneAndUpdate(filter, updateData, { new: true, upsert: true, runValidators: true });
 
-    // Single-query bulk auto-propagation for SKU prices (Eliminates N+1 loop)
-    if (cleanSku) {
+    // Single-query bulk auto-propagation for SKU prices (Only sync if costs > 0 to prevent zeroing)
+    if (cleanSku && (pCost > 0 || pkgCost > 0 || oCost > 0 || bSettlement > 0)) {
       await syncSkuPrices(cleanSku, savedOrder._id, pCost, pkgCost, oCost, bSettlement);
     }
 
@@ -465,9 +465,9 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Order entry not found' });
     }
 
-    // Auto-propagate costs to other orders with the same SKU
+    // Auto-propagate costs to other orders with the same SKU (Only sync if costs > 0 to prevent zeroing)
     const cleanSku = updateData.skuId ? updateData.skuId.trim() : '';
-    if (cleanSku) {
+    if (cleanSku && (pCost > 0 || pkgCost > 0 || oCost > 0 || bSettlement > 0)) {
       await syncSkuPrices(cleanSku, updatedOrder._id, pCost, pkgCost, oCost, bSettlement);
     }
 

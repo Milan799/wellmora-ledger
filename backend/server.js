@@ -12,11 +12,13 @@ import bankTransactionRouter from './routes/bankTransactions.js';
 import partnerFlowRouter from './routes/partnerFlows.js';
 import backupRouter from './routes/backups.js';
 import reportsRouter from './routes/reports.js';
-import digestRouter from './routes/digest.js';
+import digestRouter, { dispatchDigest, getPersistedDigestConfig } from './routes/digest.js';
 import ordersRouter from './routes/orders.js';
+import wholesalePurchaseRouter from './routes/wholesalePurchases.js';
 import { createBackup, pruneOldBackups } from './backupManager.js';
 import cron from 'node-cron';
 import Transaction from './models/Transaction.js';
+import WholesalePurchase from './models/WholesalePurchase.js';
 import BankTransaction from './models/BankTransaction.js';
 import PartnerFlow from './models/PartnerFlow.js';
 import User from './models/User.js';
@@ -114,23 +116,25 @@ app.use('/auth', authLimiter);
 app.use('/api/auth', authRouter);
 app.use('/auth', authRouter);
 
-// 7. Protected Financial Data Routes & Orders Endpoint (Protected by verifyToken)
-app.use('/api/transactions', verifyToken, transactionRouter);
-app.use('/api/bank-transactions', verifyToken, bankTransactionRouter);
-app.use('/api/partner-flows', verifyToken, partnerFlowRouter);
-app.use('/api/backups', verifyToken, backupRouter);
-app.use('/api/reports', verifyToken, reportsRouter);
-app.use('/api/digest', verifyToken, digestRouter);
-app.use('/api/orders', verifyToken, ordersRouter);
+// 7. Protected Financial Data Routes & Orders Endpoint (Protected by verifyToken and apiLimiter)
+app.use('/api/transactions', apiLimiter, verifyToken, transactionRouter);
+app.use('/api/bank-transactions', apiLimiter, verifyToken, bankTransactionRouter);
+app.use('/api/partner-flows', apiLimiter, verifyToken, partnerFlowRouter);
+app.use('/api/backups', apiLimiter, verifyToken, backupRouter);
+app.use('/api/reports', apiLimiter, verifyToken, reportsRouter);
+app.use('/api/digest', apiLimiter, verifyToken, digestRouter);
+app.use('/api/orders', apiLimiter, verifyToken, ordersRouter);
+app.use('/api/wholesale-purchases', apiLimiter, verifyToken, wholesalePurchaseRouter);
 
-// Also mount data routes on root level fallback for convenience
-app.use('/transactions', verifyToken, transactionRouter);
-app.use('/bank-transactions', verifyToken, bankTransactionRouter);
-app.use('/partner-flows', verifyToken, partnerFlowRouter);
-app.use('/backups', verifyToken, backupRouter);
-app.use('/reports', verifyToken, reportsRouter);
-app.use('/digest', verifyToken, digestRouter);
-app.use('/orders', verifyToken, ordersRouter);
+// Also mount data routes on root level fallback with rate-limiting for convenience
+app.use('/transactions', apiLimiter, verifyToken, transactionRouter);
+app.use('/bank-transactions', apiLimiter, verifyToken, bankTransactionRouter);
+app.use('/partner-flows', apiLimiter, verifyToken, partnerFlowRouter);
+app.use('/backups', apiLimiter, verifyToken, backupRouter);
+app.use('/reports', apiLimiter, verifyToken, reportsRouter);
+app.use('/digest', apiLimiter, verifyToken, digestRouter);
+app.use('/orders', apiLimiter, verifyToken, ordersRouter);
+app.use('/wholesale-purchases', apiLimiter, verifyToken, wholesalePurchaseRouter);
 
 // Health Check Endpoint
 app.get(['/api/health', '/health'], (req, res) => {
@@ -202,6 +206,30 @@ mongoose.connect(MONGODB_URI)
         await pruneOldBackups(30);
       } catch (err) {
         console.error('⚠️ Midnight backup cron failed:', err.message);
+      }
+    });
+
+    // Schedule automated financial digest dispatcher (checks every minute for configured scheduleTime)
+    let lastSentDigestMinute = '';
+    cron.schedule('* * * * *', async () => {
+      try {
+        const config = await getPersistedDigestConfig();
+        if (!config || !config.enabled) return;
+
+        const now = new Date();
+        const currentHours = String(now.getHours()).padStart(2, '0');
+        const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+        const currentTimeStr = `${currentHours}:${currentMinutes}`;
+        const todayDateStr = now.toISOString().split('T')[0];
+        const minuteKey = `${todayDateStr}_${currentTimeStr}`;
+
+        if (config.scheduleTime === currentTimeStr && lastSentDigestMinute !== minuteKey) {
+          lastSentDigestMinute = minuteKey;
+          console.log(`⏰ Dispatching scheduled financial digest at ${currentTimeStr}...`);
+          await dispatchDigest();
+        }
+      } catch (err) {
+        console.error('⚠️ Scheduled digest runner error:', err.message);
       }
     });
 

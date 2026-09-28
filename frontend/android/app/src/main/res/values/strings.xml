@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Wellmora Ledger</string>
+    <string name="title_activity_main">Wellmora Ledger</string>
+    <string name="package_name">com.wellmora.ledger</string>
+    <string name="custom_url_scheme">com.wellmora.ledger</string>
+</resources>
