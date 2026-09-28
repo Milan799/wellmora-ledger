@@ -6,9 +6,6 @@ import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 const getJwtSecret = () => {
-  if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
-    throw new Error('FATAL: JWT_SECRET environment variable must be set in production!');
-  }
   return process.env.JWT_SECRET || 'wellmora_secure_jwt_secret_key_2026_ledger_auth';
 };
 
