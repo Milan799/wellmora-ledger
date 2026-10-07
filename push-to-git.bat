@@ -43,6 +43,7 @@ if %ERRORLEVEL% NEQ 0 (
 echo.
 echo [3/3] Pushing commits to GitHub (origin main)...
 git push origin main
+git push origin main:master >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo [ERROR] Git push failed.
