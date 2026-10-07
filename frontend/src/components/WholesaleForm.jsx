@@ -40,9 +40,10 @@ export default function WholesaleForm({ isOpen, onClose, onSubmit, purchase = nu
     if (purchase) {
       const formattedDate = toLocalDateString(purchase.date);
 
-      const isKnownSeller = ['Dev', 'Sneh'].includes(purchase.sellerName);
-      const initialSeller = isKnownSeller ? purchase.sellerName : (purchase.sellerName ? 'Other' : 'Dev');
-      const customSeller = isKnownSeller ? '' : (purchase.customSellerName || purchase.sellerName || '');
+      const isDev = purchase.sellerName === 'Dev' || purchase.sellerName === 'dev';
+      const isSneh = purchase.sellerName === 'Sneh' || purchase.sellerName === 'sneh';
+      const initialSeller = isDev ? 'Dev' : (isSneh ? 'Sneh' : 'Other');
+      const customSeller = isDev || isSneh ? '' : (purchase.customSellerName || (purchase.sellerName && purchase.sellerName.toLowerCase() !== 'other' ? purchase.sellerName : ''));
 
       const qty = purchase.quantity !== undefined ? purchase.quantity : '';
       const price = purchase.unitPrice !== undefined ? purchase.unitPrice : '';
@@ -217,16 +218,17 @@ export default function WholesaleForm({ isOpen, onClose, onSubmit, purchase = nu
 
     setIsSubmitting(true);
     try {
-      const finalSeller = formData.sellerName === 'Other' && formData.customSellerName.trim()
-        ? formData.customSellerName.trim()
-        : formData.sellerName;
+      const isDev = formData.sellerName === 'Dev' || formData.sellerName === 'dev';
+      const isSneh = formData.sellerName === 'Sneh' || formData.sellerName === 'sneh';
+      const finalSeller = isDev ? 'Dev' : (isSneh ? 'Sneh' : 'Other');
+      const customSeller = (!isDev && !isSneh) ? formData.customSellerName.trim() : '';
 
       const paidVal = parseFloat(formData.paidAmount) || 0;
       const pendingVal = Math.max(0, Math.round((calculatedTotal - paidVal) * 100) / 100);
 
       const payload = {
         sellerName: finalSeller,
-        customSellerName: formData.customSellerName.trim(),
+        customSellerName: customSeller,
         description: cleanWholesaleDescription(formData.description),
         quantity: qtyNum,
         unitPrice: priceNum,

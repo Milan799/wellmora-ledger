@@ -123,8 +123,14 @@ router.post('/', async (req, res) => {
           .replace(/\s*\(\d+(?:\.\d+)?\s*pcs\s*@\s*₹?\d+(?:\.\d+)?\)$/gi, '')
           .trim();
 
+        const isDev = (sellerName || '').toLowerCase() === 'dev';
+        const isSneh = (sellerName || '').toLowerCase() === 'sneh';
+        const canonicalSeller = isDev ? 'Dev' : (isSneh ? 'Sneh' : 'Other');
+        const customSeller = isDev || isSneh ? '' : (sellerName !== 'Other' ? (sellerName || '') : '');
+
         const wp = new WholesalePurchase({
-          sellerName: sellerName || 'Dev',
+          sellerName: canonicalSeller,
+          customSellerName: customSeller,
           description: cleanDesc || description.trim(),
           quantity: Number(quantity) || 1,
           unitPrice: unitPrice !== undefined ? Number(unitPrice) : finalTotal,
@@ -227,7 +233,15 @@ router.put('/:id', async (req, res) => {
             .replace(/\s*\(\d+(?:\.\d+)?\s*pcs\s*@\s*₹?\d+(?:\.\d+)?\)$/gi, '')
             .trim();
         }
-        if (sellerName !== undefined) wpUpdate.sellerName = sellerName.trim();
+        if (sellerName !== undefined) {
+          const s = sellerName.trim();
+          const isDev = s.toLowerCase() === 'dev';
+          const isSneh = s.toLowerCase() === 'sneh';
+          wpUpdate.sellerName = isDev ? 'Dev' : (isSneh ? 'Sneh' : 'Other');
+          if (!isDev && !isSneh && s !== 'Other') {
+            wpUpdate.customSellerName = s;
+          }
+        }
         if (quantity !== undefined) wpUpdate.quantity = Number(quantity);
         if (unitPrice !== undefined) wpUpdate.unitPrice = Number(unitPrice);
         if (totalAmount !== undefined) wpUpdate.totalAmount = Number(totalAmount);

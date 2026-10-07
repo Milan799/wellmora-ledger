@@ -440,15 +440,18 @@ export default function App() {
           }
 
           if (op.type === 'wholesale' && response.status === 404) {
+            const displaySeller = (cleanData.sellerName === 'Other' && cleanData.customSellerName)
+              ? cleanData.customSellerName.trim()
+              : (cleanData.customSellerName || cleanData.sellerName);
             const fallbackTxData = {
               date: cleanData.date,
-              description: `[Wholesale: ${cleanData.sellerName}] ${cleanData.description} (${cleanData.quantity} pcs @ ₹${cleanData.unitPrice})`,
+              description: `[Wholesale: ${displaySeller}] ${cleanData.description} (${cleanData.quantity} pcs @ ₹${cleanData.unitPrice})`,
               category: 'Purchase',
               type: 'Debit',
               amount: Number(cleanData.paidAmount) || 0,
               isHandCash: (cleanData.paymentMode || '').toLowerCase().includes('cash'),
               isWholesalePurchase: true,
-              sellerName: cleanData.sellerName,
+              sellerName: displaySeller,
               quantity: Number(cleanData.quantity) || 1,
               unitPrice: Number(cleanData.unitPrice) || 0,
               totalAmount: Number(cleanData.totalAmount) || 0,
@@ -1173,8 +1176,15 @@ export default function App() {
   const handleWholesaleSubmit = async (formData) => {
     try {
       const cleanDesc = cleanWholesaleDescription(formData.description);
+      const isOther = formData.sellerName === 'Other';
+      const displaySeller = (isOther && formData.customSellerName)
+        ? formData.customSellerName.trim()
+        : (formData.customSellerName ? formData.customSellerName.trim() : formData.sellerName);
+
       const formattedWholesaleData = {
         ...formData,
+        sellerName: isOther ? 'Other' : formData.sellerName,
+        customSellerName: isOther ? (formData.customSellerName || '').trim() : '',
         description: cleanDesc
       };
 
@@ -1195,13 +1205,13 @@ export default function App() {
             // Server hasn't updated its wholesale route yet; fallback to updating via /transactions
             const fallbackTxData = {
               date: formattedWholesaleData.date,
-              description: formatWholesaleLedgerDescription(formattedWholesaleData.sellerName, cleanDesc, formattedWholesaleData.quantity, formattedWholesaleData.unitPrice),
+              description: formatWholesaleLedgerDescription(displaySeller, cleanDesc, formattedWholesaleData.quantity, formattedWholesaleData.unitPrice),
               category: 'Purchase',
               type: 'Debit',
               amount: Number(formattedWholesaleData.paidAmount) || 0,
               isHandCash: (formattedWholesaleData.paymentMode || '').toLowerCase().includes('cash'),
               isWholesalePurchase: true,
-              sellerName: formattedWholesaleData.sellerName,
+              sellerName: displaySeller,
               quantity: Number(formattedWholesaleData.quantity) || 1,
               unitPrice: Number(formattedWholesaleData.unitPrice) || 0,
               totalAmount: Number(formattedWholesaleData.totalAmount) || 0,
@@ -1241,7 +1251,10 @@ export default function App() {
 
           // Sync into transactions state for Expenses & Main Dashboard
           setTransactions(prev => {
-            const txDesc = formatWholesaleLedgerDescription(updated.sellerName, cleanWholesaleDescription(updated.description), updated.quantity, updated.unitPrice);
+            const updatedDisplaySeller = (updated.sellerName === 'Other' && updated.customSellerName)
+              ? updated.customSellerName.trim()
+              : (updated.customSellerName ? updated.customSellerName.trim() : updated.sellerName);
+            const txDesc = formatWholesaleLedgerDescription(updatedDisplaySeller, cleanWholesaleDescription(updated.description), updated.quantity, updated.unitPrice);
             const exists = prev.find(t => t.wholesalePurchaseId === updated._id || (updated.linkedTransactionId && t._id === updated.linkedTransactionId));
             if (exists) {
               const newT = prev.map(t => (t._id === exists._id) ? {
@@ -1253,7 +1266,7 @@ export default function App() {
                 paidAmount: Number(updated.paidAmount) || 0,
                 pendingAmount: Number(updated.pendingAmount) || 0,
                 paymentStatus: updated.paymentStatus,
-                sellerName: updated.sellerName,
+                sellerName: updatedDisplaySeller,
                 quantity: Number(updated.quantity) || 1,
                 unitPrice: Number(updated.unitPrice) || 0,
                 billNumber: updated.billNumber || ''
@@ -1296,13 +1309,13 @@ export default function App() {
             // Server hasn't updated its wholesale route yet; fallback to saving directly as a Transaction in MongoDB
             const fallbackTxData = {
               date: formattedWholesaleData.date,
-              description: formatWholesaleLedgerDescription(formattedWholesaleData.sellerName, cleanDesc, formattedWholesaleData.quantity, formattedWholesaleData.unitPrice),
+              description: formatWholesaleLedgerDescription(displaySeller, cleanDesc, formattedWholesaleData.quantity, formattedWholesaleData.unitPrice),
               category: 'Purchase',
               type: 'Debit',
               amount: Number(formattedWholesaleData.paidAmount) || 0,
               isHandCash: (formattedWholesaleData.paymentMode || '').toLowerCase().includes('cash'),
               isWholesalePurchase: true,
-              sellerName: formattedWholesaleData.sellerName,
+              sellerName: displaySeller,
               quantity: Number(formattedWholesaleData.quantity) || 1,
               unitPrice: Number(formattedWholesaleData.unitPrice) || 0,
               totalAmount: Number(formattedWholesaleData.totalAmount) || 0,
@@ -1353,16 +1366,19 @@ export default function App() {
           });
 
           // Insert into transactions state for Expenses & Main Dashboard
+          const savedDisplaySeller = (saved.sellerName === 'Other' && saved.customSellerName)
+            ? saved.customSellerName.trim()
+            : (saved.customSellerName ? saved.customSellerName.trim() : saved.sellerName);
           const newTx = {
             _id: saved.linkedTransactionId || `local_tx_${Date.now()}`,
             date: saved.date,
-            description: formatWholesaleLedgerDescription(saved.sellerName, cleanWholesaleDescription(saved.description), saved.quantity, saved.unitPrice),
+            description: formatWholesaleLedgerDescription(savedDisplaySeller, cleanWholesaleDescription(saved.description), saved.quantity, saved.unitPrice),
             category: 'Purchase',
             type: 'Debit',
             amount: Number(saved.paidAmount) || 0,
             isHandCash: (saved.paymentMode || '').toLowerCase().includes('cash'),
             isWholesalePurchase: true,
-            sellerName: saved.sellerName,
+            sellerName: savedDisplaySeller,
             quantity: Number(saved.quantity) || 1,
             unitPrice: Number(saved.unitPrice) || 0,
             totalAmount: Number(saved.totalAmount) || 0,

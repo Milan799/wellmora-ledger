@@ -84,15 +84,30 @@ router.post('/', async (req, res) => {
       notes
     } = req.body;
 
-    // 1. Strict Server-Side Validations
     let effectiveSeller = (sellerName || '').trim();
     if (!effectiveSeller) {
       return res.status(400).json({ message: 'Seller name is required' });
     }
-    if (effectiveSeller.toLowerCase() === 'dev') effectiveSeller = 'Dev';
-    else if (effectiveSeller.toLowerCase() === 'sneh') effectiveSeller = 'Sneh';
-    else if (effectiveSeller.toLowerCase() === 'other' && customSellerName && customSellerName.trim()) {
-      effectiveSeller = customSellerName.trim();
+
+    let canonicalSeller = 'Other';
+    let canonicalCustomSeller = customSellerName ? customSellerName.trim() : '';
+
+    if (effectiveSeller.toLowerCase() === 'dev') {
+      canonicalSeller = 'Dev';
+      canonicalCustomSeller = '';
+    } else if (effectiveSeller.toLowerCase() === 'sneh') {
+      canonicalSeller = 'Sneh';
+      canonicalCustomSeller = '';
+    } else if (effectiveSeller.toLowerCase() === 'other') {
+      canonicalSeller = 'Other';
+      if (!canonicalCustomSeller && customSellerName) {
+        canonicalCustomSeller = customSellerName.trim();
+      }
+    } else {
+      canonicalSeller = 'Other';
+      if (!canonicalCustomSeller) {
+        canonicalCustomSeller = effectiveSeller;
+      }
     }
 
     if (!description || !description.trim()) {
@@ -155,8 +170,8 @@ router.post('/', async (req, res) => {
 
     // 2. Create and Save WholesalePurchase
     const newPurchase = new WholesalePurchase({
-      sellerName: effectiveSeller,
-      customSellerName: customSellerName ? customSellerName.trim() : '',
+      sellerName: canonicalSeller,
+      customSellerName: canonicalCustomSeller,
       description: description.trim(),
       quantity: parsedQty,
       unitPrice: parsedPrice,
@@ -175,7 +190,7 @@ router.post('/', async (req, res) => {
     // 3. Automatically Create Linked Transaction in Expenses & Cash Ledger
     // Ensures this entry immediately shows up in Expenses page & Main Dashboard!
     try {
-      const displaySeller = effectiveSeller === 'Other' && customSellerName ? customSellerName.trim() : effectiveSeller;
+      const displaySeller = (canonicalSeller === 'Other' && canonicalCustomSeller) ? canonicalCustomSeller : canonicalSeller;
       const linkedTx = new Transaction({
         date: purchaseDate,
         description: `[Wholesale: ${displaySeller}] ${description.trim()} (${parsedQty} pcs @ ₹${parsedPrice})`,
@@ -236,14 +251,24 @@ router.put('/:id', async (req, res) => {
     if (sellerName !== undefined) {
       let s = sellerName.trim();
       if (!s) return res.status(400).json({ message: 'Seller name cannot be empty' });
-      if (s.toLowerCase() === 'dev') s = 'Dev';
-      else if (s.toLowerCase() === 'sneh') s = 'Sneh';
-      else if (s.toLowerCase() === 'other' && customSellerName && customSellerName.trim()) {
-        s = customSellerName.trim();
+      if (s.toLowerCase() === 'dev') {
+        existing.sellerName = 'Dev';
+        existing.customSellerName = '';
+      } else if (s.toLowerCase() === 'sneh') {
+        existing.sellerName = 'Sneh';
+        existing.customSellerName = '';
+      } else if (s.toLowerCase() === 'other') {
+        existing.sellerName = 'Other';
+        if (customSellerName !== undefined) {
+          existing.customSellerName = customSellerName.trim();
+        }
+      } else {
+        existing.sellerName = 'Other';
+        existing.customSellerName = (customSellerName !== undefined && customSellerName.trim()) ? customSellerName.trim() : s;
       }
-      existing.sellerName = s;
+    } else if (customSellerName !== undefined) {
+      existing.customSellerName = customSellerName.trim();
     }
-    if (customSellerName !== undefined) existing.customSellerName = customSellerName.trim();
     if (description !== undefined) {
       if (!description.trim()) return res.status(400).json({ message: 'Description cannot be empty' });
       existing.description = description.trim();

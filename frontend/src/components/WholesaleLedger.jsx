@@ -150,8 +150,9 @@ export default function WholesaleLedger({
       totalPending += pend;
       totalQuantity += q;
 
-      const sKey = (p.sellerName === 'Dev' || p.sellerName === 'dev') ? 'Dev' 
-        : (p.sellerName === 'Sneh' || p.sellerName === 'sneh') ? 'Sneh' : 'Other';
+      const isDev = (p.sellerName || '').toLowerCase() === 'dev';
+      const isSneh = (p.sellerName || '').toLowerCase() === 'sneh';
+      const sKey = isDev ? 'Dev' : (isSneh ? 'Sneh' : 'Other');
 
       sellerMap[sKey].total += tot;
       sellerMap[sKey].paid += pd;
@@ -179,6 +180,7 @@ export default function WholesaleLedger({
         const matches = 
           (p.description || '').toLowerCase().includes(q) ||
           (p.sellerName || '').toLowerCase().includes(q) ||
+          (p.customSellerName || '').toLowerCase().includes(q) ||
           (p.billNumber || '').toLowerCase().includes(q) ||
           (p.paymentMode || '').toLowerCase().includes(q) ||
           (p.notes || '').toLowerCase().includes(q) ||
@@ -190,7 +192,11 @@ export default function WholesaleLedger({
       // Seller filter
       if (sellerFilter !== 'All') {
         const sName = (p.sellerName || '').toLowerCase();
-        if (sName !== sellerFilter.toLowerCase()) return false;
+        const isDev = sName === 'dev';
+        const isSneh = sName === 'sneh';
+        if (sellerFilter === 'Dev' && !isDev) return false;
+        if (sellerFilter === 'Sneh' && !isSneh) return false;
+        if (sellerFilter === 'Other' && (isDev || isSneh)) return false;
       }
 
       // Status filter
@@ -252,20 +258,25 @@ export default function WholesaleLedger({
     }
 
     const headers = ['Date', 'Wholesaler', 'Description', 'Quantity', 'Price/Unit', 'Total Amount', 'Paid Amount', 'Pending Balance', 'Status', 'Payment Mode', 'Bill No', 'Notes'];
-    const rows = toExport.map(p => [
-      formatDate(p.date),
-      p.sellerName || '',
-      `"${(p.description || '').replace(/"/g, '""')}"`,
-      p.quantity || 0,
-      p.unitPrice || 0,
-      p.totalAmount || 0,
-      p.paidAmount || 0,
-      p.pendingAmount || 0,
-      p.paymentStatus || 'Pending',
-      p.paymentMode || 'Cash',
-      `"${(p.billNumber || '').replace(/"/g, '""')}"`,
-      `"${(p.notes || '').replace(/"/g, '""')}"`
-    ]);
+    const rows = toExport.map(p => {
+      const sellerDisplayName = (p.sellerName === 'Other' && p.customSellerName) 
+        ? p.customSellerName 
+        : (p.customSellerName || p.sellerName || 'Wholesaler');
+      return [
+        formatDate(p.date),
+        sellerDisplayName,
+        `"${(p.description || '').replace(/"/g, '""')}"`,
+        p.quantity || 0,
+        p.unitPrice || 0,
+        p.totalAmount || 0,
+        p.paidAmount || 0,
+        p.pendingAmount || 0,
+        p.paymentStatus || 'Pending',
+        p.paymentMode || 'Cash',
+        `"${(p.billNumber || '').replace(/"/g, '""')}"`,
+        `"${(p.notes || '').replace(/"/g, '""')}"`
+      ];
+    });
 
     const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
@@ -277,8 +288,11 @@ export default function WholesaleLedger({
     document.body.removeChild(link);
   };
 
-  const getSellerBadge = (sellerName) => {
-    const s = (sellerName || '').toLowerCase();
+  const getSellerBadge = (p) => {
+    const sName = typeof p === 'object' && p !== null
+      ? ((p.sellerName === 'Other' && p.customSellerName) ? p.customSellerName : (p.customSellerName || p.sellerName))
+      : p;
+    const s = (sName || '').toLowerCase();
     if (s === 'dev') {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/20">
@@ -293,8 +307,9 @@ export default function WholesaleLedger({
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-500/20">
-        {sellerName || 'Wholesaler'}
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20" title={`Wholesaler: ${sName || 'Other'}`}>
+        <User size={10} className="shrink-0" />
+        {sName && sName !== 'Other' ? sName : 'Other'}
       </span>
     );
   };
@@ -453,12 +468,12 @@ export default function WholesaleLedger({
           </p>
         </div>
 
-        {/* Wholesaler Breakdown Card (Dev vs Sneh) */}
+        {/* Wholesaler Breakdown Card (Dev, Sneh & Other) */}
         <div className="glass-panel glass-panel-hover rounded-2xl p-4 border border-slate-200 dark:border-slate-800 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1">
               <User size={12} className="text-violet-500" />
-              Dev & Sneh Status
+              Wholesalers Status
             </span>
             <span className="text-[9px] font-bold text-slate-400">Balance</span>
           </div>
@@ -491,6 +506,22 @@ export default function WholesaleLedger({
                 </span>
               </div>
             </div>
+
+            {/* Other Wholesalers */}
+            {metrics.sellerMap.Other.count > 0 && (
+              <div className="flex items-center justify-between p-1.5 rounded-xl bg-amber-500/5 dark:bg-amber-950/20 border border-amber-500/10">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span className="font-bold text-slate-800 dark:text-slate-200">Other</span>
+                  <span className="text-[10px] text-slate-400">({metrics.sellerMap.Other.count})</span>
+                </div>
+                <div className="text-right">
+                  <span className={`font-black text-xs ${metrics.sellerMap.Other.pending > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600'}`}>
+                    {metrics.sellerMap.Other.pending > 0 ? `Pend: ${formatCurrency(metrics.sellerMap.Other.pending)}` : 'Cleared'}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -532,7 +563,8 @@ export default function WholesaleLedger({
             {[
               { id: 'All', label: 'All Wholesalers' },
               { id: 'Dev', label: 'Dev' },
-              { id: 'Sneh', label: 'Sneh' }
+              { id: 'Sneh', label: 'Sneh' },
+              { id: 'Other', label: 'Other Wholesalers' }
             ].map(opt => (
               <button
                 key={opt.id}
@@ -668,7 +700,7 @@ export default function WholesaleLedger({
                           <Calendar size={13} className="text-slate-400 shrink-0" />
                           {formatDate(p.date)}
                         </span>
-                        {getSellerBadge(p.sellerName)}
+                        {getSellerBadge(p)}
                       </div>
 
                       <div className="flex items-center gap-1">
@@ -780,7 +812,7 @@ export default function WholesaleLedger({
                         </td>
 
                         <td className="px-4 py-3.5 whitespace-nowrap">
-                          {getSellerBadge(p.sellerName)}
+                          {getSellerBadge(p)}
                         </td>
 
                         <td className="px-4 py-3.5 max-w-xs truncate font-medium text-slate-900 dark:text-slate-100 text-xs" title={p.description}>
